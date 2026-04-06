@@ -18,6 +18,7 @@ type NavLink = {
 
 const links: NavLink[] = [
   { href: "/dashboard", label: "Dashboard", icon: "Dashboard" },
+  { href: "/dashboard/periodicos" as Route, label: "Revistas e indices", icon: "Periodicos" },
   { href: "/dashboard/assistente-lattes", label: "Assistente Lattes", icon: "Lattes" },
   { href: "/dashboard/plataforma-brasil", label: "Plataforma Brasil", icon: "Comite" },
   {

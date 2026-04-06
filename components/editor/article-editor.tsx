@@ -3,11 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { EditorContent, JSONContent, useEditor } from "@tiptap/react";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
 
-import { QualisIntelligent } from "@/components/qualis/qualis-intelligent";
 import { exportArticleToDocx } from "@/lib/docx-export";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { ArticleContent, ArticleRow, ArticleStatus } from "@/lib/types";
@@ -785,7 +785,6 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
   const [isLeaving, setIsLeaving] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isExportingDocx, setIsExportingDocx] = useState(false);
-  const [citationMessage, setCitationMessage] = useState<string | null>(null);
   const lastSavedSnapshot = useRef(
     JSON.stringify({
       titulo: article.titulo,
@@ -796,7 +795,6 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
   const titleRef = useRef(article.titulo);
   const statusRef = useRef<ArticleStatus>(article.status);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
-  const citationTimer = useRef<NodeJS.Timeout | null>(null);
   titleRef.current = title;
   statusRef.current = status;
 
@@ -861,25 +859,6 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
     }
   };
 
-  const handleInsertCitation = (citation: string) => {
-    if (!editor) {
-      return;
-    }
-
-    editor.chain().focus("end").insertContent([
-      {
-        type: "paragraph",
-        content: [{ type: "text", text: citation }]
-      }
-    ]).run();
-
-    setCitationMessage("Referencia inserida no final do texto.");
-    if (citationTimer.current) {
-      clearTimeout(citationTimer.current);
-    }
-    citationTimer.current = setTimeout(() => setCitationMessage(null), 2500);
-  };
-
   const scheduleSave = (content: JSONContent) => {
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
@@ -921,9 +900,6 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
     return () => {
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
-      }
-      if (citationTimer.current) {
-        clearTimeout(citationTimer.current);
       }
     };
   }, []);
@@ -1159,17 +1135,30 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
             value={title}
           />
 
-          <QualisIntelligent
-            articleTitle={title}
-            articleContent={editor?.getText() || ""}
-            onInsertCitation={handleInsertCitation}
-          />
-
-          {citationMessage ? (
-            <p className="muted" style={{ margin: 0 }}>
-              {citationMessage}
-            </p>
-          ) : null}
+          <div
+            style={{
+              display: "grid",
+              gap: "10px",
+              padding: "18px 20px",
+              borderRadius: "22px",
+              background: "rgba(255,255,255,0.65)",
+              border: "1px solid rgba(36,26,19,0.08)"
+            }}
+          >
+            <strong>Revistas para submissao</strong>
+            <span className="muted">
+              A busca editorial saiu do centro do editor e virou um modulo proprio do WebLab, focado em encontrar revistas com os indexadores mais adequados para o seu artigo.
+            </span>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <Link
+                className="button button-primary"
+                href={"/dashboard/periodicos" as Route}
+                style={{ textDecoration: "none", width: "fit-content" }}
+              >
+                Abrir localizador de revistas
+              </Link>
+            </div>
+          </div>
 
           <div
             style={{
