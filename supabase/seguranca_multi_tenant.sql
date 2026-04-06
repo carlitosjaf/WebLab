@@ -246,11 +246,17 @@ with check (
   )
 );
 
-create policy "artigos_delete_admin"
+create policy "artigos_delete_scope"
 on public.artigos
 for delete
 to authenticated
-using (public.can_admin_team(equipe_id));
+using (
+  public.can_access_team(equipe_id)
+  and (
+    public.can_admin_team(equipe_id)
+    or autor_id = auth.uid()
+  )
+);
 
 create policy "checklist_select_scope"
 on public.plataforma_brasil_checklists

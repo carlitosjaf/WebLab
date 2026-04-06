@@ -251,6 +251,7 @@ export default function DashboardPage() {
   return (
     <DashboardShell
       articles={data.articles}
+      profileId={data.profile.id}
       profileName={data.profile.nome_completo ?? "Pesquisador"}
       role={data.profile.role}
       teamName={data.teamName}

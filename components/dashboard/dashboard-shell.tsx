@@ -2,7 +2,7 @@
 
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { ArticleRow, UserRole } from "@/lib/types";
@@ -20,6 +20,7 @@ export type DashboardArticle = ArticleRow & {
 
 type DashboardShellProps = {
   articles: DashboardArticle[];
+  profileId: string;
   profileName: string;
   teamName: string;
   role: UserRole;
@@ -27,18 +28,25 @@ type DashboardShellProps = {
 
 export function DashboardShell({
   articles,
+  profileId,
   profileName,
   role,
   teamName
 }: DashboardShellProps) {
   const router = useRouter();
   const [title, setTitle] = useState("");
+  const [localArticles, setLocalArticles] = useState(articles);
   const [isCreating, startCreateTransition] = useTransition();
+  const [articlePendingId, setArticlePendingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const draftedCount = articles.filter((article) => article.status === "em_rascunho").length;
-  const submittedCount = articles.filter((article) => article.status === "submetido").length;
-  const approvedCount = articles.filter((article) => article.status === "aprovado").length;
+  useEffect(() => {
+    setLocalArticles(articles);
+  }, [articles]);
+
+  const draftedCount = localArticles.filter((article) => article.status === "em_rascunho").length;
+  const submittedCount = localArticles.filter((article) => article.status === "submetido").length;
+  const approvedCount = localArticles.filter((article) => article.status === "aprovado").length;
 
   const scopeDescription = useMemo(() => {
     if (role === "coordenador_geral") {
@@ -100,6 +108,40 @@ export function DashboardShell({
       router.refresh();
     });
   };
+
+  const handleDeleteArticle = (article: DashboardArticle) => {
+    const confirmDelete = window.confirm(
+      `Excluir o artigo "${article.titulo}"? Essa acao nao pode ser desfeita.`
+    );
+
+    if (!confirmDelete) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setArticlePendingId(article.id);
+
+    startCreateTransition(async () => {
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.from("artigos").delete().eq("id", article.id);
+
+      setArticlePendingId(null);
+
+      if (error) {
+        setErrorMessage(
+          error.message.includes("row-level security")
+            ? "Sua policy atual de exclusao no Supabase ainda nao permite apagar este artigo. Rode novamente o SQL de seguranca multi-tenant."
+            : error.message
+        );
+        return;
+      }
+
+      setLocalArticles((current) => current.filter((item) => item.id !== article.id));
+    });
+  };
+
+  const canDeleteArticle = (article: DashboardArticle) =>
+    role === "coordenador_geral" || role === "coordenador" || article.autor_id === profileId;
 
   return (
     <main className="shell">
@@ -245,14 +287,14 @@ export function DashboardShell({
                   {role === "coordenador_geral" ? "Artigos do laboratorio" : "Artigos da equipe"}
                 </h2>
                 <p className="muted" style={{ margin: 0 }}>
-                  {articles.length} artigo(s) carregado(s) com status, ultima atualizacao e autoria
+                  {localArticles.length} artigo(s) carregado(s) com status, ultima atualizacao e autoria
                   recente.
                 </p>
               </div>
             </div>
 
             <div style={{ display: "grid", gap: "14px" }}>
-              {articles.length === 0 ? (
+              {localArticles.length === 0 ? (
                 <div
                   style={{
                     padding: "28px",
@@ -269,7 +311,7 @@ export function DashboardShell({
                   </span>
                 </div>
               ) : (
-                articles.map((article) => (
+                localArticles.map((article) => (
                   <article
                     key={article.id}
                     style={{
@@ -332,13 +374,31 @@ export function DashboardShell({
                       </div>
                     </div>
 
-                    <button
-                      className="button button-secondary"
-                      onClick={() => router.push(`/editor/${article.id}`)}
-                      type="button"
-                    >
-                      Abrir artigo
-                    </button>
+                    <div style={{ display: "grid", gap: "10px", alignContent: "start" }}>
+                      <button
+                        className="button button-secondary"
+                        onClick={() => router.push(`/editor/${article.id}`)}
+                        type="button"
+                      >
+                        Abrir artigo
+                      </button>
+
+                      {canDeleteArticle(article) ? (
+                        <button
+                          className="button"
+                          disabled={articlePendingId === article.id}
+                          onClick={() => handleDeleteArticle(article)}
+                          style={{
+                            background: "rgba(196, 69, 54, 0.12)",
+                            color: "var(--danger)",
+                            border: "1px solid rgba(196, 69, 54, 0.18)"
+                          }}
+                          type="button"
+                        >
+                          {articlePendingId === article.id ? "Excluindo..." : "Excluir"}
+                        </button>
+                      ) : null}
+                    </div>
                   </article>
                 ))
               )}

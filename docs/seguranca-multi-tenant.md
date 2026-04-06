@@ -25,6 +25,7 @@ Garantir que:
 - cadastro com codigo de convite
 - dashboard global apenas para `coordenador_geral`
 - leitura de artigos por equipe
+- exclusao de artigos pelo autor ou por coordenadores
 - checklist da Plataforma Brasil por equipe
 
 ## Verificacao rapida no SQL Editor
