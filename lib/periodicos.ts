@@ -1,4 +1,4 @@
-import type { ArticleContent } from "@/lib/types";
+import type { ArticleContent, RecommendationLevel } from "@/lib/types";
 
 export const INDEXER_OPTIONS = [
   "Scopus",
@@ -130,4 +130,48 @@ export function getIndexerCoverageSummary(
     matched: selected.filter((item) => detected.includes(item)),
     missing: selected.filter((item) => !detected.includes(item))
   };
+}
+
+export function calculateEditorialScore(input: {
+  matchedSelectedIndexers: number;
+  detectedIndexers: number;
+  matchCount: number;
+  hIndex?: number;
+  isOpenAccess?: boolean;
+}) {
+  const hIndexContribution = Math.min(input.hIndex ?? 0, 60) * 0.35;
+  const oaContribution = input.isOpenAccess ? 4 : 0;
+
+  return Number(
+    (
+      input.matchedSelectedIndexers * 18 +
+      input.detectedIndexers * 3 +
+      input.matchCount * 1.5 +
+      hIndexContribution +
+      oaContribution
+    ).toFixed(1)
+  );
+}
+
+export function inferRecommendationLevel(score: number, matchedSelectedIndexers: number): RecommendationLevel {
+  if (matchedSelectedIndexers >= 3 || score >= 58) {
+    return "candidata_forte";
+  }
+
+  if (matchedSelectedIndexers >= 1 || score >= 30) {
+    return "candidata_moderada";
+  }
+
+  return "precisa_validar";
+}
+
+export function formatRecommendationLevel(level: RecommendationLevel) {
+  switch (level) {
+    case "candidata_forte":
+      return "Candidata forte";
+    case "candidata_moderada":
+      return "Candidata moderada";
+    default:
+      return "Precisa validar";
+  }
 }

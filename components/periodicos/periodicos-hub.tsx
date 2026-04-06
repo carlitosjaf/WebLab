@@ -1,18 +1,29 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import { useEffect, useMemo, useState } from "react";
 
-import { formatAbntCitation } from "@/lib/weblab";
 import {
-  buildKeywordQuery,
-  extractPlainText,
-  getIndexerCoverageSummary,
   INDEXER_OPTIONS,
+  buildKeywordQuery,
+  calculateEditorialScore,
+  extractPlainText,
+  formatRecommendationLevel,
+  getIndexerCoverageSummary,
   inferIndexerSignals,
-  type IndexerName
+  inferRecommendationLevel
 } from "@/lib/periodicos";
-import type { ArticleRow } from "@/lib/types";
+import { getSupabaseClient } from "@/lib/supabaseClient";
+import type {
+  ArticleContent,
+  ArticleRow,
+  Database,
+  RecommendationLevel
+} from "@/lib/types";
+import { formatAbntCitation, formatRelativeUpdate } from "@/lib/weblab";
+
+type SavedShortlist = Database["public"]["Tables"]["periodicos_shortlists"]["Row"];
 
 type OpenAlexSource = {
   id: string;
@@ -20,7 +31,7 @@ type OpenAlexSource = {
   host_organization_name?: string;
   is_oa?: boolean;
   summary_stats?: {
-    h_index: number;
+    h_index?: number;
   };
 };
 
@@ -47,76 +58,257 @@ type OpenAlexWork = {
 };
 
 type JournalCandidate = {
-  source: OpenAlexSource;
+  id: string;
+  title: string;
+  hostName: string | null;
+  landingPageUrl: string | null;
+  isOpenAccess: boolean;
+  hIndex?: number;
   matchCount: number;
-  detectedIndexers: IndexerName[];
-  matchedSelectedIndexers: IndexerName[];
-  score: number;
+  detectedIndexers: string[];
+  matchedSelectedIndexers: string[];
+  editorialScore: number;
+  recommendationLevel: RecommendationLevel;
 };
 
 type PeriodicosHubProps = {
   articles: ArticleRow[];
 };
 
+const EMPTY_DOC: ArticleContent = {
+  type: "doc",
+  content: []
+};
+
+const DEFAULT_INDEXERS = [
+  "Scopus",
+  "Web of Science",
+  "SciELO",
+  "DOAJ",
+  "Portal CAPES"
+] as const;
+
+function buildReferenceList(citation: string) {
+  return {
+    type: "bulletList",
+    content: [
+      {
+        type: "listItem",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: citation }]
+          }
+        ]
+      }
+    ]
+  };
+}
+
+function extractNodeText(node: Record<string, unknown>): string {
+  const currentText = typeof node.text === "string" ? node.text : "";
+  const nested =
+    Array.isArray(node.content) && node.content.length > 0
+      ? node.content
+          .map((child) => {
+            if (child && typeof child === "object") {
+              return extractNodeText(child as Record<string, unknown>);
+            }
+            return "";
+          })
+          .join(" ")
+      : "";
+
+  return `${currentText} ${nested}`.trim();
+}
+
+function appendCitationToContent(content: ArticleContent | null, citation: string): ArticleContent {
+  const clonedContent = content?.content
+    ? (JSON.parse(JSON.stringify(content.content)) as Array<Record<string, unknown>>)
+    : [];
+
+  const referencesIndex = clonedContent.findIndex((node) => {
+    return (
+      node.type === "heading" &&
+      extractNodeText(node).toLowerCase().replace(/\s+/g, " ").trim() === "referencias"
+    );
+  });
+
+  if (referencesIndex === -1) {
+    return {
+      type: "doc",
+      content: [
+        ...clonedContent,
+        {
+          type: "heading",
+          attrs: { level: 2 },
+          content: [{ type: "text", text: "Referencias" }]
+        },
+        buildReferenceList(citation) as Record<string, unknown>
+      ]
+    };
+  }
+
+  const nextNode = clonedContent[referencesIndex + 1];
+  if (nextNode?.type === "bulletList" && Array.isArray(nextNode.content)) {
+    nextNode.content.push({
+      type: "listItem",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: citation }]
+        }
+      ]
+    });
+  } else {
+    clonedContent.splice(referencesIndex + 1, 0, buildReferenceList(citation) as Record<string, unknown>);
+  }
+
+  return {
+    type: "doc",
+    content: clonedContent
+  };
+}
+
 export function PeriodicosHub({ articles }: PeriodicosHubProps) {
+  const [articleSnapshots, setArticleSnapshots] = useState<ArticleRow[]>(articles);
   const [selectedArticleId, setSelectedArticleId] = useState(articles[0]?.id ?? "");
-  const [selectedIndexers, setSelectedIndexers] = useState<IndexerName[]>([
-    "Scopus",
-    "Web of Science",
-    "Portal CAPES",
-    "SciELO",
-    "DOAJ"
-  ]);
-  const [searchOverride, setSearchOverride] = useState("");
+  const [selectedIndexers, setSelectedIndexers] = useState<string[]>([...DEFAULT_INDEXERS]);
+  const [searchInput, setSearchInput] = useState("");
+  const [hostFilter, setHostFilter] = useState("");
+  const [onlyOpenAccess, setOnlyOpenAccess] = useState(false);
+  const [minimumMatchedIndexers, setMinimumMatchedIndexers] = useState(1);
+  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingShortlist, setLoadingShortlist] = useState(false);
+  const [searchMessage, setSearchMessage] = useState<string | null>(null);
+  const [citationMessage, setCitationMessage] = useState<string | null>(null);
+  const [savingJournalId, setSavingJournalId] = useState<string | null>(null);
+  const [savedShortlist, setSavedShortlist] = useState<SavedShortlist[]>([]);
   const [journalResults, setJournalResults] = useState<JournalCandidate[]>([]);
   const [relatedWorks, setRelatedWorks] = useState<OpenAlexWork[]>([]);
-  const [feedback, setFeedback] = useState<string | null>(null);
 
   useEffect(() => {
+    setArticleSnapshots(articles);
     if (!selectedArticleId && articles[0]?.id) {
       setSelectedArticleId(articles[0].id);
     }
   }, [articles, selectedArticleId]);
 
-  const selectedArticle =
-    articles.find((article) => article.id === selectedArticleId) ?? articles[0] ?? null;
-  const selectedArticleText = selectedArticle ? extractPlainText(selectedArticle.conteudo_json) : "";
+  const selectedArticle = useMemo(
+    () => articleSnapshots.find((article) => article.id === selectedArticleId) ?? articleSnapshots[0] ?? null,
+    [articleSnapshots, selectedArticleId]
+  );
 
-  const selectedQuery = useMemo(() => {
-    if (searchOverride.trim()) {
-      return searchOverride.trim();
-    }
+  useEffect(() => {
+    let isMounted = true;
 
-    return selectedArticle?.titulo ?? "";
-  }, [searchOverride, selectedArticle]);
+    const loadShortlist = async () => {
+      if (!selectedArticle?.id) {
+        if (isMounted) {
+          setSavedShortlist([]);
+        }
+        return;
+      }
 
-  const toggleIndexer = (indexer: IndexerName) => {
+      setLoadingShortlist(true);
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase
+        .from("periodicos_shortlists")
+        .select("*")
+        .eq("artigo_id", selectedArticle.id)
+        .order("editorial_score", { ascending: false });
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (error) {
+        setSearchMessage(error.message);
+        setSavedShortlist([]);
+      } else {
+        setSavedShortlist(data ?? []);
+      }
+
+      setLoadingShortlist(false);
+    };
+
+    void loadShortlist();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedArticle?.id]);
+
+  const shortlistedByJournalId = useMemo(() => {
+    return new Map(savedShortlist.map((entry) => [entry.journal_id, entry]));
+  }, [savedShortlist]);
+
+  const filteredJournalResults = useMemo(() => {
+    return journalResults.filter((journal) => {
+      if (onlyOpenAccess && !journal.isOpenAccess) {
+        return false;
+      }
+
+      if (journal.matchedSelectedIndexers.length < minimumMatchedIndexers) {
+        return false;
+      }
+
+      if (hostFilter.trim()) {
+        const haystack = `${journal.title} ${journal.hostName ?? ""}`.toLowerCase();
+        if (!haystack.includes(hostFilter.trim().toLowerCase())) {
+          return false;
+        }
+      }
+
+      if (showOnlyFavorites) {
+        return Boolean(shortlistedByJournalId.get(journal.id)?.is_favorite);
+      }
+
+      return true;
+    });
+  }, [
+    hostFilter,
+    journalResults,
+    minimumMatchedIndexers,
+    onlyOpenAccess,
+    shortlistedByJournalId,
+    showOnlyFavorites
+  ]);
+
+  const favoriteCount = savedShortlist.filter((entry) => entry.is_favorite).length;
+
+  const toggleIndexer = (indexer: string) => {
     setSelectedIndexers((current) =>
-      current.includes(indexer)
-        ? current.filter((item) => item !== indexer)
-        : [...current, indexer]
+      current.includes(indexer) ? current.filter((item) => item !== indexer) : [...current, indexer]
     );
   };
 
-  const runSearch = async () => {
+  const searchJournals = async () => {
     if (!selectedArticle) {
+      setSearchMessage("Selecione um artigo para buscar revistas e referencias.");
       return;
     }
 
     setIsLoading(true);
-    setFeedback(null);
-    setJournalResults([]);
-    setRelatedWorks([]);
+    setSearchMessage(null);
+    setCitationMessage(null);
 
     try {
-      const finalQuery = buildKeywordQuery(selectedQuery, selectedArticleText);
+      const articleText = extractPlainText(selectedArticle.conteudo_json);
+      const querySeed = searchInput.trim() || selectedArticle.titulo;
+      const keywordQuery = buildKeywordQuery(querySeed, articleText);
       const response = await fetch(
-        `https://api.openalex.org/works?search=${encodeURIComponent(finalQuery)}&per-page=50`
+        `https://api.openalex.org/works?search=${encodeURIComponent(keywordQuery)}&per-page=40`
       );
-      const data = await response.json();
-      const works: OpenAlexWork[] = data.results || [];
-      const aggregated = new Map<string, JournalCandidate>();
+
+      if (!response.ok) {
+        throw new Error("Nao foi possivel consultar o OpenAlex agora.");
+      }
+
+      const payload = (await response.json()) as { results?: OpenAlexWork[] };
+      const works = payload.results ?? [];
+      const journalMap = new Map<string, JournalCandidate>();
 
       works.forEach((work) => {
         const source = work.primary_location?.source;
@@ -124,385 +316,635 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
           return;
         }
 
-        const detected = inferIndexerSignals(source);
-        const coverage = getIndexerCoverageSummary(detected, selectedIndexers);
-        const score =
-          coverage.matched.length * 10 +
-          (source.summary_stats?.h_index ?? 0) * 0.1 +
-          (source.is_oa ? 2 : 0);
+        const detectedIndexers = inferIndexerSignals(source);
+        const coverage = getIndexerCoverageSummary(detectedIndexers, selectedIndexers as never[]);
+        const current = journalMap.get(source.id);
 
-        const existing = aggregated.get(source.id);
-
-        if (!existing) {
-          aggregated.set(source.id, {
-            source,
+        if (!current) {
+          const editorialScore = calculateEditorialScore({
+            matchedSelectedIndexers: coverage.matched.length,
+            detectedIndexers: detectedIndexers.length,
             matchCount: 1,
-            detectedIndexers: detected,
+            hIndex: source.summary_stats?.h_index,
+            isOpenAccess: source.is_oa
+          });
+
+          journalMap.set(source.id, {
+            id: source.id,
+            title: source.display_name,
+            hostName: source.host_organization_name ?? null,
+            landingPageUrl: work.primary_location?.landing_page_url ?? null,
+            isOpenAccess: Boolean(source.is_oa),
+            hIndex: source.summary_stats?.h_index,
+            matchCount: 1,
+            detectedIndexers,
             matchedSelectedIndexers: coverage.matched,
-            score
+            editorialScore,
+            recommendationLevel: inferRecommendationLevel(editorialScore, coverage.matched.length)
           });
           return;
         }
 
-        existing.matchCount += 1;
-        existing.score += 1;
-
-        coverage.matched.forEach((indexer) => {
-          if (!existing.matchedSelectedIndexers.includes(indexer)) {
-            existing.matchedSelectedIndexers.push(indexer);
-          }
+        current.matchCount += 1;
+        current.editorialScore = calculateEditorialScore({
+          matchedSelectedIndexers: current.matchedSelectedIndexers.length,
+          detectedIndexers: current.detectedIndexers.length,
+          matchCount: current.matchCount,
+          hIndex: current.hIndex,
+          isOpenAccess: current.isOpenAccess
         });
-
-        detected.forEach((indexer) => {
-          if (!existing.detectedIndexers.includes(indexer)) {
-            existing.detectedIndexers.push(indexer);
-          }
-        });
+        current.recommendationLevel = inferRecommendationLevel(
+          current.editorialScore,
+          current.matchedSelectedIndexers.length
+        );
       });
 
-      const ranked = Array.from(aggregated.values())
-        .sort((a, b) => {
-          if (b.matchedSelectedIndexers.length !== a.matchedSelectedIndexers.length) {
-            return b.matchedSelectedIndexers.length - a.matchedSelectedIndexers.length;
+      setJournalResults(
+        Array.from(journalMap.values()).sort((left, right) => {
+          if (right.editorialScore !== left.editorialScore) {
+            return right.editorialScore - left.editorialScore;
           }
-
-          if (b.matchCount !== a.matchCount) {
-            return b.matchCount - a.matchCount;
-          }
-
-          return b.score - a.score;
+          return right.matchCount - left.matchCount;
         })
-        .slice(0, 10);
+      );
 
-      const worksForCitation = works
-        .filter((work) => work.title && work.authorships?.length)
-        .slice(0, 6);
-
-      setJournalResults(ranked);
-      setRelatedWorks(worksForCitation);
-
-      if (ranked.length === 0) {
-        setFeedback(
-          "Nenhuma revista foi priorizada com os indexadores escolhidos. Tente relaxar alguns filtros ou refinar o tema."
-        );
-      }
+      setRelatedWorks(
+        works.filter((work) => work.title && work.authorships?.length).slice(0, 8)
+      );
     } catch (error) {
-      console.error(error);
-      setFeedback("Nao foi possivel consultar as bases no momento.");
+      setSearchMessage(error instanceof Error ? error.message : "Erro inesperado na consulta editorial.");
+      setJournalResults([]);
+      setRelatedWorks([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const copyCitation = async (work: OpenAlexWork) => {
+  const saveToShortlist = async (journal: JournalCandidate) => {
+    if (!selectedArticle) {
+      return;
+    }
+
+    setSavingJournalId(journal.id);
+    setSearchMessage(null);
+
+    try {
+      const supabase = getSupabaseClient();
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        throw new Error("Sessao expirada. Entre novamente para salvar revistas.");
+      }
+
+      const payload: Database["public"]["Tables"]["periodicos_shortlists"]["Insert"] = {
+        artigo_id: selectedArticle.id,
+        journal_id: journal.id,
+        journal_title: journal.title,
+        host_name: journal.hostName,
+        source_url: journal.landingPageUrl,
+        recommendation_level: journal.recommendationLevel,
+        matched_indexers: journal.matchedSelectedIndexers,
+        detected_indexers: journal.detectedIndexers,
+        editorial_score: journal.editorialScore,
+        is_favorite: shortlistedByJournalId.get(journal.id)?.is_favorite ?? false,
+        created_by: user.id
+      };
+
+      const { data, error } = await supabase
+        .from("periodicos_shortlists")
+        .upsert(payload, { onConflict: "artigo_id,journal_id" })
+        .select("*")
+        .single();
+
+      if (error || !data) {
+        throw new Error(error?.message ?? "Nao foi possivel salvar a revista.");
+      }
+
+      setSavedShortlist((current) => {
+        const next = current.filter((entry) => entry.id !== data.id && entry.journal_id !== data.journal_id);
+        return [data, ...next].sort((left, right) => right.editorial_score - left.editorial_score);
+      });
+    } catch (error) {
+      setSearchMessage(error instanceof Error ? error.message : "Erro ao salvar shortlist.");
+    } finally {
+      setSavingJournalId(null);
+    }
+  };
+
+  const updateShortlistEntry = async (
+    entryId: string,
+    patch: Database["public"]["Tables"]["periodicos_shortlists"]["Update"]
+  ) => {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("periodicos_shortlists")
+      .update({
+        ...patch,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", entryId)
+      .select("*")
+      .single();
+
+    if (error || !data) {
+      throw new Error(error?.message ?? "Nao foi possivel atualizar a shortlist.");
+    }
+
+    setSavedShortlist((current) =>
+      current
+        .map((entry) => (entry.id === entryId ? data : entry))
+        .sort((left, right) => right.editorial_score - left.editorial_score)
+    );
+  };
+
+  const removeShortlistEntry = async (entryId: string) => {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.from("periodicos_shortlists").delete().eq("id", entryId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    setSavedShortlist((current) => current.filter((entry) => entry.id !== entryId));
+  };
+
+  const handleCopyCitation = async (work: OpenAlexWork) => {
     const citation = formatAbntCitation(work);
     await navigator.clipboard.writeText(citation);
-    setFeedback("Referencia copiada para a area de transferencia.");
+    setCitationMessage("Referencia copiada para a area de transferencia.");
+  };
+
+  const handleInsertCitation = async (work: OpenAlexWork) => {
+    if (!selectedArticle) {
+      return;
+    }
+
+    const citation = formatAbntCitation(work);
+    const nextContent = appendCitationToContent(selectedArticle.conteudo_json ?? EMPTY_DOC, citation);
+    const supabase = getSupabaseClient();
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    const { error } = await supabase
+      .from("artigos")
+      .update({
+        conteudo_json: nextContent,
+        updated_at: new Date().toISOString(),
+        last_editor_id: user?.id ?? selectedArticle.last_editor_id ?? selectedArticle.autor_id
+      })
+      .eq("id", selectedArticle.id);
+
+    if (error) {
+      setCitationMessage(error.message);
+      return;
+    }
+
+    setArticleSnapshots((current) =>
+      current.map((article) =>
+        article.id === selectedArticle.id
+          ? {
+              ...article,
+              conteudo_json: nextContent,
+              updated_at: new Date().toISOString(),
+              last_editor_id: user?.id ?? article.last_editor_id
+            }
+          : article
+      )
+    );
+    setCitationMessage("Referencia enviada para o artigo selecionado.");
   };
 
   return (
     <main className="shell">
-      <div className="container" style={{ display: "grid", gap: "24px" }}>
-        <section className="glass-card" style={{ padding: "28px", display: "grid", gap: "12px" }}>
-          <span
-            style={{
-              width: "fit-content",
-              padding: "8px 12px",
-              borderRadius: "999px",
-              background: "var(--accent-soft)",
-              color: "var(--accent-strong)",
-              fontWeight: 700,
-              fontSize: "0.88rem"
-            }}
-          >
-            Submissao de periodicos
-          </span>
-          <h1 style={{ margin: 0 }}>Localizador de revistas</h1>
-          <p className="muted" style={{ margin: 0, maxWidth: "76ch" }}>
-            A prioridade deste modulo e encontrar revistas para publicar o seu artigo, destacando a
-            aderencia ao tema e os indexadores editoriais que voce quer atender. As referencias
-            relacionadas aparecem abaixo como apoio secundario de escrita.
+      <div className="container" style={{ display: "grid", gap: "20px" }}>
+        <section className="glass-card" style={{ padding: "26px", display: "grid", gap: "12px" }}>
+          <span className="eyebrow">Submissao editorial</span>
+          <h1 style={{ margin: 0 }}>Localizador de revistas e indices</h1>
+          <p className="muted" style={{ margin: 0, maxWidth: "82ch" }}>
+            O foco principal deste modulo e encontrar periodicos com melhor encaixe para o seu manuscrito e
+            com sinais de presenca nos indexadores que mais importam para a estrategia de submissao.
+            Como apoio, o WebLab tambem traz referencias relacionadas e permite enviar a citacao direto para o artigo.
           </p>
         </section>
 
-        <section
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(320px, 420px) minmax(0, 1fr)",
-            gap: "24px"
-          }}
-        >
-          <aside className="glass-card" style={{ padding: "24px", display: "grid", gap: "18px", height: "fit-content" }}>
-            <div style={{ display: "grid", gap: "10px" }}>
-              <h2 style={{ margin: 0 }}>Contexto da busca</h2>
-              <p className="muted" style={{ margin: 0 }}>
-                Selecione o artigo e os indexadores que mais importam para a sua estrategia de submissao.
-              </p>
-            </div>
+        <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "18px" }}>
+          <div style={{ display: "grid", gap: "8px" }}>
+            <strong>1. Selecione o artigo que vai orientar a busca</strong>
+            <span className="muted">
+              A analise editorial usa o titulo e o texto do artigo selecionado para buscar revistas e referencias.
+            </span>
+          </div>
 
-            <div className="field">
-              <label htmlFor="articleSelect">Artigo base</label>
+          <div style={{ display: "grid", gap: "14px", gridTemplateColumns: "minmax(280px, 1.4fr) minmax(240px, 1fr)" }}>
+            <div style={{ display: "grid", gap: "10px" }}>
               <select
-                id="articleSelect"
+                value={selectedArticle?.id ?? ""}
                 onChange={(event) => setSelectedArticleId(event.target.value)}
-                value={selectedArticleId}
+                style={{
+                  borderRadius: "18px",
+                  border: "1px solid rgba(36,26,19,0.08)",
+                  background: "rgba(255,255,255,0.92)",
+                  color: "var(--foreground)",
+                  padding: "14px 16px"
+                }}
               >
-                {articles.map((article) => (
+                {articleSnapshots.map((article) => (
                   <option key={article.id} value={article.id}>
                     {article.titulo}
                   </option>
                 ))}
               </select>
-            </div>
 
-            <div className="field">
-              <label htmlFor="searchOverride">Consulta principal</label>
               <input
-                id="searchOverride"
-                onChange={(event) => setSearchOverride(event.target.value)}
-                placeholder="Opcional. Ajuste palavras-chave ou o titulo da busca."
-                value={searchOverride}
+                className="field"
+                placeholder="Opcional: refine com palavras-chave, tema ou recorte"
+                value={searchInput}
+                onChange={(event) => setSearchInput(event.target.value)}
               />
             </div>
 
-            <div style={{ display: "grid", gap: "10px" }}>
-              <strong>Indexadores priorizados</strong>
-              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                {INDEXER_OPTIONS.map((indexer) => {
-                  const active = selectedIndexers.includes(indexer);
-                  return (
-                    <button
-                      key={indexer}
-                      className="button"
-                      onClick={() => toggleIndexer(indexer)}
-                      style={{
-                        background: active ? "var(--accent)" : "rgba(255,255,255,0.85)",
-                        color: active ? "white" : "var(--foreground)",
-                        border: active ? "none" : "1px solid rgba(36,26,19,0.08)",
-                        padding: "8px 12px"
-                      }}
-                      type="button"
-                    >
-                      {indexer}
-                    </button>
-                  );
-                })}
-              </div>
+            <div
+              style={{
+                display: "grid",
+                gap: "8px",
+                padding: "16px 18px",
+                borderRadius: "20px",
+                background: "rgba(255,255,255,0.68)",
+                border: "1px solid rgba(36,26,19,0.08)"
+              }}
+            >
+              <strong>{selectedArticle?.titulo ?? "Nenhum artigo selecionado"}</strong>
+              <span className="muted">Ultima edicao: {formatRelativeUpdate(selectedArticle?.updated_at ?? null)}</span>
+              <Link
+                href={selectedArticle ? (`/editor/${selectedArticle.id}` as Route) : ("/dashboard" as Route)}
+                className="muted"
+              >
+                Abrir artigo no editor
+              </Link>
             </div>
+          </div>
 
-            {selectedArticle ? (
-              <div
+          <div style={{ display: "grid", gap: "10px" }}>
+            <strong>2. Escolha os indexadores prioritarios</strong>
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              {INDEXER_OPTIONS.map((indexer) => {
+                const active = selectedIndexers.includes(indexer);
+                return (
+                  <button
+                    key={indexer}
+                    type="button"
+                    className="button"
+                    onClick={() => toggleIndexer(indexer)}
+                    style={{
+                      background: active ? "var(--accent)" : "rgba(255,255,255,0.88)",
+                      color: active ? "white" : "var(--foreground)",
+                      border: active ? "none" : "1px solid rgba(36,26,19,0.08)"
+                    }}
+                  >
+                    {indexer}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+            <label style={{ display: "grid", gap: "8px" }}>
+              <span className="muted">Filtrar por nome da revista ou host</span>
+              <input className="field" value={hostFilter} onChange={(event) => setHostFilter(event.target.value)} />
+            </label>
+
+            <label style={{ display: "grid", gap: "8px" }}>
+              <span className="muted">Minimo de indexadores priorizados</span>
+              <select
+                value={minimumMatchedIndexers}
+                onChange={(event) => setMinimumMatchedIndexers(Number(event.target.value))}
                 style={{
-                  display: "grid",
-                  gap: "8px",
-                  padding: "16px",
-                  borderRadius: "20px",
-                  background: "rgba(255,255,255,0.72)",
-                  border: "1px solid rgba(36,26,19,0.08)"
+                  borderRadius: "18px",
+                  border: "1px solid rgba(36,26,19,0.08)",
+                  background: "rgba(255,255,255,0.92)",
+                  color: "var(--foreground)",
+                  padding: "14px 16px"
                 }}
               >
-                <strong>{selectedArticle.titulo}</strong>
-                <span className="muted">
-                  O WebLab vai cruzar o titulo e o texto do artigo para priorizar revistas e referencias relacionadas.
-                </span>
-                <Link
-                  className="button button-secondary"
-                  href={`/editor/${selectedArticle.id}`}
-                  style={{ textDecoration: "none", width: "fit-content" }}
-                >
-                  Abrir artigo no editor
-                </Link>
-              </div>
-            ) : null}
+                {[0, 1, 2, 3, 4].map((value) => (
+                  <option key={value} value={value}>
+                    {value === 0 ? "Sem corte minimo" : `${value} ou mais`}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
 
-            <button className="button button-primary" disabled={isLoading || !selectedArticle} onClick={() => void runSearch()} type="button">
-              {isLoading ? "Buscando revistas..." : "Buscar revistas para submissao"}
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            <button className="button button-primary" type="button" onClick={() => void searchJournals()} disabled={isLoading}>
+              {isLoading ? "Analisando revistas..." : "Buscar revistas para submissao"}
             </button>
-          </aside>
 
-          <section style={{ display: "grid", gap: "24px" }}>
-            <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "16px" }}>
-              <div style={{ display: "grid", gap: "6px" }}>
-                <h2 style={{ margin: 0 }}>Revistas recomendadas</h2>
-                <p className="muted" style={{ margin: 0 }}>
-                  Primeiro bloco do modulo: revistas para submissao, ranqueadas por aderencia tematica e cobertura dos indexadores que voce selecionou.
-                </p>
-              </div>
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => setOnlyOpenAccess((current) => !current)}
+            >
+              {onlyOpenAccess ? "Mostrando apenas acesso aberto" : "Filtrar acesso aberto"}
+            </button>
 
-              {feedback ? (
-                <p className="muted" style={{ margin: 0 }}>
-                  {feedback}
-                </p>
-              ) : null}
+            <button
+              className="button button-secondary"
+              type="button"
+              onClick={() => setShowOnlyFavorites((current) => !current)}
+            >
+              {showOnlyFavorites ? `Somente favoritas (${favoriteCount})` : `Ver favoritas (${favoriteCount})`}
+            </button>
+          </div>
 
-              {journalResults.length === 0 ? (
-                <div
+          {searchMessage ? (
+            <p className="danger" style={{ margin: 0 }}>
+              {searchMessage}
+            </p>
+          ) : null}
+
+          {citationMessage ? (
+            <p className="muted" style={{ margin: 0 }}>
+              {citationMessage}
+            </p>
+          ) : null}
+        </section>
+
+        <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "14px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+            <div style={{ display: "grid", gap: "4px" }}>
+              <strong>Shortlist editorial</strong>
+              <span className="muted">
+                Salve revistas por artigo, marque favoritas e classifique quais sao candidatas fortes para submissao.
+              </span>
+            </div>
+            <span className="muted">
+              {loadingShortlist ? "Carregando shortlist..." : `${savedShortlist.length} revista(s) salvas`}
+            </span>
+          </div>
+
+          {savedShortlist.length === 0 ? (
+            <div
+              className="muted"
+              style={{ padding: "18px", borderRadius: "18px", background: "rgba(255,255,255,0.6)" }}
+            >
+              Sua shortlist ainda esta vazia. Salve as melhores revistas encontradas logo abaixo para montar a estrategia de submissao.
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: "12px" }}>
+              {savedShortlist.map((entry) => (
+                <article
+                  key={entry.id}
                   style={{
-                    padding: "22px",
+                    display: "grid",
+                    gap: "12px",
+                    padding: "18px",
                     borderRadius: "20px",
-                    background: "rgba(255,255,255,0.74)",
-                    border: "1px dashed rgba(36,26,19,0.14)"
+                    background: "rgba(255,255,255,0.76)",
+                    border: "1px solid rgba(36,26,19,0.08)"
                   }}
                 >
-                  <strong style={{ display: "block", marginBottom: "8px" }}>
-                    Nenhuma analise rodada ainda
-                  </strong>
-                  <span className="muted">
-                    Escolha o artigo, ajuste os indexadores e inicie a busca.
-                  </span>
-                </div>
-              ) : (
-                <div style={{ display: "grid", gap: "14px" }}>
-                  {journalResults.map((journal) => (
-                    <article
-                      key={journal.source.id}
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+                    <div style={{ display: "grid", gap: "6px" }}>
+                      <strong>{entry.journal_title}</strong>
+                      <span className="muted">{entry.host_name ?? "Host nao informado"}</span>
+                    </div>
+                    <span
                       style={{
-                        display: "grid",
-                        gap: "12px",
-                        padding: "18px",
-                        borderRadius: "24px",
-                        background: "rgba(255,255,255,0.78)",
-                        border: "1px solid rgba(36,26,19,0.08)"
+                        padding: "8px 12px",
+                        borderRadius: "999px",
+                        background:
+                          entry.recommendation_level === "candidata_forte"
+                            ? "rgba(32, 89, 66, 0.14)"
+                            : entry.recommendation_level === "candidata_moderada"
+                              ? "rgba(196, 125, 54, 0.16)"
+                              : "rgba(74, 60, 49, 0.12)",
+                        fontWeight: 700
                       }}
                     >
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
-                        <div style={{ display: "grid", gap: "6px" }}>
-                          <strong style={{ fontSize: "1.08rem" }}>{journal.source.display_name}</strong>
-                          <span className="muted">
-                            {journal.source.host_organization_name ?? "Editora ou host nao identificado"}
+                      {formatRecommendationLevel(entry.recommendation_level)}
+                    </span>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                    <span className="muted">Score editorial: {entry.editorial_score}</span>
+                    <span className="muted">Indexadores priorizados: {entry.matched_indexers.length}</span>
+                    <span className="muted">{entry.is_favorite ? "Favorita" : "Ainda nao favorita"}</span>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    {entry.matched_indexers.map((indexer) => (
+                      <span key={indexer} className="status-chip">
+                        {indexer}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                    <select
+                      value={entry.recommendation_level}
+                      onChange={(event) =>
+                        void updateShortlistEntry(entry.id, {
+                          recommendation_level: event.target.value as RecommendationLevel
+                        })
+                      }
+                      style={{
+                        borderRadius: "999px",
+                        border: "1px solid rgba(36,26,19,0.08)",
+                        background: "rgba(255,255,255,0.92)",
+                        color: "var(--foreground)",
+                        padding: "10px 14px"
+                      }}
+                    >
+                      <option value="candidata_forte">Candidata forte</option>
+                      <option value="candidata_moderada">Candidata moderada</option>
+                      <option value="precisa_validar">Precisa validar</option>
+                    </select>
+
+                    <button
+                      className="button button-secondary"
+                      type="button"
+                      onClick={() => void updateShortlistEntry(entry.id, { is_favorite: !entry.is_favorite })}
+                    >
+                      {entry.is_favorite ? "Remover favorita" : "Marcar favorita"}
+                    </button>
+
+                    <button
+                      className="button button-secondary"
+                      type="button"
+                      onClick={() => void removeShortlistEntry(entry.id)}
+                    >
+                      Remover da shortlist
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "14px" }}>
+          <div style={{ display: "grid", gap: "4px" }}>
+            <strong>Revistas recomendadas para submissao</strong>
+            <span className="muted">
+              O ranking combina aderencia tematica, sinais dos indexadores escolhidos, acesso aberto e impacto editorial aproximado.
+            </span>
+          </div>
+
+          {filteredJournalResults.length === 0 ? (
+            <div className="muted" style={{ padding: "18px", borderRadius: "18px", background: "rgba(255,255,255,0.6)" }}>
+              {isLoading
+                ? "Consultando bases e organizando revistas candidatas..."
+                : "Nenhuma revista apareceu com os filtros atuais. Tente ampliar termos, afrouxar os filtros ou rodar uma nova busca."}
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: "14px" }}>
+              {filteredJournalResults.map((journal) => {
+                const savedEntry = shortlistedByJournalId.get(journal.id);
+
+                return (
+                  <article
+                    key={journal.id}
+                    style={{
+                      display: "grid",
+                      gap: "12px",
+                      padding: "18px",
+                      borderRadius: "20px",
+                      background: "rgba(255,255,255,0.76)",
+                      border: "1px solid rgba(36,26,19,0.08)"
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+                      <div style={{ display: "grid", gap: "6px" }}>
+                        <strong>{journal.title}</strong>
+                        <span className="muted">{journal.hostName ?? "Host nao informado"}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                        <span className="status-chip">Score {journal.editorialScore}</span>
+                        <span className="status-chip">{formatRecommendationLevel(journal.recommendationLevel)}</span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                      <span className="muted">H-index: {journal.hIndex ?? "Nao informado"}</span>
+                      <span className="muted">Acesso aberto: {journal.isOpenAccess ? "sim" : "nao"}</span>
+                      <span className="muted">Ocorrencias relacionadas: {journal.matchCount}</span>
+                      <span className="muted">Indexadores aderentes: {journal.matchedSelectedIndexers.length}</span>
+                    </div>
+
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      {journal.matchedSelectedIndexers.length > 0 ? (
+                        journal.matchedSelectedIndexers.map((indexer) => (
+                          <span key={indexer} className="status-chip">
+                            {indexer}
                           </span>
-                        </div>
-                        <div
-                          style={{
-                            padding: "8px 12px",
-                            borderRadius: "999px",
-                            background: "var(--accent-soft)",
-                            color: "var(--accent-strong)",
-                            fontWeight: 700
-                          }}
-                        >
-                          {journal.matchedSelectedIndexers.length} indexador(es) priorizado(s)
-                        </div>
-                      </div>
+                        ))
+                      ) : (
+                        <span className="muted">Sem indexadores priorizados detectados automaticamente</span>
+                      )}
+                    </div>
 
-                      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                        <span className="muted">
-                          H-index: {journal.source.summary_stats?.h_index ?? "Nao informado"}
-                        </span>
-                        <span className="muted">
-                          Open access: {journal.source.is_oa ? "sim" : "nao"}
-                        </span>
-                        <span className="muted">
-                          Artigos relacionados encontrados: {journal.matchCount}
-                        </span>
-                      </div>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      {journal.detectedIndexers
+                        .filter((indexer) => !journal.matchedSelectedIndexers.includes(indexer))
+                        .map((indexer) => (
+                          <span key={indexer} className="muted">
+                            {indexer}
+                          </span>
+                        ))}
+                    </div>
 
-                      <div style={{ display: "grid", gap: "6px" }}>
-                        <strong>Indexadores detectados no fluxo atual</strong>
-                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                          {journal.detectedIndexers.length > 0 ? (
-                            journal.detectedIndexers.map((indexer) => (
-                              <span
-                                key={indexer}
-                                style={{
-                                  background: "rgba(13,122,105,0.12)",
-                                  color: "var(--accent-strong)",
-                                  border: "1px solid rgba(13,122,105,0.18)",
-                                  padding: "6px 10px",
-                                  borderRadius: "999px",
-                                  fontSize: "0.84rem",
-                                  fontWeight: 600
-                                }}
-                              >
-                                {indexer}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="muted">
-                              Sem sinal claro de indexacao nos metadados atuais. Verifique o portal oficial da revista antes de submeter.
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                      <button
+                        className="button button-primary"
+                        type="button"
+                        onClick={() => void saveToShortlist(journal)}
+                        disabled={savingJournalId === journal.id}
+                      >
+                        {savingJournalId === journal.id
+                          ? "Salvando..."
+                          : savedEntry
+                            ? "Atualizar shortlist"
+                            : "Salvar na shortlist"}
+                      </button>
 
-                      <div style={{ display: "grid", gap: "6px" }}>
-                        <strong>Leitura editorial</strong>
-                        <span className="muted">
-                          Esta recomendacao e baseada no cruzamento do tema do artigo com periodicos encontrados pela base atual. Para indexadores fechados ou sem API publica estavel, trate a sugestao como triagem inicial e confirme no portal oficial.
-                        </span>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </section>
+                      {journal.landingPageUrl ? (
+                        <a className="button button-secondary" href={journal.landingPageUrl} target="_blank" rel="noreferrer">
+                          Abrir fonte
+                        </a>
+                      ) : null}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
-            <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "16px" }}>
-              <div style={{ display: "grid", gap: "6px" }}>
-                <h2 style={{ margin: 0 }}>Referencias relacionadas</h2>
-                <p className="muted" style={{ margin: 0 }}>
-                  Funcao secundaria do modulo: encontrar boas referencias para fortalecer o texto.
-                </p>
-              </div>
+        <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "14px" }}>
+          <div style={{ display: "grid", gap: "4px" }}>
+            <strong>Referencias relacionadas</strong>
+            <span className="muted">
+              Funcao secundaria do modulo: encontrar artigos proximos e mandar a referencia direto para o texto selecionado.
+            </span>
+          </div>
 
-              {relatedWorks.length === 0 ? (
-                <span className="muted">As referencias aparecem depois da busca por revistas.</span>
-              ) : (
-                <div style={{ display: "grid", gap: "12px" }}>
-                  {relatedWorks.map((work) => (
-                    <article
-                      key={work.id}
-                      style={{
-                        display: "grid",
-                        gap: "10px",
-                        padding: "16px",
-                        borderRadius: "18px",
-                        background: "rgba(255,255,255,0.72)",
-                        border: "1px solid rgba(36,26,19,0.08)"
-                      }}
-                    >
-                      <div style={{ display: "grid", gap: "4px" }}>
-                        <strong>{work.title ?? "Titulo nao informado"}</strong>
-                        <span className="muted">
-                          {work.primary_location?.source?.display_name ?? "Fonte nao informada"} ·{" "}
-                          {work.publication_year ?? "Ano nao informado"}
-                        </span>
-                      </div>
+          {relatedWorks.length === 0 ? (
+            <div className="muted" style={{ padding: "18px", borderRadius: "18px", background: "rgba(255,255,255,0.6)" }}>
+              Rode uma busca editorial para carregar referencias relacionadas ao manuscrito.
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: "12px" }}>
+              {relatedWorks.map((work) => (
+                <article
+                  key={work.id}
+                  style={{
+                    display: "grid",
+                    gap: "10px",
+                    padding: "16px",
+                    borderRadius: "16px",
+                    background: "rgba(255,255,255,0.72)",
+                    border: "1px solid rgba(36,26,19,0.08)"
+                  }}
+                >
+                  <div style={{ display: "grid", gap: "6px" }}>
+                    <strong>{work.title ?? "Titulo nao informado"}</strong>
+                    <span className="muted" style={{ fontSize: "0.9rem" }}>
+                      {work.primary_location?.source?.display_name ?? "Fonte nao informada"} -{" "}
+                      {work.publication_year ?? "Ano nao informado"}
+                    </span>
+                  </div>
 
-                      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                        <button className="button button-secondary" onClick={() => void copyCitation(work)} type="button">
-                          Copiar ABNT
-                        </button>
-                        {selectedArticle ? (
-                          <Link
-                            className="button button-primary"
-                            href={`/editor/${selectedArticle.id}`}
-                            style={{ textDecoration: "none" }}
-                          >
-                            Abrir artigo no editor
-                          </Link>
-                        ) : null}
-                        {work.primary_location?.landing_page_url ? (
-                          <a
-                            className="button button-secondary"
-                            href={work.primary_location.landing_page_url}
-                            rel="noreferrer"
-                            target="_blank"
-                          >
-                            Abrir fonte
-                          </a>
-                        ) : null}
-                      </div>
+                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                    <button className="button button-primary" type="button" onClick={() => void handleInsertCitation(work)}>
+                      Citar este artigo
+                    </button>
+                    <button className="button button-secondary" type="button" onClick={() => void handleCopyCitation(work)}>
+                      Copiar ABNT
+                    </button>
+                    {work.primary_location?.landing_page_url ? (
+                      <a
+                        className="button button-secondary"
+                        href={work.primary_location.landing_page_url}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Abrir fonte
+                      </a>
+                    ) : null}
+                  </div>
 
-                      <p className="muted" style={{ margin: 0, fontSize: "0.88rem" }}>
-                        {formatAbntCitation(work)}
-                      </p>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </section>
-          </section>
+                  <p className="muted" style={{ margin: 0, fontSize: "0.88rem" }}>
+                    {formatAbntCitation(work)}
+                  </p>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </main>

@@ -133,11 +133,13 @@ grant select, insert, update on public.equipes to authenticated;
 grant select, update on public.perfis to authenticated;
 grant select, insert, update, delete on public.artigos to authenticated;
 grant select, insert, update on public.plataforma_brasil_checklists to authenticated;
+grant select, insert, update, delete on public.periodicos_shortlists to authenticated;
 
 alter table public.equipes enable row level security;
 alter table public.perfis enable row level security;
 alter table public.artigos enable row level security;
 alter table public.plataforma_brasil_checklists enable row level security;
+alter table public.periodicos_shortlists enable row level security;
 
 do $$
 declare
@@ -147,7 +149,7 @@ begin
     select schemaname, tablename, policyname
     from pg_policies
     where schemaname = 'public'
-      and tablename in ('equipes', 'perfis', 'artigos', 'plataforma_brasil_checklists')
+      and tablename in ('equipes', 'perfis', 'artigos', 'plataforma_brasil_checklists', 'periodicos_shortlists')
   loop
     execute format(
       'drop policy if exists %I on %I.%I',
@@ -276,6 +278,70 @@ for update
 to authenticated
 using (public.can_access_team(equipe_id))
 with check (public.can_access_team(equipe_id));
+
+create policy "shortlists_select_scope"
+on public.periodicos_shortlists
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.artigos
+    where artigos.id = periodicos_shortlists.artigo_id
+      and public.can_access_team(artigos.equipe_id)
+  )
+);
+
+create policy "shortlists_insert_scope"
+on public.periodicos_shortlists
+for insert
+to authenticated
+with check (
+  created_by = auth.uid()
+  and exists (
+    select 1
+    from public.artigos
+    where artigos.id = periodicos_shortlists.artigo_id
+      and public.can_access_team(artigos.equipe_id)
+  )
+);
+
+create policy "shortlists_update_scope"
+on public.periodicos_shortlists
+for update
+to authenticated
+using (
+  exists (
+    select 1
+    from public.artigos
+    where artigos.id = periodicos_shortlists.artigo_id
+      and public.can_access_team(artigos.equipe_id)
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.artigos
+    where artigos.id = periodicos_shortlists.artigo_id
+      and public.can_access_team(artigos.equipe_id)
+  )
+);
+
+create policy "shortlists_delete_scope"
+on public.periodicos_shortlists
+for delete
+to authenticated
+using (
+  exists (
+    select 1
+    from public.artigos
+    where artigos.id = periodicos_shortlists.artigo_id
+      and (
+        public.can_admin_team(artigos.equipe_id)
+        or periodicos_shortlists.created_by = auth.uid()
+      )
+  )
+);
 
 -- Consultas de verificacao sugeridas:
 -- select tablename, policyname, cmd from pg_policies where schemaname = 'public' order by tablename, policyname;

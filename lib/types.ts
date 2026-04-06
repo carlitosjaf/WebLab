@@ -1,5 +1,9 @@
 export type UserRole = "coordenador" | "coordenador_geral" | "pesquisador";
 export type ArticleStatus = "em_rascunho" | "submetido" | "aprovado";
+export type RecommendationLevel =
+  | "candidata_forte"
+  | "candidata_moderada"
+  | "precisa_validar";
 
 export type ArticleContent = {
   type: "doc";
@@ -166,6 +170,67 @@ export type Database = {
             columns: ["equipe_id"];
             isOneToOne: true;
             referencedRelation: "equipes";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      periodicos_shortlists: {
+        Row: {
+          id: string;
+          artigo_id: string;
+          journal_id: string;
+          journal_title: string;
+          host_name: string | null;
+          source_url: string | null;
+          recommendation_level: RecommendationLevel;
+          matched_indexers: string[];
+          detected_indexers: string[];
+          editorial_score: number;
+          is_favorite: boolean;
+          created_by: string;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          artigo_id: string;
+          journal_id: string;
+          journal_title: string;
+          host_name?: string | null;
+          source_url?: string | null;
+          recommendation_level?: RecommendationLevel;
+          matched_indexers?: string[];
+          detected_indexers?: string[];
+          editorial_score?: number;
+          is_favorite?: boolean;
+          created_by?: string;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          journal_title?: string;
+          host_name?: string | null;
+          source_url?: string | null;
+          recommendation_level?: RecommendationLevel;
+          matched_indexers?: string[];
+          detected_indexers?: string[];
+          editorial_score?: number;
+          is_favorite?: boolean;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "periodicos_shortlists_artigo_id_fkey";
+            columns: ["artigo_id"];
+            isOneToOne: false;
+            referencedRelation: "artigos";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "periodicos_shortlists_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "perfis";
             referencedColumns: ["id"];
           }
         ];

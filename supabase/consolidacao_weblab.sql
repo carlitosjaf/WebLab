@@ -60,9 +60,32 @@ create table if not exists public.plataforma_brasil_checklists (
   unique (equipe_id)
 );
 
+create table if not exists public.periodicos_shortlists (
+  id uuid primary key default gen_random_uuid(),
+  artigo_id uuid not null references public.artigos (id) on delete cascade,
+  journal_id text not null,
+  journal_title text not null,
+  host_name text,
+  source_url text,
+  recommendation_level text not null default 'precisa_validar',
+  matched_indexers text[] not null default '{}',
+  detected_indexers text[] not null default '{}',
+  editorial_score numeric not null default 0,
+  is_favorite boolean not null default false,
+  created_by uuid not null references public.perfis (id),
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (artigo_id, journal_id),
+  constraint periodicos_shortlists_recommendation_level_check check (
+    recommendation_level in ('candidata_forte', 'candidata_moderada', 'precisa_validar')
+  )
+);
+
 alter table public.plataforma_brasil_checklists enable row level security;
+alter table public.periodicos_shortlists enable row level security;
 
 grant select, insert, update on public.plataforma_brasil_checklists to authenticated;
+grant select, insert, update, delete on public.periodicos_shortlists to authenticated;
 
 drop policy if exists "team can read checklist" on public.plataforma_brasil_checklists;
 create policy "team can read checklist"
