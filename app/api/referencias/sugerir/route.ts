@@ -119,12 +119,13 @@ export async function POST(request: Request) {
   url.searchParams.set("per-page", "6");
   url.searchParams.set("filter", "type:article");
   url.searchParams.set("sort", "relevance_score:desc");
+  url.searchParams.set("select", "id,title,publication_year,doi,biblio,primary_location,authorships");
 
   const response = await fetch(url, {
     headers: {
       Accept: "application/json"
     },
-    next: { revalidate: 60 * 60 }
+    cache: "no-store"
   });
 
   if (!response.ok) {

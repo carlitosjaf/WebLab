@@ -169,12 +169,13 @@ async function fetchOpenAlex(query: string): Promise<{ works: OpenAlexWork[]; st
   const url = new URL(OPENALEX_ENDPOINT);
   url.searchParams.set("search", query);
   url.searchParams.set("per-page", "40");
+  url.searchParams.set("select", "id,title,publication_year,doi,biblio,primary_location,authorships");
 
   const response = await fetch(url, {
     headers: {
       Accept: "application/json"
     },
-    next: { revalidate: 60 * 60 }
+    cache: "no-store"
   });
 
   if (!response.ok) {
@@ -222,7 +223,7 @@ async function fetchScopus(query: string): Promise<{ journals: LicensedJournal[]
       Accept: "application/json",
       "X-ELS-APIKey": apiKey
     },
-    next: { revalidate: 60 * 60 * 6 }
+    cache: "no-store"
   });
 
   if (!response.ok) {
@@ -306,7 +307,7 @@ async function fetchWebOfScience(query: string): Promise<{ journals: LicensedJou
       Accept: "application/json",
       "X-ApiKey": apiKey
     },
-    next: { revalidate: 60 * 60 * 6 }
+    cache: "no-store"
   });
 
   if (!response.ok) {
