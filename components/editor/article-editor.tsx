@@ -985,10 +985,10 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
     activeSectionGroup?.sections[0];
 
   return (
-    <main className="shell">
-      <div className="container" style={{ display: "grid", gap: "20px" }}>
+    <main className="shell editor-workspace">
+      <div className="container editor-workspace-container" style={{ display: "grid", gap: "20px" }}>
         <section
-          className="glass-card"
+          className="glass-card editor-command-bar"
           style={{
             padding: "22px 24px",
             display: "flex",
@@ -1087,7 +1087,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
         </section>
 
         <section
-          className="glass-card"
+          className="glass-card editor-document-layout"
           style={{
             padding: "26px",
             display: "grid",
@@ -1095,6 +1095,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
           }}
         >
           <div
+            className="editor-status-card"
             style={{
               display: "grid",
               gap: "10px",
@@ -1136,6 +1137,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
           />
 
           <div
+            className="editor-radar-card"
             style={{
               display: "grid",
               gap: "10px",
@@ -1162,6 +1164,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
           </div>
 
           <div
+            className="editor-toolbar"
             style={{
               display: "flex",
               gap: "10px",
@@ -1196,15 +1199,33 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                 disabled: false
               },
               {
+                label: "Texto",
+                action: () => editor?.chain().focus().setParagraph().run(),
+                active: editor?.isActive("paragraph"),
+                disabled: false
+              },
+              {
                 label: "H2",
                 action: () => editor?.chain().focus().toggleHeading({ level: 2 }).run(),
                 active: editor?.isActive("heading", { level: 2 }),
                 disabled: false
               },
               {
+                label: "H3",
+                action: () => editor?.chain().focus().toggleHeading({ level: 3 }).run(),
+                active: editor?.isActive("heading", { level: 3 }),
+                disabled: false
+              },
+              {
                 label: "Lista",
                 action: () => editor?.chain().focus().toggleBulletList().run(),
                 active: editor?.isActive("bulletList"),
+                disabled: false
+              },
+              {
+                label: "1.",
+                action: () => editor?.chain().focus().toggleOrderedList().run(),
+                active: editor?.isActive("orderedList"),
                 disabled: false
               },
               {
@@ -1241,6 +1262,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
           </div>
 
           <div
+            className="editor-template-panel"
             style={{
               display: "grid",
               gap: "12px",
@@ -1377,12 +1399,13 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
           </div>
 
           <div
+            className="editor-page-shell"
             style={{
               minHeight: "480px",
               padding: "8px 6px 20px"
             }}
           >
-            <div className={abntMode ? "editor-surface abnt-mode" : "editor-surface"}>
+            <div className={abntMode ? "editor-surface editor-page abnt-mode" : "editor-surface editor-page"}>
               <EditorContent editor={editor} />
             </div>
           </div>
