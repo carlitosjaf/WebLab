@@ -139,6 +139,33 @@ function getChecklistProgress(entry: SavedShortlist) {
   };
 }
 
+function getSubmissionReadiness(entry: SavedShortlist) {
+  const progress = getChecklistProgress(entry);
+  const percent = Math.round((progress.completed / progress.total) * 100);
+
+  if (percent >= 84) {
+    return {
+      percent,
+      label: "quase pronta",
+      tone: "strong"
+    };
+  }
+
+  if (percent >= 50) {
+    return {
+      percent,
+      label: "em validação",
+      tone: "medium"
+    };
+  }
+
+  return {
+    percent,
+    label: "triagem inicial",
+    tone: "low"
+  };
+}
+
 function formatAccessModel(accessModel: (typeof INDEXER_STRATEGY)[number]["accessModel"]) {
   switch (accessModel) {
     case "api_publica":
@@ -213,6 +240,55 @@ function buildShortlistReport(article: ArticleRow | null, entries: SavedShortlis
     `Revistas na shortlist: ${entries.length}`,
     "",
     body || "Nenhuma revista salva na shortlist."
+  ].join("\n");
+}
+
+function buildSubmissionDossier(article: ArticleRow | null, entry: SavedShortlist) {
+  const title = article?.titulo ?? "Manuscrito sem título";
+  const generatedAt = new Date().toLocaleString("pt-BR");
+  const progress = getChecklistProgress(entry);
+  const readiness = getSubmissionReadiness(entry);
+  const checklist = SHORTLIST_CHECKLIST.map((item) => {
+    const mark = entry[item.key] ? "x" : " ";
+    return `- [${mark}] ${item.label}`;
+  }).join("\n");
+  const confirmedIndexers =
+    entry.matched_indexers.length > 0 ? entry.matched_indexers.join(", ") : "Nenhum indexador priorizado confirmado";
+  const detectedIndexers =
+    entry.detected_indexers.length > 0 ? entry.detected_indexers.join(", ") : "Nenhum sinal adicional detectado";
+
+  return [
+    `# Dossiê de submissão - ${entry.journal_title}`,
+    "",
+    `Gerado em: ${generatedAt}`,
+    `Manuscrito: ${title}`,
+    `Revista: ${entry.journal_title}`,
+    `Host/editora: ${entry.host_name ?? "Não informado"}`,
+    `Fonte: ${entry.source_url ?? "Não informada"}`,
+    "",
+    "## Leitura editorial",
+    `- Nível atual: ${formatRecommendationLevel(entry.recommendation_level)}`,
+    `- Score editorial: ${entry.editorial_score}`,
+    `- Prontidão: ${readiness.percent}% (${readiness.label})`,
+    `- Checklist: ${progress.completed}/${progress.total}`,
+    `- Favorita: ${entry.is_favorite ? "sim" : "não"}`,
+    "",
+    "## Indexadores",
+    `- Priorizados confirmados: ${confirmedIndexers}`,
+    `- Sinais detectados: ${detectedIndexers}`,
+    "",
+    "## Notas da equipe",
+    entry.editorial_notes?.trim() ? entry.editorial_notes.trim() : "Sem notas registradas.",
+    "",
+    "## Checklist de submissão",
+    checklist,
+    "",
+    "## Próxima decisão sugerida",
+    readiness.percent >= 84
+      ? "Se escopo, taxas, diretrizes e indexadores estiverem confirmados, esta revista pode ir para decisão final de submissão."
+      : readiness.percent >= 50
+        ? "Avance nas pendências do checklist antes de tratar esta revista como candidata final."
+        : "Use esta revista como hipótese inicial: valide escopo, indexadores, taxas e diretrizes antes de priorizar."
   ].join("\n");
 }
 
@@ -736,6 +812,29 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
     setCitationMessage("Relatório editorial baixado em Markdown.");
   };
 
+  const handleCopySubmissionDossier = async (entry: SavedShortlist) => {
+    const dossier = buildSubmissionDossier(selectedArticle, entry);
+    await navigator.clipboard.writeText(dossier);
+    setCitationMessage(`Dossiê de ${entry.journal_title} copiado para a área de transferência.`);
+  };
+
+  const handleDownloadSubmissionDossier = (entry: SavedShortlist) => {
+    const dossier = buildSubmissionDossier(selectedArticle, entry);
+    const blob = new Blob([dossier], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const articleName = slugifyFileName(selectedArticle?.titulo ?? "manuscrito");
+    const journalName = slugifyFileName(entry.journal_title);
+
+    link.href = url;
+    link.download = `${articleName || "manuscrito"}-${journalName || "revista"}-dossie-submissao.md`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setCitationMessage(`Dossiê de ${entry.journal_title} baixado em Markdown.`);
+  };
+
   const handleCopyCitation = async (work: OpenAlexWork) => {
     const citation = formatAbntCitation(work);
     await navigator.clipboard.writeText(citation);
@@ -1046,6 +1145,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
             <div style={{ display: "grid", gap: "12px" }}>
               {savedShortlist.map((entry) => {
                 const progress = getChecklistProgress(entry);
+                const readiness = getSubmissionReadiness(entry);
 
                 return (
                   <article
@@ -1088,6 +1188,20 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                     <span className="muted">
                       Checklist: {progress.completed}/{progress.total}
                     </span>
+                  </div>
+
+                  <div className="periodicos-submission-readiness" data-tone={readiness.tone}>
+                    <div>
+                      <strong>{readiness.percent}%</strong>
+                      <span>{readiness.label}</span>
+                    </div>
+                    <p>
+                      {readiness.percent >= 84
+                        ? "Dossiê quase pronto para decisão final da equipe."
+                        : readiness.percent >= 50
+                          ? "Ainda há pendências, mas a revista já pode ser comparada com outras candidatas."
+                          : "Revista em triagem: valide o básico antes de priorizar submissão."}
+                    </p>
                   </div>
 
                   <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -1187,6 +1301,22 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                       onClick={() => void removeShortlistEntry(entry.id)}
                     >
                       Remover da shortlist
+                    </button>
+
+                    <button
+                      className="button button-secondary"
+                      type="button"
+                      onClick={() => void handleCopySubmissionDossier(entry)}
+                    >
+                      Copiar dossiê
+                    </button>
+
+                    <button
+                      className="button button-secondary"
+                      type="button"
+                      onClick={() => handleDownloadSubmissionDossier(entry)}
+                    >
+                      Baixar dossiê
                     </button>
 
                     {entry.source_url ? (

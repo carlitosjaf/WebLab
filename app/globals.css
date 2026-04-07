@@ -2523,6 +2523,51 @@ textarea:focus,
   padding: 14px 16px;
 }
 
+.periodicos-submission-readiness {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.periodicos-submission-readiness[data-tone="strong"] {
+  background: #f0fdfa;
+  border-color: #99f6e4;
+}
+
+.periodicos-submission-readiness[data-tone="medium"] {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.periodicos-submission-readiness > div {
+  display: grid;
+  gap: 2px;
+  min-width: 116px;
+}
+
+.periodicos-submission-readiness strong {
+  color: #0f766e;
+  font-size: 1.45rem;
+}
+
+.periodicos-submission-readiness span {
+  color: #475569;
+  font-size: 0.8rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.periodicos-submission-readiness p {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.45;
+}
+
 .periodicos-decision-board {
   display: grid;
   gap: 16px;
