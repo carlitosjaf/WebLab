@@ -197,6 +197,13 @@ export type Database = {
           detected_indexers: string[];
           editorial_score: number;
           is_favorite: boolean;
+          editorial_notes: string;
+          escopo_conferido: boolean;
+          indexadores_confirmados: boolean;
+          taxas_conferidas: boolean;
+          diretrizes_conferidas: boolean;
+          acesso_aberto_conferido: boolean;
+          template_conferido: boolean;
           created_by: string;
           created_at: string | null;
           updated_at: string | null;
@@ -213,6 +220,13 @@ export type Database = {
           detected_indexers?: string[];
           editorial_score?: number;
           is_favorite?: boolean;
+          editorial_notes?: string;
+          escopo_conferido?: boolean;
+          indexadores_confirmados?: boolean;
+          taxas_conferidas?: boolean;
+          diretrizes_conferidas?: boolean;
+          acesso_aberto_conferido?: boolean;
+          template_conferido?: boolean;
           created_by?: string;
           created_at?: string | null;
           updated_at?: string | null;
@@ -226,6 +240,13 @@ export type Database = {
           detected_indexers?: string[];
           editorial_score?: number;
           is_favorite?: boolean;
+          editorial_notes?: string;
+          escopo_conferido?: boolean;
+          indexadores_confirmados?: boolean;
+          taxas_conferidas?: boolean;
+          diretrizes_conferidas?: boolean;
+          acesso_aberto_conferido?: boolean;
+          template_conferido?: boolean;
           updated_at?: string | null;
         };
         Relationships: [

@@ -2395,6 +2395,74 @@ textarea:focus,
   padding: 14px 16px;
 }
 
+.periodicos-decision-workbench {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(280px, 1.1fr);
+  gap: 14px;
+}
+
+.periodicos-decision-workbench > label,
+.periodicos-checklist-box {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.86);
+  border: 1px solid #e2e8f0;
+}
+
+.periodicos-decision-workbench label span,
+.periodicos-checklist-box strong {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.periodicos-decision-workbench textarea {
+  min-height: 116px;
+  resize: vertical;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  color: #0f172a;
+  background: white;
+  line-height: 1.55;
+}
+
+.periodicos-checklist-box > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.periodicos-checklist-box > div:first-child span {
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.periodicos-checklist-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.periodicos-checklist-grid label {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px;
+  border-radius: 12px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #334155;
+}
+
+.periodicos-checklist-grid input {
+  width: auto;
+  margin-top: 3px;
+  accent-color: var(--primary);
+}
+
 .periodicos-validation-details {
   padding: 14px 16px;
 }
@@ -2449,6 +2517,10 @@ textarea:focus,
 @media (max-width: 780px) {
   .periodicos-hero-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .periodicos-decision-workbench {
+    grid-template-columns: 1fr;
   }
 }
 

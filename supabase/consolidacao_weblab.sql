@@ -81,6 +81,15 @@ create table if not exists public.periodicos_shortlists (
   )
 );
 
+alter table public.periodicos_shortlists
+  add column if not exists editorial_notes text not null default '',
+  add column if not exists escopo_conferido boolean not null default false,
+  add column if not exists indexadores_confirmados boolean not null default false,
+  add column if not exists taxas_conferidas boolean not null default false,
+  add column if not exists diretrizes_conferidas boolean not null default false,
+  add column if not exists acesso_aberto_conferido boolean not null default false,
+  add column if not exists template_conferido boolean not null default false;
+
 create table if not exists public.conteudos_site_equipe (
   id uuid primary key default gen_random_uuid(),
   equipe_id uuid not null references public.equipes (id) on delete cascade,

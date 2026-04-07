@@ -27,6 +27,14 @@ import type {
 import { formatAbntCitation, formatRelativeUpdate } from "@/lib/weblab";
 
 type SavedShortlist = Database["public"]["Tables"]["periodicos_shortlists"]["Row"];
+type ShortlistUpdate = Database["public"]["Tables"]["periodicos_shortlists"]["Update"];
+type ShortlistChecklistKey =
+  | "escopo_conferido"
+  | "indexadores_confirmados"
+  | "taxas_conferidas"
+  | "diretrizes_conferidas"
+  | "acesso_aberto_conferido"
+  | "template_conferido";
 
 type OpenAlexSource = {
   id: string;
@@ -90,6 +98,23 @@ const DEFAULT_INDEXERS = [
   "DOAJ",
   "Portal CAPES"
 ] as const satisfies readonly IndexerName[];
+
+const SHORTLIST_CHECKLIST: Array<{ key: ShortlistChecklistKey; label: string }> = [
+  { key: "escopo_conferido", label: "Escopo conferido" },
+  { key: "indexadores_confirmados", label: "Indexadores confirmados" },
+  { key: "taxas_conferidas", label: "Taxas/APC conferidas" },
+  { key: "diretrizes_conferidas", label: "Diretrizes abertas" },
+  { key: "acesso_aberto_conferido", label: "Acesso aberto/política conferidos" },
+  { key: "template_conferido", label: "Template ou normas baixadas" }
+];
+
+function getChecklistProgress(entry: SavedShortlist) {
+  const completed = SHORTLIST_CHECKLIST.filter((item) => Boolean(entry[item.key])).length;
+  return {
+    completed,
+    total: SHORTLIST_CHECKLIST.length
+  };
+}
 
 function buildReferenceList(citation: string) {
   return {
@@ -444,7 +469,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
 
   const updateShortlistEntry = async (
     entryId: string,
-    patch: Database["public"]["Tables"]["periodicos_shortlists"]["Update"]
+    patch: ShortlistUpdate
   ) => {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
@@ -741,18 +766,21 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
             </div>
           ) : (
             <div style={{ display: "grid", gap: "12px" }}>
-              {savedShortlist.map((entry) => (
-                <article
-                  key={entry.id}
-                  style={{
-                    display: "grid",
-                    gap: "12px",
-                    padding: "18px",
-                    borderRadius: "20px",
-                    background: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.08)"
-                  }}
-                >
+              {savedShortlist.map((entry) => {
+                const progress = getChecklistProgress(entry);
+
+                return (
+                  <article
+                    key={entry.id}
+                    style={{
+                      display: "grid",
+                      gap: "12px",
+                      padding: "18px",
+                      borderRadius: "20px",
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.08)"
+                    }}
+                  >
                   <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
                     <div style={{ display: "grid", gap: "6px" }}>
                       <strong>{entry.journal_title}</strong>
@@ -779,6 +807,9 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                     <span className="muted">Score editorial: {entry.editorial_score}</span>
                     <span className="muted">Indexadores priorizados: {entry.matched_indexers.length}</span>
                     <span className="muted">{entry.is_favorite ? "Favorita" : "Ainda nao favorita"}</span>
+                    <span className="muted">
+                      Checklist: {progress.completed}/{progress.total}
+                    </span>
                   </div>
 
                   <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
@@ -787,6 +818,48 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                         {indexer}
                       </span>
                     ))}
+                  </div>
+
+                  <div className="periodicos-decision-workbench">
+                    <label>
+                      <span>Notas da equipe</span>
+                      <textarea
+                        defaultValue={entry.editorial_notes ?? ""}
+                        onBlur={(event) => {
+                          const nextNotes = event.currentTarget.value.trim();
+
+                          if (nextNotes !== (entry.editorial_notes ?? "")) {
+                            void updateShortlistEntry(entry.id, { editorial_notes: nextNotes });
+                          }
+                        }}
+                        placeholder="Ex.: escopo parece aderente, verificar APC, confirmar se aceita artigo em português..."
+                      />
+                    </label>
+
+                    <div className="periodicos-checklist-box">
+                      <div>
+                        <strong>Checklist de submissão</strong>
+                        <span>
+                          {progress.completed}/{progress.total} conferências concluídas
+                        </span>
+                      </div>
+                      <div className="periodicos-checklist-grid">
+                        {SHORTLIST_CHECKLIST.map((item) => (
+                          <label key={item.key}>
+                            <input
+                              checked={Boolean(entry[item.key])}
+                              onChange={(event) =>
+                                void updateShortlistEntry(entry.id, {
+                                  [item.key]: event.currentTarget.checked
+                                })
+                              }
+                              type="checkbox"
+                            />
+                            <span>{item.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   <details className="periodicos-validation-details">
@@ -844,8 +917,9 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                       </a>
                     ) : null}
                   </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
