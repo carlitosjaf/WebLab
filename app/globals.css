@@ -3091,6 +3091,22 @@ textarea:focus,
   background: #fef2f2;
 }
 
+.triagem-study-card[data-duplicate="true"] {
+  border-style: dashed;
+  border-color: rgba(245, 158, 11, 0.62);
+}
+
+.triagem-duplicate-flag {
+  justify-self: start;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.16);
+  color: #92400e !important;
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 900;
+  padding: 6px 9px;
+}
+
 .triagem-study-card span,
 .triagem-study-card small,
 .triagem-study-card em {

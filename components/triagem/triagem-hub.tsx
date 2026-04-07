@@ -62,8 +62,46 @@ function countByDecision(studies: EvidenceStudyRow[]) {
   );
 }
 
+function normalizeFingerprint(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function getStudyDuplicateKey(study: Pick<EvidenceStudyRow | CaptureStudy, "doi" | "titulo" | "ano">) {
+  if (study.doi) {
+    return `doi:${normalizeFingerprint(study.doi)}`;
+  }
+
+  const titleKey = normalizeFingerprint(study.titulo)
+    .split(" ")
+    .filter((word) => word.length > 2)
+    .slice(0, 14)
+    .join(" ");
+
+  return titleKey ? `title:${titleKey}:${study.ano ?? "sd"}` : "";
+}
+
+function getDuplicateKeys(studies: Array<Pick<EvidenceStudyRow | CaptureStudy, "doi" | "titulo" | "ano">>) {
+  const counts = new Map<string, number>();
+
+  studies.forEach((study) => {
+    const key = getStudyDuplicateKey(study);
+
+    if (key) {
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  });
+
+  return new Set(Array.from(counts.entries()).filter(([, count]) => count > 1).map(([key]) => key));
+}
+
 function buildScreeningReport(set: EvidenceScreeningSetRow | null, studies: EvidenceStudyRow[]) {
   const counts = countByDecision(studies);
+  const duplicateKeys = getDuplicateKeys(studies);
   const rows = studies
     .map((study, index) =>
       [
@@ -92,6 +130,7 @@ function buildScreeningReport(set: EvidenceScreeningSetRow | null, studies: Evid
     `- Incluídos: ${counts.incluir}`,
     `- Talvez: ${counts.talvez}`,
     `- Excluídos: ${counts.excluir}`,
+    `- Possíveis duplicados: ${duplicateKeys.size}`,
     "",
     "## Critérios",
     `- Inclusão: ${set?.criterios_inclusao || "não informado"}`,
@@ -121,6 +160,17 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
   const activeSet = sets.find((set) => set.id === activeSetId) ?? null;
   const decisionSummary = useMemo(() => countByDecision(studies), [studies]);
   const savedExternalIds = useMemo(() => new Set(studies.map((study) => study.external_id)), [studies]);
+  const savedDuplicateKeys = useMemo(() => new Set(studies.map(getStudyDuplicateKey).filter(Boolean)), [studies]);
+  const duplicateKeys = useMemo(() => getDuplicateKeys(studies), [studies]);
+  const duplicateStudyIds = useMemo(
+    () =>
+      new Set(
+        studies
+          .filter((study) => duplicateKeys.has(getStudyDuplicateKey(study)))
+          .map((study) => study.id)
+      ),
+    [duplicateKeys, studies]
+  );
 
   useEffect(() => {
     if (!selectedArticleId) {
@@ -463,6 +513,7 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                   <span>Pendentes {decisionSummary.pendente}</span>
                   <span>Incluídos {decisionSummary.incluir}</span>
                   <span>Excluídos {decisionSummary.excluir}</span>
+                  <span>Duplicados prováveis {duplicateStudyIds.size}</span>
                 </div>
                 <div className="triagem-actions">
                   <button className="button button-secondary" onClick={() => void copyReport()} type="button">
@@ -482,54 +533,78 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
               <div className="triagem-column">
                 <h2>Resultados captados</h2>
                 {captureResults.length === 0 ? <p className="muted">A busca aparecerá aqui.</p> : null}
-                {captureResults.map((study) => (
-                  <article className="triagem-study-card" key={study.external_id}>
-                    <span>{study.source} · {study.ano ?? "s.d."}</span>
-                    <h3>{study.titulo}</h3>
-                    <p>{study.periodico ?? "Periódico não informado"}</p>
-                    <small>{study.resumo?.slice(0, 360) ?? "Sem resumo disponível."}</small>
-                    <button
-                      className="button button-secondary"
-                      disabled={savedExternalIds.has(study.external_id)}
-                      onClick={() => void saveStudy(study)}
-                      type="button"
-                    >
-                      {savedExternalIds.has(study.external_id) ? "Salvo" : "Salvar no conjunto"}
-                    </button>
-                  </article>
-                ))}
+                {captureResults.map((study) => {
+                  const possibleDuplicate = savedDuplicateKeys.has(getStudyDuplicateKey(study));
+
+                  return (
+                    <article className="triagem-study-card" data-duplicate={possibleDuplicate} key={study.external_id}>
+                      <span>{study.source} · {study.ano ?? "s.d."}</span>
+                      <h3>{study.titulo}</h3>
+                      <p>{study.periodico ?? "Periódico não informado"}</p>
+                      <small>{study.resumo?.slice(0, 360) ?? "Sem resumo disponível."}</small>
+                      {possibleDuplicate ? (
+                        <em className="triagem-duplicate-flag">Possível duplicado de estudo já salvo.</em>
+                      ) : null}
+                      <button
+                        className="button button-secondary"
+                        disabled={savedExternalIds.has(study.external_id)}
+                        onClick={() => void saveStudy(study)}
+                        type="button"
+                      >
+                        {savedExternalIds.has(study.external_id) ? "Salvo" : "Salvar no conjunto"}
+                      </button>
+                    </article>
+                  );
+                })}
               </div>
 
               <div className="triagem-column">
                 <h2>Triagem do conjunto</h2>
                 {studies.length === 0 ? <p className="muted">Salve estudos captados para iniciar as decisões.</p> : null}
-                {studies.map((study) => (
-                  <article className="triagem-study-card" data-decision={study.decisao} key={study.id}>
-                    <span>{decisionLabels[study.decisao]} · {study.ano ?? "s.d."}</span>
-                    <h3>{study.titulo}</h3>
-                    <p>{study.periodico ?? "Periódico não informado"}</p>
-                    <small>{study.resumo?.slice(0, 420) ?? "Sem resumo disponível."}</small>
-                    {study.motivo_exclusao ? <em>Motivo: {study.motivo_exclusao}</em> : null}
-                    <div className="triagem-decision-row">
-                      <button onClick={() => void updateDecision(study, "incluir")} type="button">
-                        Incluir
-                      </button>
-                      <button onClick={() => void updateDecision(study, "talvez")} type="button">
-                        Talvez
-                      </button>
-                      {exclusionReasons.slice(0, 3).map((reason) => (
-                        <button key={reason} onClick={() => void updateDecision(study, "excluir", reason)} type="button">
-                          {reason}
+                {studies.map((study) => {
+                  const possibleDuplicate = duplicateStudyIds.has(study.id);
+
+                  return (
+                    <article
+                      className="triagem-study-card"
+                      data-decision={study.decisao}
+                      data-duplicate={possibleDuplicate}
+                      key={study.id}
+                    >
+                      <span>{decisionLabels[study.decisao]} · {study.ano ?? "s.d."}</span>
+                      <h3>{study.titulo}</h3>
+                      <p>{study.periodico ?? "Periódico não informado"}</p>
+                      <small>{study.resumo?.slice(0, 420) ?? "Sem resumo disponível."}</small>
+                      {possibleDuplicate ? (
+                        <em className="triagem-duplicate-flag">Possível duplicado por DOI ou título semelhante.</em>
+                      ) : null}
+                      {study.motivo_exclusao ? <em>Motivo: {study.motivo_exclusao}</em> : null}
+                      <div className="triagem-decision-row">
+                        <button onClick={() => void updateDecision(study, "incluir")} type="button">
+                          Incluir
                         </button>
-                      ))}
-                    </div>
-                    {study.url ? (
-                      <a href={study.url} rel="noreferrer" target="_blank">
-                        Abrir fonte
-                      </a>
-                    ) : null}
-                  </article>
-                ))}
+                        <button onClick={() => void updateDecision(study, "talvez")} type="button">
+                          Talvez
+                        </button>
+                        {exclusionReasons.slice(0, 3).map((reason) => (
+                          <button key={reason} onClick={() => void updateDecision(study, "excluir", reason)} type="button">
+                            {reason}
+                          </button>
+                        ))}
+                        {possibleDuplicate ? (
+                          <button onClick={() => void updateDecision(study, "excluir", "Duplicado conceitual")} type="button">
+                            Marcar duplicado
+                          </button>
+                        ) : null}
+                      </div>
+                      {study.url ? (
+                        <a href={study.url} rel="noreferrer" target="_blank">
+                          Abrir fonte
+                        </a>
+                      ) : null}
+                    </article>
+                  );
+                })}
               </div>
             </section>
           </div>
