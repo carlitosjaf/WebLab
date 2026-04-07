@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 
 import { CronogramaGenerator } from "@/components/plataforma-brasil/cronograma-generator";
+import { OrcamentoGenerator } from "@/components/plataforma-brasil/orcamento-generator";
 import { SubmissionChecklist } from "@/components/plataforma-brasil/submission-checklist";
 import { TcleGenerator } from "@/components/plataforma-brasil/tcle-generator";
 
@@ -66,11 +67,24 @@ export default async function PlataformaBrasilPage({ searchParams }: PlataformaB
           >
             Cronograma
           </Link>
+          <Link
+            href="/dashboard/plataforma-brasil?tab=orcamento"
+            className={`button ${currentTab === "orcamento" ? "button-primary" : "button-secondary"}`}
+            style={{ textDecoration: "none" }}
+          >
+            Orçamento
+          </Link>
         </div>
 
         <section className="glass-card printable-area" style={{ padding: "32px", background: "#fff" }}>
           <Suspense fallback={<div>Carregando...</div>}>
-            {currentTab === "tcle" ? <TcleGenerator /> : <CronogramaGenerator />}
+            {currentTab === "cronograma" ? (
+              <CronogramaGenerator />
+            ) : currentTab === "orcamento" ? (
+              <OrcamentoGenerator />
+            ) : (
+              <TcleGenerator />
+            )}
           </Suspense>
         </section>
       </div>
