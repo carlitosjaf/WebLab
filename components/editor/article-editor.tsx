@@ -36,7 +36,7 @@ type SectionGroup = {
   }>;
 };
 
-type CognitiveTab = "referencias" | "estrutura";
+type CognitiveTab = "referencias" | "estrutura" | "texto";
 
 type ManuscriptHeading = {
   id: string;
@@ -63,12 +63,29 @@ type SectionDiagnostic = {
   action: string;
 };
 
+type TextDiagnostic = {
+  id: string;
+  severity: "info" | "warning";
+  title: string;
+  message: string;
+  action: string;
+};
+
+type ConceptSignal = {
+  id: string;
+  term: string;
+  count: number;
+  sections: string[];
+};
+
 type ManuscriptAnalysis = {
   headings: ManuscriptHeading[];
   missingSections: string[];
   citationGaps: CitationGap[];
   usedReferences: UsedReference[];
   sectionDiagnostics: SectionDiagnostic[];
+  textDiagnostics: TextDiagnostic[];
+  conceptSignals: ConceptSignal[];
 };
 
 type ReferenceSuggestion = {
@@ -248,6 +265,72 @@ function includesAny(text: string, markers: string[]) {
   return markers.some((marker) => text.includes(marker));
 }
 
+const connectiveMarkers = [
+  "além disso",
+  "alem disso",
+  "assim",
+  "contudo",
+  "desse modo",
+  "dessa forma",
+  "entretanto",
+  "no entanto",
+  "por outro lado",
+  "portanto",
+  "todavia"
+];
+
+const vagueArgumentMarkers = [
+  "alguns autores",
+  "diversos fatores",
+  "é importante",
+  "e importante",
+  "muito relevante",
+  "questão complexa",
+  "questao complexa",
+  "vários estudos",
+  "varios estudos"
+];
+
+const conceptStopwords = new Set([
+  "ainda",
+  "alem",
+  "além",
+  "analise",
+  "análise",
+  "artigo",
+  "assim",
+  "atraves",
+  "através",
+  "brasil",
+  "brasileira",
+  "brasileiro",
+  "dados",
+  "dessa",
+  "desse",
+  "deste",
+  "durante",
+  "entre",
+  "estudo",
+  "forma",
+  "foram",
+  "maior",
+  "menor",
+  "mesmo",
+  "muito",
+  "neste",
+  "parte",
+  "pesquisa",
+  "pode",
+  "podem",
+  "porque",
+  "processo",
+  "quando",
+  "sobre",
+  "tambem",
+  "também",
+  "texto"
+]);
+
 function getNodeText(node: Record<string, unknown>): string {
   const text = typeof node.text === "string" ? node.text : "";
   const content = Array.isArray(node.content) ? node.content : [];
@@ -308,6 +391,123 @@ function getReferenceItems(content: ArticleContent | null): UsedReference[] {
   }
 
   return items;
+}
+
+function getConceptTerms(text: string) {
+  return (
+    text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .match(/[a-zA-ZÀ-ÿ]{5,}/g)
+      ?.filter((word) => !conceptStopwords.has(word))
+      .slice(0, 400) ?? []
+  );
+}
+
+function detectConceptSignals(sectionTexts: Map<string, string>): ConceptSignal[] {
+  const terms = new Map<string, { count: number; sections: Set<string> }>();
+
+  sectionTexts.forEach((text, section) => {
+    getConceptTerms(text).forEach((term) => {
+      const current = terms.get(term) ?? { count: 0, sections: new Set<string>() };
+      current.count += 1;
+      current.sections.add(section);
+      terms.set(term, current);
+    });
+  });
+
+  return Array.from(terms.entries())
+    .filter(([, data]) => data.count >= 3)
+    .sort((a, b) => b[1].count - a[1].count)
+    .slice(0, 8)
+    .map(([term, data]) => ({
+      id: `concept-${term}`,
+      term,
+      count: data.count,
+      sections: Array.from(data.sections).slice(0, 4)
+    }));
+}
+
+function diagnoseTextFlow(
+  paragraphs: Array<{ id: string; section: string; text: string }>,
+  sectionTexts: Map<string, string>,
+  conceptSignals: ConceptSignal[]
+): TextDiagnostic[] {
+  const diagnostics: TextDiagnostic[] = [];
+  const pushDiagnostic = (title: string, message: string, action: string, severity: TextDiagnostic["severity"] = "warning") => {
+    diagnostics.push({
+      id: `text-${diagnostics.length}`,
+      severity,
+      title,
+      message,
+      action
+    });
+  };
+
+  const longParagraph = paragraphs.find((paragraph) => paragraph.text.split(/\s+/).length > 150);
+  if (longParagraph) {
+    pushDiagnostic(
+      "Parágrafo muito denso",
+      `Há um parágrafo longo em ${longParagraph.section}. Ele pode estar misturando contexto, argumento e evidência.`,
+      "Divida em dois blocos: um para a ideia central e outro para evidência, dado ou consequência."
+    );
+  }
+
+  const longSentence = paragraphs
+    .flatMap((paragraph) =>
+      paragraph.text
+        .split(/(?<=[.!?])\s+/)
+        .map((sentence) => ({ sentence, section: paragraph.section }))
+    )
+    .find((item) => item.sentence.split(/\s+/).length > 45);
+  if (longSentence) {
+    pushDiagnostic(
+      "Frase longa",
+      `Uma frase em ${longSentence.section} passa de 45 palavras e pode perder força argumentativa.`,
+      "Separe causa, evidência e conclusão em frases diferentes."
+    );
+  }
+
+  const fullText = Array.from(sectionTexts.values()).join(" ").toLowerCase();
+  const connectiveCount = connectiveMarkers.filter((marker) => fullText.includes(marker)).length;
+  if (paragraphs.length >= 5 && connectiveCount < 2) {
+    pushDiagnostic(
+      "Conexão entre ideias",
+      "O texto tem vários parágrafos, mas poucos conectores argumentativos detectáveis.",
+      "Use transições como “além disso”, “no entanto”, “portanto” ou “dessa forma” quando mudar de ideia ou evidência."
+    );
+  }
+
+  const vagueMarker = vagueArgumentMarkers.find((marker) => fullText.includes(marker));
+  if (vagueMarker) {
+    pushDiagnostic(
+      "Formulação genérica",
+      `A expressão “${vagueMarker}” pode ficar vaga se não vier acompanhada de evidência.`,
+      "Troque por uma afirmação mais específica ou acrescente dado, autor, período, população ou contexto."
+    );
+  }
+
+  const repeatedConcept = conceptSignals.find((concept) => concept.count >= 8);
+  if (repeatedConcept) {
+    pushDiagnostic(
+      "Conceito muito repetido",
+      `“${repeatedConcept.term}” aparece muitas vezes no manuscrito.`,
+      "Verifique se a repetição cria ênfase útil ou se pode ser substituída por termos mais precisos em alguns trechos.",
+      "info"
+    );
+  }
+
+  if (diagnostics.length === 0 && paragraphs.length > 0) {
+    pushDiagnostic(
+      "Fluxo textual estável",
+      "Não encontrei sinais fortes de repetição, frase excessivamente longa ou quebra argumentativa nesta leitura.",
+      "Use esta aba como revisão final depois de expandir novas seções.",
+      "info"
+    );
+  }
+
+  return diagnostics.slice(0, 6);
 }
 
 function diagnoseSections(sectionTexts: Map<string, string>, usedReferences: UsedReference[]): SectionDiagnostic[] {
@@ -438,6 +638,7 @@ function analyseManuscript(content: ArticleContent | null): ManuscriptAnalysis {
   const headings: ManuscriptHeading[] = [];
   const citationGaps: CitationGap[] = [];
   const sectionTexts = new Map<string, string>();
+  const paragraphs: Array<{ id: string; section: string; text: string }> = [];
   let currentSection = "Sem seção";
 
   nodes.forEach((node, index) => {
@@ -465,6 +666,12 @@ function analyseManuscript(content: ArticleContent | null): ManuscriptAnalysis {
     }
 
     if ((node.type === "paragraph" || node.type === "blockquote") && text.length > 90) {
+      paragraphs.push({
+        id: `paragraph-${index}`,
+        section: currentSection,
+        text
+      });
+
       const sentences = text
         .split(/(?<=[.!?])\s+/)
         .map((sentence) => sentence.trim())
@@ -491,13 +698,16 @@ function analyseManuscript(content: ArticleContent | null): ManuscriptAnalysis {
     (section) => !existingSections.has(normalizeSectionName(section))
   );
   const usedReferences = getReferenceItems(content);
+  const conceptSignals = detectConceptSignals(sectionTexts);
 
   return {
     headings,
     missingSections,
     citationGaps,
     usedReferences,
-    sectionDiagnostics: diagnoseSections(sectionTexts, usedReferences)
+    sectionDiagnostics: diagnoseSections(sectionTexts, usedReferences),
+    textDiagnostics: diagnoseTextFlow(paragraphs, sectionTexts, conceptSignals),
+    conceptSignals
   };
 }
 
@@ -1964,6 +2174,13 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
               >
                 Estrutura
               </button>
+              <button
+                className={cognitiveTab === "texto" ? "active" : ""}
+                onClick={() => setCognitiveTab("texto")}
+                type="button"
+              >
+                Texto
+              </button>
             </div>
 
             {cognitiveTab === "referencias" ? (
@@ -2068,7 +2285,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                   )}
                 </div>
               </div>
-            ) : (
+            ) : cognitiveTab === "estrutura" ? (
               <div className="editor-cognitive-panel">
                 <div className="editor-cognitive-stat-grid">
                   <article>
@@ -2138,6 +2355,60 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                         >
                           Adicionar {section}
                         </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="editor-cognitive-panel">
+                <div className="editor-cognitive-stat-grid">
+                  <article>
+                    <strong>{manuscriptAnalysis.textDiagnostics.length}</strong>
+                    <span>pontos de revisão</span>
+                  </article>
+                  <article>
+                    <strong>{manuscriptAnalysis.conceptSignals.length}</strong>
+                    <span>conceitos recorrentes</span>
+                  </article>
+                </div>
+
+                <div className="editor-cognitive-block">
+                  <strong>Clareza e argumento</strong>
+                  {manuscriptAnalysis.textDiagnostics.length === 0 ? (
+                    <p className="muted">Ainda preciso de mais texto para avaliar o fluxo argumentativo.</p>
+                  ) : (
+                    <div className="editor-text-diagnostic-list">
+                      {manuscriptAnalysis.textDiagnostics.map((diagnostic) => (
+                        <article data-severity={diagnostic.severity} key={diagnostic.id}>
+                          <div>
+                            <strong>{diagnostic.title}</strong>
+                            <span>{diagnostic.severity === "warning" ? "revisar" : "ok"}</span>
+                          </div>
+                          <p>{diagnostic.message}</p>
+                          <small>{diagnostic.action}</small>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="editor-cognitive-block">
+                  <strong>Conexões conceituais</strong>
+                  {manuscriptAnalysis.conceptSignals.length === 0 ? (
+                    <p className="muted">Quando o manuscrito crescer, o WebLab vai destacar conceitos recorrentes entre seções.</p>
+                  ) : (
+                    <div className="editor-concept-signal-list">
+                      {manuscriptAnalysis.conceptSignals.map((concept) => (
+                        <article key={concept.id}>
+                          <div>
+                            <strong>{concept.term}</strong>
+                            <span>{concept.count} ocorrências</span>
+                          </div>
+                          <small>
+                            Aparece em {concept.sections.join(", ")}. Use isso para conectar ideias ou cortar repetição.
+                          </small>
+                        </article>
                       ))}
                     </div>
                   )}

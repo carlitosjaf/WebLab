@@ -3133,7 +3133,7 @@ textarea:focus,
 
 .editor-cognitive-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   padding: 5px;
   border-radius: 999px;
@@ -3217,6 +3217,8 @@ textarea:focus,
 .editor-citation-gap-list,
 .editor-reference-suggestions,
 .editor-section-diagnostic-list,
+.editor-text-diagnostic-list,
+.editor-concept-signal-list,
 .editor-missing-section-list {
   display: grid;
   gap: 10px;
@@ -3274,7 +3276,9 @@ textarea:focus,
   font-size: 0.78rem;
 }
 
-.editor-section-diagnostic-list article {
+.editor-section-diagnostic-list article,
+.editor-text-diagnostic-list article,
+.editor-concept-signal-list article {
   display: grid;
   gap: 8px;
   padding: 12px;
@@ -3288,18 +3292,30 @@ textarea:focus,
   background: #f0fdfa;
 }
 
-.editor-section-diagnostic-list article > div {
+.editor-text-diagnostic-list article[data-severity="info"],
+.editor-concept-signal-list article {
+  border-color: rgba(20, 184, 166, 0.26);
+  background: #f0fdfa;
+}
+
+.editor-section-diagnostic-list article > div,
+.editor-text-diagnostic-list article > div,
+.editor-concept-signal-list article > div {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
 
-.editor-section-diagnostic-list article strong {
+.editor-section-diagnostic-list article strong,
+.editor-text-diagnostic-list article strong,
+.editor-concept-signal-list article strong {
   color: #0f172a;
 }
 
-.editor-section-diagnostic-list article span {
+.editor-section-diagnostic-list article span,
+.editor-text-diagnostic-list article span,
+.editor-concept-signal-list article span {
   flex: 0 0 auto;
   border-radius: 999px;
   background: rgba(245, 158, 11, 0.16);
@@ -3316,13 +3332,22 @@ textarea:focus,
   color: #0f766e;
 }
 
-.editor-section-diagnostic-list p {
+.editor-text-diagnostic-list article[data-severity="info"] span,
+.editor-concept-signal-list article span {
+  background: rgba(20, 184, 166, 0.14);
+  color: #0f766e;
+}
+
+.editor-section-diagnostic-list p,
+.editor-text-diagnostic-list p {
   margin: 0;
   color: #334155;
   line-height: 1.45;
 }
 
-.editor-section-diagnostic-list small {
+.editor-section-diagnostic-list small,
+.editor-text-diagnostic-list small,
+.editor-concept-signal-list small {
   color: #64748b;
   line-height: 1.4;
 }
