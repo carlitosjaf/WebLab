@@ -23,6 +23,66 @@ export type IndexerSearchLink = {
   label: string;
 };
 
+export type IndexerAccessModel = "api_publica" | "linkout_catalogo" | "licenca_institucional";
+
+export type IndexerStrategy = {
+  indexer: IndexerName;
+  accessModel: IndexerAccessModel;
+  priority: "alta" | "media";
+  note: string;
+};
+
+export const INDEXER_STRATEGY: IndexerStrategy[] = [
+  {
+    indexer: "DOAJ",
+    accessModel: "api_publica",
+    priority: "alta",
+    note: "Boa fonte para confirmar acesso aberto e metadados de periódicos."
+  },
+  {
+    indexer: "SciELO",
+    accessModel: "api_publica",
+    priority: "alta",
+    note: "Prioritária para periódicos latino-americanos e produção em saúde pública."
+  },
+  {
+    indexer: "ERIC",
+    accessModel: "linkout_catalogo",
+    priority: "media",
+    note: "Útil quando o manuscrito cruza educação, ensino e formação em saúde."
+  },
+  {
+    indexer: "Latindex",
+    accessModel: "linkout_catalogo",
+    priority: "media",
+    note: "Boa camada de conferência editorial para periódicos ibero-americanos."
+  },
+  {
+    indexer: "Diadorim",
+    accessModel: "linkout_catalogo",
+    priority: "media",
+    note: "Ajuda a verificar políticas editoriais e acesso aberto no contexto brasileiro."
+  },
+  {
+    indexer: "Scopus",
+    accessModel: "licenca_institucional",
+    priority: "alta",
+    note: "Integração completa depende de acesso institucional/API Elsevier."
+  },
+  {
+    indexer: "Web of Science",
+    accessModel: "licenca_institucional",
+    priority: "alta",
+    note: "Integração completa depende de licença paga/API Clarivate."
+  },
+  {
+    indexer: "Portal CAPES",
+    accessModel: "linkout_catalogo",
+    priority: "alta",
+    note: "Essencial como verificação de acesso e disponibilidade institucional."
+  }
+];
+
 type OpenAlexSourceLike = {
   display_name?: string;
   host_organization_name?: string;

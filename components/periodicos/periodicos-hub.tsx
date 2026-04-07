@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   INDEXER_OPTIONS,
+  INDEXER_STRATEGY,
   buildIndexerSearchLinks,
   buildKeywordQuery,
   calculateEditorialScore,
@@ -114,6 +115,17 @@ function getChecklistProgress(entry: SavedShortlist) {
     completed,
     total: SHORTLIST_CHECKLIST.length
   };
+}
+
+function formatAccessModel(accessModel: (typeof INDEXER_STRATEGY)[number]["accessModel"]) {
+  switch (accessModel) {
+    case "api_publica":
+      return "Automatizável";
+    case "licenca_institucional":
+      return "Depende de licença";
+    default:
+      return "Verificação assistida";
+  }
 }
 
 function buildReferenceList(citation: string) {
@@ -732,6 +744,26 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
               O WebLab usa sinais bibliográficos para sugerir revistas e abre a verificação nas fontes oficiais.
               Antes de submeter, confirme escopo, indexação ativa, APC e instruções aos autores.
             </span>
+          </div>
+
+          <div className="periodicos-source-strategy">
+            <div>
+              <strong>Plano de validação</strong>
+              <span>
+                O radar separa fontes automatizáveis, catálogos de conferência e bases que dependem de licença institucional.
+              </span>
+            </div>
+            <div className="periodicos-source-grid">
+              {INDEXER_STRATEGY.map((source) => (
+                <article key={source.indexer}>
+                  <div>
+                    <strong>{source.indexer}</strong>
+                    <span>{formatAccessModel(source.accessModel)}</span>
+                  </div>
+                  <p>{source.note}</p>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
 
