@@ -81,11 +81,23 @@ create table if not exists public.periodicos_shortlists (
   )
 );
 
+create table if not exists public.conteudos_site_equipe (
+  id uuid primary key default gen_random_uuid(),
+  equipe_id uuid not null references public.equipes (id) on delete cascade,
+  titulo_publico text,
+  resumo_publico text,
+  integrantes jsonb not null default '[]'::jsonb,
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (equipe_id)
+);
+
 alter table public.plataforma_brasil_checklists enable row level security;
 alter table public.periodicos_shortlists enable row level security;
+alter table public.conteudos_site_equipe enable row level security;
 
 grant select, insert, update on public.plataforma_brasil_checklists to authenticated;
 grant select, insert, update, delete on public.periodicos_shortlists to authenticated;
+grant select, insert, update on public.conteudos_site_equipe to authenticated;
 
 drop policy if exists "team can read checklist" on public.plataforma_brasil_checklists;
 create policy "team can read checklist"

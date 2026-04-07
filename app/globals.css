@@ -2291,6 +2291,33 @@ textarea:focus,
   color: #5eead4;
 }
 
+.config-member-editor {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.config-member-list {
+  display: grid;
+  gap: 10px;
+}
+
+.config-member-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--card-soft);
+}
+
+.config-member-item div {
+  display: grid;
+  gap: 4px;
+}
+
 @media (max-width: 980px) {
   .lovable-header {
     height: auto;

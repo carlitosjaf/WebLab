@@ -10,6 +10,14 @@ export type ArticleContent = {
   content: Array<Record<string, unknown>>;
 };
 
+export type TeamSiteMember = {
+  nome: string;
+  funcao: string;
+  categoria: string;
+  email?: string | null;
+  imagem?: string | null;
+};
+
 export type Database = {
   public: {
     Views: Record<string, never>;
@@ -231,6 +239,39 @@ export type Database = {
             columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "perfis";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      conteudos_site_equipe: {
+        Row: {
+          id: string;
+          equipe_id: string;
+          titulo_publico: string | null;
+          resumo_publico: string | null;
+          integrantes: TeamSiteMember[];
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          equipe_id: string;
+          titulo_publico?: string | null;
+          resumo_publico?: string | null;
+          integrantes?: TeamSiteMember[];
+          updated_at?: string | null;
+        };
+        Update: {
+          titulo_publico?: string | null;
+          resumo_publico?: string | null;
+          integrantes?: TeamSiteMember[];
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "conteudos_site_equipe_equipe_id_fkey";
+            columns: ["equipe_id"];
+            isOneToOne: true;
+            referencedRelation: "equipes";
             referencedColumns: ["id"];
           }
         ];
