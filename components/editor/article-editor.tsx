@@ -1026,6 +1026,12 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                     : "Sincronizado"}
               </span>
               <span className="muted">{saveMessage}</span>
+              <span className="editor-word-chip">
+                {editor
+                  ? countArticleWords(editor.getJSON() as ArticleContent)
+                  : countArticleWords(article.conteudo_json)}{" "}
+                palavras
+              </span>
             </div>
           </div>
 
@@ -1070,6 +1076,10 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
             >
               {isExportingDocx ? "Gerando DOCX..." : "Exportar DOCX"}
             </button>
+
+            <Link className="button editor-radar-link" href={"/dashboard/periodicos" as Route}>
+              Radar editorial
+            </Link>
 
             <button
               className="button"

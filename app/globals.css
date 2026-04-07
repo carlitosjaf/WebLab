@@ -2327,6 +2327,25 @@ textarea:focus,
   gap: 16px;
 }
 
+.config-site-panel {
+  padding: 28px;
+  display: grid;
+  gap: 18px;
+}
+
+.config-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.config-action-row .button {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  box-shadow: none;
+}
+
 .config-member-list {
   display: grid;
   gap: 10px;
@@ -2367,6 +2386,17 @@ textarea:focus,
   object-fit: cover;
 }
 
+.config-empty-members {
+  min-height: 78px;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #cbd5e1;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.62);
+  color: #64748b;
+  font-weight: 700;
+}
+
 .editor-workspace {
   min-height: 100vh;
   padding: 0;
@@ -2393,6 +2423,18 @@ textarea:focus,
   padding: 8px max(24px, calc((100vw - 1280px) / 2 + 24px)) !important;
 }
 
+.editor-word-chip {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .editor-command-bar .button,
 .editor-toolbar .button {
   min-height: 30px;
@@ -2400,6 +2442,13 @@ textarea:focus,
   border-radius: 999px !important;
   box-shadow: none;
   font-size: 0.86rem;
+}
+
+.editor-radar-link {
+  text-decoration: none;
+  background: #eefcf8 !important;
+  color: #0f766e !important;
+  border: 1px solid #bdeee3 !important;
 }
 
 .editor-command-bar .muted,
@@ -2446,6 +2495,11 @@ textarea:focus,
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
 }
 
+.editor-status-card,
+.editor-radar-card {
+  display: none !important;
+}
+
 .editor-radar-card {
   margin-top: 16px;
 }
@@ -2480,7 +2534,7 @@ textarea:focus,
 .editor-workspace .editor-title-input {
   display: block;
   width: min(960px, 100%) !important;
-  margin: 28px auto 0;
+  margin: 18px auto 0;
   padding: 42px 76px 18px !important;
   border: 1px solid #e2e8f0 !important;
   border-bottom: 0 !important;

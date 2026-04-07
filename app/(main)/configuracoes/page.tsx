@@ -39,6 +39,7 @@ export default function ConfiguracoesPage() {
   const [team, setTeam] = useState<TeamRow | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
   const [teamContent, setTeamContent] = useState<TeamSiteContentState>(defaultTeamSiteContent);
+  const [registeredMembers, setRegisteredMembers] = useState<TeamSiteMember[]>([]);
   const [memberDraft, setMemberDraft] = useState<TeamSiteMember>(emptyMember);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, startSaveTransition] = useTransition();
@@ -137,7 +138,7 @@ export default function ConfiguracoesPage() {
           .eq("equipe_id", loadedTeam.id)
           .order("nome_completo", { ascending: true });
 
-        const registeredMembers: TeamSiteMember[] =
+        const registeredTeamMembers: TeamSiteMember[] =
           profileMembers?.flatMap((member) => {
             const nome = member.nome_completo?.trim();
 
@@ -162,10 +163,11 @@ export default function ConfiguracoesPage() {
             loadedTeam.nome
           );
 
+          setRegisteredMembers(registeredTeamMembers);
           setTeam(loadedTeam);
           setTeamContent({
             ...siteContent,
-            integrantes: siteContent.integrantes.length > 0 ? siteContent.integrantes : registeredMembers
+            integrantes: siteContent.integrantes.length > 0 ? siteContent.integrantes : registeredTeamMembers
           });
           setErrorMessage(contentError ? contentError.message : null);
           setIsLoading(false);
@@ -243,6 +245,27 @@ export default function ConfiguracoesPage() {
       ...current,
       integrantes: current.integrantes.filter((_, index) => index !== memberIndex)
     }));
+  };
+
+  const handleUseRegisteredMembers = () => {
+    if (registeredMembers.length === 0) {
+      setSaveMessage("Ainda não encontrei membros cadastrados nessa equipe.");
+      return;
+    }
+
+    setTeamContent((current) => ({
+      ...current,
+      integrantes: registeredMembers
+    }));
+    setSaveMessage("Lista preenchida com os membros cadastrados da equipe. Revise e salve.");
+  };
+
+  const handleClearMembers = () => {
+    setTeamContent((current) => ({
+      ...current,
+      integrantes: []
+    }));
+    setSaveMessage("Lista de integrantes limpa. Salve para refletir na aba Equipe.");
   };
 
   const handleSaveContent = () => {
@@ -351,7 +374,7 @@ export default function ConfiguracoesPage() {
           </article>
         </section>
 
-        <section className="glass-card" style={{ padding: "28px", display: "grid", gap: "18px" }}>
+        <section className="glass-card config-site-panel">
           <div style={{ display: "grid", gap: "8px" }}>
             <span className="eyebrow">conteúdo da aba equipe</span>
             <h2 style={{ margin: 0 }}>Identidade pública da equipe</h2>
@@ -435,12 +458,21 @@ export default function ConfiguracoesPage() {
             </div>
           </div>
 
-          <button className="button button-secondary" onClick={handleAddMember} type="button">
-            Adicionar integrante
-          </button>
+          <div className="config-action-row">
+            <button className="button button-secondary" onClick={handleAddMember} type="button">
+              Adicionar integrante
+            </button>
+            <button className="button" onClick={handleUseRegisteredMembers} type="button">
+              Usar membros cadastrados
+            </button>
+            <button className="button" onClick={handleClearMembers} type="button">
+              Limpar lista
+            </button>
+          </div>
 
           <div className="config-member-list">
-            {teamContent.integrantes.map((member, index) => (
+            {teamContent.integrantes.length > 0 ? (
+              teamContent.integrantes.map((member, index) => (
               <article className="config-member-item" key={`${member.nome}-${index}`}>
                 <div className="config-member-preview" aria-hidden="true">
                   {member.imagem ? <img alt="" src={member.imagem} /> : <span>{getInitials(member.nome)}</span>}
@@ -459,7 +491,12 @@ export default function ConfiguracoesPage() {
                   Remover
                 </button>
               </article>
-            ))}
+              ))
+            ) : (
+              <div className="config-empty-members">
+                Nenhum integrante configurado para a página Equipe.
+              </div>
+            )}
           </div>
 
           {errorMessage ? <p className="danger">{errorMessage}</p> : null}
