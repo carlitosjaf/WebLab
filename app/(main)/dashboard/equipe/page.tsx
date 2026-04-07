@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { PublicPageHero } from "@/components/public/public-layout";
@@ -39,6 +40,7 @@ function TeamAvatar({ member, size = "large" }: { member: TeamSiteMember; size?:
 export default function TeamPage() {
   const router = useRouter();
   const [content, setContent] = useState<TeamSiteContentState>(defaultTeamSiteContent);
+  const [canManageTeam, setCanManageTeam] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const featuredMember =
     content.integrantes.find((member) => member.categoria.toLowerCase().includes("coord")) ??
@@ -65,7 +67,7 @@ export default function TeamPage() {
 
       const { data: profile } = await supabase
         .from("perfis")
-        .select("equipe_id")
+        .select("equipe_id, role")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -113,11 +115,13 @@ export default function TeamPage() {
         }) ?? [];
 
       if (isMounted) {
+        const role = profile.role as UserRole;
         const siteContent = getTeamSiteContentFromRow(
           (loadedContent as TeamSiteContentRow | null) ?? null,
           team?.nome
         );
 
+        setCanManageTeam(role === "coordenador" || role === "coordenador_geral");
         setContent({
           ...siteContent,
           integrantes: siteContent.integrantes.length > 0 ? siteContent.integrantes : registeredMembers
@@ -171,7 +175,14 @@ export default function TeamPage() {
           {!isLoading && Object.keys(groupedMembers).length === 0 ? (
             <div className="team-section-block">
               <h2>Equipe</h2>
-              <div className="public-empty-line" />
+              <div className="public-empty-line">
+                <p>Nenhum integrante cadastrado para exibição pública ainda.</p>
+                {canManageTeam ? (
+                  <Link className="public-inline-link" href="/configuracoes">
+                    Adicionar integrantes em Configurações →
+                  </Link>
+                ) : null}
+              </div>
             </div>
           ) : null}
 

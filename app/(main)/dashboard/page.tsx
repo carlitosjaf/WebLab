@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { DashboardShell, type DashboardArticle } from "@/components/dashboard/dashboard-shell";
 import { TeamOnboarding } from "@/components/dashboard/team-onboarding";
 import { getSupabaseClient } from "@/lib/supabaseClient";
-import type { Database } from "@/lib/types";
+import type { Database, TeamNoticeRow } from "@/lib/types";
 import { normalizeInviteCode } from "@/lib/weblab";
 
 type ProfileRow = Database["public"]["Tables"]["perfis"]["Row"];
@@ -14,6 +14,7 @@ type TeamRow = Database["public"]["Tables"]["equipes"]["Row"];
 
 type DashboardData = {
   articles: DashboardArticle[];
+  notices: TeamNoticeRow[];
   profile: ProfileRow;
   teamName: string;
 };
@@ -94,6 +95,7 @@ export default function DashboardPage() {
 
         let teamName = "Sem equipe";
         let articles: DashboardArticle[] = [];
+        let notices: TeamNoticeRow[] = [];
 
         if (profile.equipe_id || profile.role === "coordenador_geral") {
           let teamMap = new Map<string, TeamRow>();
@@ -186,11 +188,23 @@ export default function DashboardPage() {
               ? profileMap.get(article.last_editor_id) ?? "Membro da equipe"
               : null
           }));
+
+          if (profile.equipe_id) {
+            const { data: teamNotices } = await supabase
+              .from("avisos_equipe")
+              .select("id, equipe_id, titulo, texto, categoria, data_evento, link_url, created_by, publicado_em, updated_at")
+              .eq("equipe_id", profile.equipe_id)
+              .order("publicado_em", { ascending: false })
+              .limit(3);
+
+            notices = (teamNotices as TeamNoticeRow[] | null) ?? [];
+          }
         }
 
         if (isMounted) {
           setData({
             articles,
+            notices,
             profile,
             teamName
           });
@@ -251,6 +265,7 @@ export default function DashboardPage() {
   return (
     <DashboardShell
       articles={data.articles}
+      notices={data.notices}
       profileId={data.profile.id}
       profileName={data.profile.nome_completo ?? "Pesquisador"}
       role={data.profile.role}

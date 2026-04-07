@@ -4,9 +4,8 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
-import { newsItems } from "@/lib/public-site";
 import { getSupabaseClient } from "@/lib/supabaseClient";
-import type { ArticleRow, UserRole } from "@/lib/types";
+import type { ArticleRow, TeamNoticeRow, UserRole } from "@/lib/types";
 import {
   countArticleWords,
   formatRelativeUpdate,
@@ -21,6 +20,7 @@ export type DashboardArticle = ArticleRow & {
 
 type DashboardShellProps = {
   articles: DashboardArticle[];
+  notices: TeamNoticeRow[];
   profileId: string;
   profileName: string;
   teamName: string;
@@ -81,8 +81,22 @@ function StatIcon({ name }: { name: "users" | "book" | "flask" | "dollar" }) {
   );
 }
 
+function formatNoticeDate(notice: TeamNoticeRow) {
+  const date = notice.data_evento ?? notice.publicado_em;
+
+  if (!date) {
+    return "WebLab";
+  }
+
+  return new Date(notice.data_evento ? `${date}T00:00:00` : date).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "short"
+  });
+}
+
 export function DashboardShell({
   articles,
+  notices,
   profileId,
   profileName,
   role,
@@ -197,6 +211,16 @@ export function DashboardShell({
 
   const canDeleteArticle = (article: DashboardArticle) =>
     role === "coordenador_geral" || role === "coordenador" || article.autor_id === profileId;
+
+  const canManageSite = role === "coordenador" || role === "coordenador_geral";
+  const recentNewsItems =
+    notices.length > 0
+      ? notices.map((notice) => ({
+          category: notice.categoria,
+          date: formatNoticeDate(notice),
+          title: notice.titulo
+        }))
+      : [];
 
   return (
     <main className="lovable-home dashboard-home">
@@ -323,7 +347,7 @@ export function DashboardShell({
           </div>
 
           <div className="lovable-news-list">
-            {newsItems.slice(0, 3).map((item) => (
+            {recentNewsItems.map((item) => (
               <article className="lovable-news-item" key={item.title}>
                 <div>
                   <div className="lovable-news-meta">
@@ -335,6 +359,32 @@ export function DashboardShell({
                 <span aria-hidden="true">→</span>
               </article>
             ))}
+            {notices.length === 0 ? (
+              <article className="lovable-news-item dashboard-home-empty-news">
+                <div>
+                  <div className="lovable-news-meta">
+                    <span>Equipe</span>
+                    <time>Avisos</time>
+                  </div>
+                  <p>
+                    {canManageSite
+                      ? "Publique o primeiro aviso, evento ou prazo da equipe."
+                      : "A coordenação ainda não publicou avisos para a equipe."}
+                  </p>
+                </div>
+                {canManageSite ? (
+                  <button
+                    className="lovable-small-button"
+                    onClick={() => router.push("/configuracoes" as Route)}
+                    type="button"
+                  >
+                    Publicar
+                  </button>
+                ) : (
+                  <span aria-hidden="true">→</span>
+                )}
+              </article>
+            ) : null}
           </div>
         </div>
       </section>

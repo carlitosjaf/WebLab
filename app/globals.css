@@ -2059,9 +2059,18 @@ textarea:focus,
 
 .public-empty-line {
   min-height: 80px;
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  padding: 22px;
   border-radius: 14px;
   border: 1px dashed #cbd5e1;
   background: rgba(255, 255, 255, 0.52);
+}
+
+.public-empty-line p {
+  margin: 0;
+  color: #64748b;
 }
 
 .publication-featured-grid {

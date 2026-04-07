@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { PublicPageHero } from "@/components/public/public-layout";
 import { getSupabaseClient } from "@/lib/supabaseClient";
-import type { TeamNoticeRow } from "@/lib/types";
+import type { TeamNoticeRow, UserRole } from "@/lib/types";
 
 const categories = ["Todos", "Aviso", "Evento", "Publicação", "Prazo"] as const;
 
@@ -27,6 +28,7 @@ export default function NewsPage() {
   const router = useRouter();
   const [notices, setNotices] = useState<TeamNoticeRow[]>([]);
   const [activeCategory, setActiveCategory] = useState<(typeof categories)[number]>("Todos");
+  const [canManageNotices, setCanManageNotices] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -46,7 +48,7 @@ export default function NewsPage() {
 
       const { data: profile } = await supabase
         .from("perfis")
-        .select("equipe_id")
+        .select("equipe_id, role")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -58,6 +60,8 @@ export default function NewsPage() {
         return;
       }
 
+      const role = profile.role as UserRole;
+
       const { data, error } = await supabase
         .from("avisos_equipe")
         .select("id, equipe_id, titulo, texto, categoria, data_evento, link_url, created_by, publicado_em, updated_at")
@@ -66,6 +70,7 @@ export default function NewsPage() {
 
       if (isMounted) {
         setNotices((data as TeamNoticeRow[] | null) ?? []);
+        setCanManageNotices(role === "coordenador" || role === "coordenador_geral");
         setMessage(
           error?.message.includes("avisos_equipe")
             ? "A área de avisos ainda precisa da migração de configurações no Supabase."
@@ -122,6 +127,11 @@ export default function NewsPage() {
                   </div>
                   <h2>Nenhum aviso publicado ainda</h2>
                   <p>Quando a coordenação publicar eventos, prazos ou novidades, eles aparecem aqui.</p>
+                  {canManageNotices ? (
+                    <Link className="public-inline-link" href="/configuracoes">
+                      Publicar primeiro aviso →
+                    </Link>
+                  ) : null}
                 </div>
               </article>
             ) : null}
