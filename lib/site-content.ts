@@ -32,6 +32,8 @@ export function normalizeTeamSiteMembers(value: unknown): TeamSiteMember[] {
     const categoria = typeof record.categoria === "string" ? record.categoria.trim() : "";
     const email = typeof record.email === "string" ? record.email.trim() : null;
     const imagem = typeof record.imagem === "string" ? record.imagem.trim() : null;
+    const imagemNormalizada =
+      imagem && !imagem.includes("images.pexels.com") && imagem !== "/team-pi.jpg" ? imagem : null;
 
     if (!nome || !funcao || !categoria) {
       return members;
@@ -44,7 +46,7 @@ export function normalizeTeamSiteMembers(value: unknown): TeamSiteMember[] {
         funcao,
         categoria,
         email,
-        imagem
+        imagem: imagemNormalizada
       }
     ];
   }, []);
