@@ -3216,6 +3216,7 @@ textarea:focus,
 
 .editor-citation-gap-list,
 .editor-reference-suggestions,
+.editor-section-diagnostic-list,
 .editor-missing-section-list {
   display: grid;
   gap: 10px;
@@ -3271,6 +3272,59 @@ textarea:focus,
   min-height: 30px;
   padding: 0 10px !important;
   font-size: 0.78rem;
+}
+
+.editor-section-diagnostic-list article {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 16px;
+  background: #fffbeb;
+}
+
+.editor-section-diagnostic-list article[data-severity="ok"] {
+  border-color: rgba(20, 184, 166, 0.26);
+  background: #f0fdfa;
+}
+
+.editor-section-diagnostic-list article > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.editor-section-diagnostic-list article strong {
+  color: #0f172a;
+}
+
+.editor-section-diagnostic-list article span {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.16);
+  color: #92400e;
+  padding: 3px 8px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.editor-section-diagnostic-list article[data-severity="ok"] span {
+  background: rgba(20, 184, 166, 0.14);
+  color: #0f766e;
+}
+
+.editor-section-diagnostic-list p {
+  margin: 0;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.editor-section-diagnostic-list small {
+  color: #64748b;
+  line-height: 1.4;
 }
 
 .editor-used-references,

@@ -55,11 +55,20 @@ type UsedReference = {
   text: string;
 };
 
+type SectionDiagnostic = {
+  id: string;
+  section: string;
+  severity: "ok" | "warning";
+  message: string;
+  action: string;
+};
+
 type ManuscriptAnalysis = {
   headings: ManuscriptHeading[];
   missingSections: string[];
   citationGaps: CitationGap[];
   usedReferences: UsedReference[];
+  sectionDiagnostics: SectionDiagnostic[];
 };
 
 type ReferenceSuggestion = {
@@ -235,6 +244,10 @@ function normalizeSectionName(value: string) {
     .trim();
 }
 
+function includesAny(text: string, markers: string[]) {
+  return markers.some((marker) => text.includes(marker));
+}
+
 function getNodeText(node: Record<string, unknown>): string {
   const text = typeof node.text === "string" ? node.text : "";
   const content = Array.isArray(node.content) ? node.content : [];
@@ -297,10 +310,134 @@ function getReferenceItems(content: ArticleContent | null): UsedReference[] {
   return items;
 }
 
+function diagnoseSections(sectionTexts: Map<string, string>, usedReferences: UsedReference[]): SectionDiagnostic[] {
+  const diagnostics: SectionDiagnostic[] = [];
+
+  const pushDiagnostic = (section: string, message: string, action: string, severity: SectionDiagnostic["severity"] = "warning") => {
+    diagnostics.push({
+      id: `${normalizeSectionName(section)}-${diagnostics.length}`,
+      section,
+      severity,
+      message,
+      action
+    });
+  };
+
+  const getSectionText = (sectionName: string) => {
+    const normalized = normalizeSectionName(sectionName);
+    const entry = Array.from(sectionTexts.entries()).find(([section]) => normalizeSectionName(section).includes(normalized));
+    return entry?.[1].toLowerCase() ?? "";
+  };
+
+  const resumo = getSectionText("Resumo");
+  if (resumo) {
+    const hasSummaryCore =
+      includesAny(resumo, ["objetivo", "analisar", "investigar", "descrever"]) &&
+      includesAny(resumo, ["método", "metodo", "metodologia", "dados", "participantes"]) &&
+      includesAny(resumo, ["resultado", "achado", "evidência", "evidencia"]) &&
+      includesAny(resumo, ["conclusão", "conclusao", "contribui"]);
+    if (!hasSummaryCore) {
+      pushDiagnostic(
+        "Resumo",
+        "O resumo ainda não parece cobrir objetivo, método, resultados e contribuição.",
+        "Inclua uma frase para cada função do resumo: objetivo, método, achado central e conclusão."
+      );
+    }
+  }
+
+  const introducao = getSectionText("Introdução");
+  if (introducao) {
+    if (!includesAny(introducao, ["lacuna", "escasso", "escassa", "faltam", "poucos estudos", "ainda não", "ainda nao"])) {
+      pushDiagnostic(
+        "Introdução",
+        "A introdução ainda não deixa explícita a lacuna da literatura.",
+        "Adicione um parágrafo curto mostrando o que os estudos existentes ainda não explicam."
+      );
+    }
+
+    if (!includesAny(introducao, ["objetivo", "este estudo", "este artigo", "analisar", "investigar", "compreender"])) {
+      pushDiagnostic(
+        "Introdução",
+        "Não encontrei uma formulação clara do objetivo na introdução.",
+        "Feche a introdução com uma frase direta: “Este estudo tem como objetivo...”."
+      );
+    }
+  }
+
+  const metodologia = getSectionText("Metodologia") || getSectionText("Métodos");
+  if (metodologia) {
+    if (!includesAny(metodologia, ["participantes", "amostra", "corpus", "documentos", "dados", "questionário", "questionario"])) {
+      pushDiagnostic(
+        "Metodologia",
+        "A metodologia ainda não identifica claramente fonte de dados, corpus ou participantes.",
+        "Explique quem/que dados foram analisados e quais critérios de inclusão foram usados."
+      );
+    }
+
+    if (!includesAny(metodologia, ["análise", "analise", "estatística", "estatistica", "temática", "tematica", "procedimento"])) {
+      pushDiagnostic(
+        "Metodologia",
+        "A estratégia de análise ainda parece pouco explícita.",
+        "Inclua como os dados foram tratados, codificados, comparados ou interpretados."
+      );
+    }
+  }
+
+  const resultados = getSectionText("Resultados");
+  if (resultados) {
+    if (!includesAny(resultados, ["tabela", "figura", "%", "n=", "categoria", "eixo", "achado", "resultado"])) {
+      pushDiagnostic(
+        "Resultados",
+        "A seção de resultados ainda não mostra sinais claros de achados organizados.",
+        "Organize os achados por tabela, figura, eixo analítico ou categoria."
+      );
+    }
+  }
+
+  const discussao = getSectionText("Discussão");
+  if (discussao) {
+    if (!includesAny(discussao, ["literatura", "estudos", "autores", "evidências", "evidencias", "compar"])) {
+      pushDiagnostic(
+        "Discussão",
+        "A discussão ainda não parece dialogar com a literatura.",
+        "Conecte os achados a estudos anteriores e explicite convergências ou tensões."
+      );
+    }
+
+    if (!includesAny(discussao, ["limite", "limitação", "limitacao", "implicação", "implicacao", "recomenda"])) {
+      pushDiagnostic(
+        "Discussão",
+        "Ainda faltam limites, implicações ou próximos passos.",
+        "Feche a discussão indicando limites do estudo e implicações para pesquisa, prática ou política."
+      );
+    }
+  }
+
+  if (usedReferences.length > 0 && introducao && usedReferences.length < 4) {
+    pushDiagnostic(
+      "Referências",
+      "O texto já usa referências, mas a base bibliográfica ainda parece curta para sustentar a introdução.",
+      "Use a aba Referências para buscar papers relacionados às afirmações centrais."
+    );
+  }
+
+  if (diagnostics.length === 0 && sectionTexts.size > 0) {
+    pushDiagnostic(
+      "Estrutura",
+      "A estrutura básica está coerente nesta leitura automática.",
+      "Siga refinando argumento, evidências e aderência ao periódico escolhido.",
+      "ok"
+    );
+  }
+
+  return diagnostics.slice(0, 8);
+}
+
 function analyseManuscript(content: ArticleContent | null): ManuscriptAnalysis {
   const nodes = content?.content ?? [];
   const headings: ManuscriptHeading[] = [];
   const citationGaps: CitationGap[] = [];
+  const sectionTexts = new Map<string, string>();
   let currentSection = "Sem seção";
 
   nodes.forEach((node, index) => {
@@ -312,12 +449,19 @@ function analyseManuscript(content: ArticleContent | null): ManuscriptAnalysis {
           ? Number((node.attrs as { level?: unknown }).level ?? 2)
           : 2;
       currentSection = text;
+      if (!sectionTexts.has(currentSection)) {
+        sectionTexts.set(currentSection, "");
+      }
       headings.push({
         id: `heading-${index}`,
         title: text,
         level
       });
       return;
+    }
+
+    if (text && currentSection !== "Sem seção") {
+      sectionTexts.set(currentSection, `${sectionTexts.get(currentSection) ?? ""} ${text}`.trim());
     }
 
     if ((node.type === "paragraph" || node.type === "blockquote") && text.length > 90) {
@@ -346,12 +490,14 @@ function analyseManuscript(content: ArticleContent | null): ManuscriptAnalysis {
   const missingSections = expectedScientificSections.filter(
     (section) => !existingSections.has(normalizeSectionName(section))
   );
+  const usedReferences = getReferenceItems(content);
 
   return {
     headings,
     missingSections,
     citationGaps,
-    usedReferences: getReferenceItems(content)
+    usedReferences,
+    sectionDiagnostics: diagnoseSections(sectionTexts, usedReferences)
   };
 }
 
@@ -1930,8 +2076,11 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                     <span>seções detectadas</span>
                   </article>
                   <article>
-                    <strong>{manuscriptAnalysis.missingSections.length}</strong>
-                    <span>lacunas estruturais</span>
+                    <strong>
+                      {manuscriptAnalysis.missingSections.length +
+                        manuscriptAnalysis.sectionDiagnostics.filter((item) => item.severity === "warning").length}
+                    </strong>
+                    <span>alertas estruturais</span>
                   </article>
                 </div>
 
@@ -1947,6 +2096,26 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                         </li>
                       ))}
                     </ol>
+                  )}
+                </div>
+
+                <div className="editor-cognitive-block">
+                  <strong>Leitura por seção</strong>
+                  {manuscriptAnalysis.sectionDiagnostics.length === 0 ? (
+                    <p className="muted">Ainda preciso de mais texto para avaliar a função científica das seções.</p>
+                  ) : (
+                    <div className="editor-section-diagnostic-list">
+                      {manuscriptAnalysis.sectionDiagnostics.map((diagnostic) => (
+                        <article data-severity={diagnostic.severity} key={diagnostic.id}>
+                          <div>
+                            <strong>{diagnostic.section}</strong>
+                            <span>{diagnostic.severity === "ok" ? "ok" : "atenção"}</span>
+                          </div>
+                          <p>{diagnostic.message}</p>
+                          <small>{diagnostic.action}</small>
+                        </article>
+                      ))}
+                    </div>
                   )}
                 </div>
 
