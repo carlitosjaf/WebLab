@@ -2440,6 +2440,20 @@ textarea:focus,
   gap: 10px;
 }
 
+.periodicos-report-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.periodicos-report-actions .button {
+  padding: 9px 13px;
+  font-size: 0.9rem;
+  box-shadow: none;
+}
+
 .periodicos-shortlist-summary span {
   padding: 9px 12px;
   color: #0f172a;

@@ -128,6 +128,61 @@ function formatAccessModel(accessModel: (typeof INDEXER_STRATEGY)[number]["acces
   }
 }
 
+function slugifyFileName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 70);
+}
+
+function buildShortlistReport(article: ArticleRow | null, entries: SavedShortlist[]) {
+  const title = article?.titulo ?? "Manuscrito sem título";
+  const generatedAt = new Date().toLocaleString("pt-BR");
+
+  const body = entries
+    .map((entry, index) => {
+      const progress = getChecklistProgress(entry);
+      const checklist = SHORTLIST_CHECKLIST.map((item) => {
+        const mark = entry[item.key] ? "x" : " ";
+        return `- [${mark}] ${item.label}`;
+      }).join("\n");
+      const indexers =
+        entry.matched_indexers.length > 0
+          ? entry.matched_indexers.join(", ")
+          : "Nenhum indexador priorizado confirmado no radar";
+
+      return [
+        `## ${index + 1}. ${entry.journal_title}`,
+        `- Nível: ${formatRecommendationLevel(entry.recommendation_level)}`,
+        `- Score editorial: ${entry.editorial_score}`,
+        `- Host: ${entry.host_name ?? "Não informado"}`,
+        `- Indexadores priorizados: ${indexers}`,
+        `- Favorita: ${entry.is_favorite ? "sim" : "não"}`,
+        `- Checklist: ${progress.completed}/${progress.total}`,
+        entry.source_url ? `- Fonte: ${entry.source_url}` : "- Fonte: não informada",
+        "",
+        "### Notas da equipe",
+        entry.editorial_notes?.trim() ? entry.editorial_notes.trim() : "Sem notas registradas.",
+        "",
+        "### Checklist de submissão",
+        checklist
+      ].join("\n");
+    })
+    .join("\n\n---\n\n");
+
+  return [
+    `# Relatório editorial - ${title}`,
+    "",
+    `Gerado em: ${generatedAt}`,
+    `Revistas na shortlist: ${entries.length}`,
+    "",
+    body || "Nenhuma revista salva na shortlist."
+  ].join("\n");
+}
+
 function buildReferenceList(citation: string) {
   return {
     type: "bulletList",
@@ -516,6 +571,28 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
     setSavedShortlist((current) => current.filter((entry) => entry.id !== entryId));
   };
 
+  const handleCopyShortlistReport = async () => {
+    const report = buildShortlistReport(selectedArticle, savedShortlist);
+    await navigator.clipboard.writeText(report);
+    setCitationMessage("Relatório editorial copiado para a área de transferência.");
+  };
+
+  const handleDownloadShortlistReport = () => {
+    const report = buildShortlistReport(selectedArticle, savedShortlist);
+    const blob = new Blob([report], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const fileName = slugifyFileName(selectedArticle?.titulo ?? "relatorio-editorial");
+
+    link.href = url;
+    link.download = `${fileName || "relatorio-editorial"}-shortlist.md`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setCitationMessage("Relatório editorial baixado em Markdown.");
+  };
+
   const handleCopyCitation = async (work: OpenAlexWork) => {
     const citation = formatAbntCitation(work);
     await navigator.clipboard.writeText(citation);
@@ -775,9 +852,21 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                 Salve revistas por manuscrito, marque favoritas e deixe claro quais sao as candidatas mais fortes.
               </span>
             </div>
-            <span className="muted">
-              {loadingShortlist ? "Carregando shortlist..." : `${savedShortlist.length} revista(s) salvas`}
-            </span>
+            <div className="periodicos-report-actions">
+              <span className="muted">
+                {loadingShortlist ? "Carregando shortlist..." : `${savedShortlist.length} revista(s) salvas`}
+              </span>
+              {savedShortlist.length > 0 ? (
+                <>
+                  <button className="button button-secondary" onClick={() => void handleCopyShortlistReport()} type="button">
+                    Copiar relatório
+                  </button>
+                  <button className="button button-secondary" onClick={handleDownloadShortlistReport} type="button">
+                    Baixar Markdown
+                  </button>
+                </>
+              ) : null}
+            </div>
           </div>
 
           {savedShortlist.length > 0 ? (
