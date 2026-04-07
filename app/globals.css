@@ -2523,6 +2523,109 @@ textarea:focus,
   padding: 14px 16px;
 }
 
+.periodicos-decision-board {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, #eefcf8 0%, #ffffff 72%);
+  border: 1px solid #bdeee3;
+}
+
+.periodicos-decision-board > div:first-child {
+  display: grid;
+  gap: 6px;
+}
+
+.periodicos-decision-board > div:first-child strong {
+  color: #0f172a;
+  font-size: 1.4rem;
+}
+
+.periodicos-decision-board > div:first-child p {
+  max-width: 720px;
+  margin: 0;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+.periodicos-recommendation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.periodicos-recommendation-grid article {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid #dbe4ee;
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.08);
+}
+
+.periodicos-recommendation-grid h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.12rem;
+  line-height: 1.25;
+}
+
+.periodicos-recommendation-grid p {
+  margin: 0;
+  color: #64748b;
+}
+
+.periodicos-recommendation-rank,
+.periodicos-recommendation-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.periodicos-recommendation-rank span {
+  color: #0f766e;
+  font-size: 0.9rem;
+  font-weight: 950;
+  letter-spacing: 0.1em;
+}
+
+.periodicos-recommendation-rank strong {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f0fdfa;
+  color: #0f766e;
+  font-size: 0.78rem;
+}
+
+.periodicos-recommendation-section {
+  display: grid;
+  gap: 8px;
+}
+
+.periodicos-recommendation-section strong {
+  color: #0f172a;
+  font-size: 0.86rem;
+}
+
+.periodicos-recommendation-section ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.periodicos-recommendation-actions .button {
+  min-height: 34px;
+  padding: 0 12px !important;
+  font-size: 0.82rem;
+}
+
 .periodicos-decision-workbench {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) minmax(280px, 1.1fr);

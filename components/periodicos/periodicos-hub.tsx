@@ -216,6 +216,50 @@ function buildShortlistReport(article: ArticleRow | null, entries: SavedShortlis
   ].join("\n");
 }
 
+function buildRecommendationReasons(journal: JournalCandidate, selectedIndexers: IndexerName[]) {
+  const reasons: string[] = [];
+
+  if (journal.matchedSelectedIndexers.length > 0) {
+    reasons.push(`cobre ${journal.matchedSelectedIndexers.length} indexador(es) priorizados: ${journal.matchedSelectedIndexers.join(", ")}`);
+  }
+
+  if (journal.matchCount >= 3) {
+    reasons.push(`apareceu em ${journal.matchCount} resultado(s) relacionados ao manuscrito`);
+  }
+
+  if (journal.hIndex && journal.hIndex >= 20) {
+    reasons.push(`tem sinal bibliométrico relevante no OpenAlex (h-index ${journal.hIndex})`);
+  }
+
+  if (journal.isOpenAccess) {
+    reasons.push("tem sinal de acesso aberto");
+  }
+
+  if (reasons.length === 0 && selectedIndexers.length > 0) {
+    reasons.push("apareceu por aderência temática, mas ainda precisa de validação forte nos indexadores escolhidos");
+  }
+
+  return reasons.slice(0, 3);
+}
+
+function buildSubmissionAdjustments(journal: JournalCandidate, selectedIndexers: IndexerName[]) {
+  const missingIndexers = selectedIndexers.filter((indexer) => !journal.detectedIndexers.includes(indexer)).slice(0, 3);
+  const adjustments = [
+    "confirmar escopo, tipo de artigo aceito e diretrizes aos autores no site da revista",
+    "ajustar título, resumo e palavras-chave para explicitar o recorte central do manuscrito"
+  ];
+
+  if (missingIndexers.length > 0) {
+    adjustments.push(`validar manualmente ${missingIndexers.join(", ")} antes de tratar como candidata final`);
+  }
+
+  if (!journal.isOpenAccess) {
+    adjustments.push("checar política de acesso aberto, APC e condições institucionais de publicação");
+  }
+
+  return adjustments.slice(0, 4);
+}
+
 function buildReferenceList(citation: string) {
   return {
     type: "bulletList",
@@ -417,6 +461,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
   const needsValidationCount = filteredJournalResults.filter(
     (journal) => journal.recommendationLevel === "precisa_validar"
   ).length;
+  const topRecommendations = filteredJournalResults.slice(0, 3);
 
   const toggleIndexer = (indexer: IndexerName) => {
     setSelectedIndexers((current) =>
@@ -1164,6 +1209,75 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
               O ranking combina aderência temática, peso dos indexadores escolhidos, acesso aberto e sinais editoriais detectados.
             </span>
           </div>
+
+          {topRecommendations.length > 0 ? (
+            <div className="periodicos-decision-board" aria-label="Top recomendações editoriais">
+              <div>
+                <span className="eyebrow">decisão editorial</span>
+                <strong>Top 3 para olhar primeiro</strong>
+                <p>
+                  O WebLab não promete aceite: ele organiza onde vale gastar energia de validação antes da submissão.
+                </p>
+              </div>
+
+              <div className="periodicos-recommendation-grid">
+                {topRecommendations.map((journal, index) => {
+                  const reasons = buildRecommendationReasons(journal, selectedIndexers);
+                  const adjustments = buildSubmissionAdjustments(journal, selectedIndexers);
+                  const savedEntry = shortlistedByJournalId.get(journal.id);
+
+                  return (
+                    <article key={journal.id}>
+                      <div className="periodicos-recommendation-rank">
+                        <span>{String(index + 1).padStart(2, "0")}</span>
+                        <strong>{formatRecommendationLevel(journal.recommendationLevel)}</strong>
+                      </div>
+                      <h3>{journal.title}</h3>
+                      <p>{journal.hostName ?? "Host não informado"}</p>
+
+                      <div className="periodicos-recommendation-section">
+                        <strong>Por que apareceu</strong>
+                        <ul>
+                          {reasons.map((reason) => (
+                            <li key={reason}>{reason}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="periodicos-recommendation-section">
+                        <strong>Ajustes antes de submeter</strong>
+                        <ul>
+                          {adjustments.map((adjustment) => (
+                            <li key={adjustment}>{adjustment}</li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      <div className="periodicos-recommendation-actions">
+                        <button
+                          className="button button-primary"
+                          disabled={savingJournalId === journal.id}
+                          onClick={() => void saveToShortlist(journal)}
+                          type="button"
+                        >
+                          {savingJournalId === journal.id
+                            ? "Salvando..."
+                            : savedEntry
+                              ? "Atualizar shortlist"
+                              : "Salvar na shortlist"}
+                        </button>
+                        {journal.landingPageUrl ? (
+                          <a className="button button-secondary" href={journal.landingPageUrl} rel="noreferrer" target="_blank">
+                            Abrir fonte
+                          </a>
+                        ) : null}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
 
           {filteredJournalResults.length === 0 ? (
             <div className="muted" style={{ padding: "18px", borderRadius: "18px", background: "rgba(255,255,255,0.04)" }}>
