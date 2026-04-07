@@ -4,6 +4,7 @@ export type RecommendationLevel =
   | "candidata_forte"
   | "candidata_moderada"
   | "precisa_validar";
+export type EvidenceScreeningDecision = "pendente" | "incluir" | "excluir" | "talvez";
 
 export type ArticleContent = {
   type: "doc";
@@ -349,9 +350,129 @@ export type Database = {
           }
         ];
       };
+      triagem_conjuntos: {
+        Row: {
+          id: string;
+          artigo_id: string;
+          equipe_id: string;
+          titulo: string;
+          pergunta: string;
+          criterios_inclusao: string;
+          criterios_exclusao: string;
+          created_by: string;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          artigo_id: string;
+          equipe_id: string;
+          titulo: string;
+          pergunta?: string;
+          criterios_inclusao?: string;
+          criterios_exclusao?: string;
+          created_by?: string;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          titulo?: string;
+          pergunta?: string;
+          criterios_inclusao?: string;
+          criterios_exclusao?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "triagem_conjuntos_artigo_id_fkey";
+            columns: ["artigo_id"];
+            isOneToOne: false;
+            referencedRelation: "artigos";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "triagem_conjuntos_equipe_id_fkey";
+            columns: ["equipe_id"];
+            isOneToOne: false;
+            referencedRelation: "equipes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "triagem_conjuntos_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "perfis";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      triagem_estudos: {
+        Row: {
+          id: string;
+          conjunto_id: string;
+          external_id: string;
+          source: string;
+          titulo: string;
+          autores: string[];
+          ano: number | null;
+          doi: string | null;
+          periodico: string | null;
+          resumo: string | null;
+          url: string | null;
+          decisao: EvidenceScreeningDecision;
+          motivo_exclusao: string;
+          notas: string;
+          added_by: string;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          conjunto_id: string;
+          external_id: string;
+          source?: string;
+          titulo: string;
+          autores?: string[];
+          ano?: number | null;
+          doi?: string | null;
+          periodico?: string | null;
+          resumo?: string | null;
+          url?: string | null;
+          decisao?: EvidenceScreeningDecision;
+          motivo_exclusao?: string;
+          notas?: string;
+          added_by?: string;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          decisao?: EvidenceScreeningDecision;
+          motivo_exclusao?: string;
+          notas?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "triagem_estudos_conjunto_id_fkey";
+            columns: ["conjunto_id"];
+            isOneToOne: false;
+            referencedRelation: "triagem_conjuntos";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "triagem_estudos_added_by_fkey";
+            columns: ["added_by"];
+            isOneToOne: false;
+            referencedRelation: "perfis";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
   };
 };
 
 export type ArticleRow = Database["public"]["Tables"]["artigos"]["Row"];
 export type TeamNoticeRow = Database["public"]["Tables"]["avisos_equipe"]["Row"];
+export type EvidenceScreeningSetRow = Database["public"]["Tables"]["triagem_conjuntos"]["Row"];
+export type EvidenceStudyRow = Database["public"]["Tables"]["triagem_estudos"]["Row"];

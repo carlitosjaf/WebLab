@@ -2,6 +2,7 @@ export const publicNavLinks = [
   { label: "Home", href: "/dashboard" },
   { label: "Equipe", href: "/dashboard/equipe" },
   { label: "Artigos", href: "/dashboard/artigos" },
+  { label: "Triagem", href: "/dashboard/triagem" },
   { label: "Publicações", href: "/dashboard/publicacoes" },
   { label: "Avisos", href: "/dashboard/avisos" }
 ] as const;
@@ -31,6 +32,12 @@ export const weblabTools = [
     label: "Plataforma Brasil",
     description: "Acompanhe checklist, documentos e etapas de submissão ética.",
     href: "/dashboard/plataforma-brasil"
+  },
+  {
+    icon: "T",
+    label: "Triagem de evidências",
+    description: "Capture estudos, registre decisões e monte o primeiro caderno PRISMA da revisão.",
+    href: "/dashboard/triagem"
   },
   {
     icon: "E",

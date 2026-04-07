@@ -20,15 +20,16 @@ const links: NavLink[] = [
   { href: "/dashboard", label: "Home", icon: "01" },
   { href: "/dashboard/equipe" as Route, label: "Equipe", icon: "02" },
   { href: "/dashboard/artigos" as Route, label: "Artigos", icon: "03" },
-  { href: "/dashboard/publicacoes" as Route, label: "Publicações", icon: "04" },
-  { href: "/dashboard/avisos" as Route, label: "Avisos", icon: "05" }
+  { href: "/dashboard/triagem" as Route, label: "Triagem", icon: "04" },
+  { href: "/dashboard/publicacoes" as Route, label: "Publicações", icon: "05" },
+  { href: "/dashboard/avisos" as Route, label: "Avisos", icon: "06" }
 ];
 
 const accountLinks: NavLink[] = [
   {
     href: "/configuracoes",
     label: "Configurações",
-    icon: "06",
+    icon: "07",
     coordinatorOnly: true
   }
 ];

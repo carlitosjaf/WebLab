@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Route } from "next";
 
 import { publicNavLinks } from "@/lib/public-site";
 
@@ -14,7 +15,7 @@ export function PublicHeader({ active = "/" }: { active?: string }) {
 
       <nav className="lovable-nav" aria-label="Navegação principal">
         {publicNavLinks.map((link) => (
-          <Link className={active === link.href ? "active" : ""} href={link.href} key={link.href}>
+          <Link className={active === link.href ? "active" : ""} href={link.href as Route} key={link.href}>
             {link.label}
           </Link>
         ))}
@@ -40,7 +41,7 @@ export function PublicFooter() {
         <div>
           <h3>Quick Links</h3>
           {publicNavLinks.map((link) => (
-            <Link href={link.href} key={link.href}>
+            <Link href={link.href as Route} key={link.href}>
               {link.label}
             </Link>
           ))}

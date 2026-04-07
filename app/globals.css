@@ -2877,6 +2877,192 @@ textarea:focus,
   color: #64748b;
 }
 
+.triagem-page {
+  background: #f8fafc;
+}
+
+.triagem-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 28px;
+  align-items: end;
+}
+
+.triagem-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(0, 1.6fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.triagem-control-panel,
+.triagem-workspace,
+.triagem-create-card,
+.triagem-search-card,
+.triagem-prisma-card,
+.triagem-column,
+.triagem-study-card {
+  display: grid;
+  gap: 14px;
+}
+
+.triagem-control-panel,
+.triagem-search-card,
+.triagem-prisma-card,
+.triagem-column {
+  padding: 22px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.06);
+}
+
+.triagem-control-panel {
+  position: sticky;
+  top: 98px;
+}
+
+.triagem-control-panel label,
+.triagem-create-card {
+  color: #0f172a;
+  font-weight: 850;
+}
+
+.triagem-control-panel select,
+.triagem-control-panel input,
+.triagem-control-panel textarea,
+.triagem-search-row input {
+  width: 100%;
+  border: 1px solid #dbe4ee;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #0f172a;
+  font: inherit;
+  padding: 11px 12px;
+}
+
+.triagem-control-panel textarea {
+  min-height: 82px;
+  resize: vertical;
+}
+
+.triagem-set-list {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.triagem-set-list > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.triagem-set-list span {
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+.triagem-set-list button,
+.triagem-decision-row button {
+  border: 1px solid #dbe4ee;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 850;
+  padding: 9px 12px;
+}
+
+.triagem-set-list button.active,
+.triagem-decision-row button:hover {
+  border-color: rgba(40, 148, 135, 0.38);
+  background: #eefcf8;
+  color: #0f766e;
+}
+
+.triagem-search-row,
+.triagem-actions,
+.triagem-decision-row,
+.triagem-prisma-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.triagem-search-row input {
+  flex: 1 1 260px;
+}
+
+.triagem-results-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+}
+
+.triagem-prisma-stats span {
+  border: 1px solid rgba(40, 148, 135, 0.2);
+  border-radius: 999px;
+  background: #eefcf8;
+  color: #0f766e;
+  font-size: 0.86rem;
+  font-weight: 900;
+  padding: 8px 12px;
+}
+
+.triagem-study-card {
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.triagem-study-card[data-decision="incluir"] {
+  border-color: rgba(20, 184, 166, 0.34);
+  background: #f0fdfa;
+}
+
+.triagem-study-card[data-decision="talvez"] {
+  border-color: rgba(245, 158, 11, 0.34);
+  background: #fffbeb;
+}
+
+.triagem-study-card[data-decision="excluir"] {
+  border-color: rgba(239, 68, 68, 0.22);
+  background: #fef2f2;
+}
+
+.triagem-study-card span,
+.triagem-study-card small,
+.triagem-study-card em {
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.triagem-study-card h3,
+.triagem-search-card h2,
+.triagem-prisma-card h2,
+.triagem-column h2 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.triagem-study-card p,
+.triagem-search-card p,
+.triagem-prisma-card p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.6;
+}
+
+.triagem-study-card a {
+  color: #0f766e;
+  font-weight: 900;
+}
+
 .hero-panel .periodicos-hero-metrics article {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.16);
@@ -2894,6 +3080,16 @@ textarea:focus,
 
   .periodicos-decision-workbench {
     grid-template-columns: 1fr;
+  }
+
+  .triagem-hero,
+  .triagem-grid,
+  .triagem-results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .triagem-control-panel {
+    position: static;
   }
 }
 
