@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 
 import { PublicPageHero } from "@/components/public/public-layout";
+import { buildTeamKnowledgeMap } from "@/lib/knowledge-network";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { ArticleRow, UserRole } from "@/lib/types";
 import { countArticleWords, formatRelativeUpdate, formatStatusLabel } from "@/lib/weblab";
@@ -22,6 +23,7 @@ export default function ResearchPage() {
   const [articles, setArticles] = useState<ArticleRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const knowledgeMap = useMemo(() => buildTeamKnowledgeMap(articles), [articles]);
 
   useEffect(() => {
     let isMounted = true;
@@ -103,6 +105,70 @@ export default function ResearchPage() {
               );
             })}
           </div>
+        </div>
+      </section>
+
+      <section className="public-content-section">
+        <div className="lovable-container">
+          <div className="public-section-head-row">
+            <div>
+              <h2 className="public-section-title">Rede de conhecimento</h2>
+              <p className="public-section-kicker">
+                Conceitos e pontes detectados nos manuscritos da equipe.
+              </p>
+            </div>
+          </div>
+
+          {articles.length < 2 ? (
+            <article className="knowledge-empty-card">
+              <strong>Rede em formação</strong>
+              <p>
+                Quando houver pelo menos dois manuscritos com conteúdo, o WebLab começará a sugerir
+                relações entre temas, conceitos e projetos da equipe.
+              </p>
+            </article>
+          ) : (
+            <div className="knowledge-network-grid">
+              <article className="knowledge-panel">
+                <span className="eyebrow">temas recorrentes</span>
+                <h3>O que atravessa a produção da equipe</h3>
+                {knowledgeMap.concepts.length === 0 ? (
+                  <p className="muted">Ainda não há termos recorrentes fortes entre os manuscritos.</p>
+                ) : (
+                  <div className="knowledge-chip-list">
+                    {knowledgeMap.concepts.map((concept) => (
+                      <span key={concept.term} title={concept.articleTitles.join(", ")}>
+                        {concept.term} · {concept.articleIds.length} texto(s)
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </article>
+
+              <article className="knowledge-panel">
+                <span className="eyebrow">pontes entre artigos</span>
+                <h3>Manuscritos que podem conversar</h3>
+                {knowledgeMap.connections.length === 0 ? (
+                  <p className="muted">Não encontrei conexões fortes entre os artigos atuais.</p>
+                ) : (
+                  <div className="knowledge-connection-list">
+                    {knowledgeMap.connections.map((connection) => (
+                      <div key={connection.id}>
+                        <strong>
+                          {connection.leftArticle.titulo} ↔ {connection.rightArticle.titulo}
+                        </strong>
+                        <small>{connection.sharedTerms.join(", ")}</small>
+                        <div>
+                          <Link href={`/editor/${connection.leftArticle.id}`}>Abrir primeiro</Link>
+                          <Link href={`/editor/${connection.rightArticle.id}`}>Abrir segundo</Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </article>
+            </div>
+          )}
         </div>
       </section>
 
