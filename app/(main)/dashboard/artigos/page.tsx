@@ -8,9 +8,11 @@ import { useRouter } from "next/navigation";
 import { PublicPageHero } from "@/components/public/public-layout";
 import { buildTeamKnowledgeMap } from "@/lib/knowledge-network";
 import { getSupabaseClient } from "@/lib/supabaseClient";
-import type { ArticleRow, UserRole } from "@/lib/types";
+import type { ArticleRow, Database, EvidenceScreeningSetRow, UserRole } from "@/lib/types";
 import { countArticleWords, formatRelativeUpdate, formatStatusLabel } from "@/lib/weblab";
 import { weblabTools } from "@/lib/public-site";
+
+type SavedShortlist = Database["public"]["Tables"]["periodicos_shortlists"]["Row"];
 
 const articleImages = [
   "https://images.pexels.com/photos/3825527/pexels-photo-3825527.jpeg?auto=compress&cs=tinysrgb&w=900",
@@ -21,9 +23,24 @@ const articleImages = [
 export default function ResearchPage() {
   const router = useRouter();
   const [articles, setArticles] = useState<ArticleRow[]>([]);
+  const [shortlists, setShortlists] = useState<SavedShortlist[]>([]);
+  const [screeningSets, setScreeningSets] = useState<EvidenceScreeningSetRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const knowledgeMap = useMemo(() => buildTeamKnowledgeMap(articles), [articles]);
+  const labMemory = useMemo(() => {
+    const uniqueJournals = Array.from(new Set(shortlists.map((entry) => entry.journal_title))).slice(0, 8);
+    const favoriteJournals = shortlists.filter((entry) => entry.is_favorite).length;
+    const strongCandidates = shortlists.filter((entry) => entry.recommendation_level === "candidata_forte").length;
+
+    return {
+      uniqueJournals,
+      favoriteJournals,
+      strongCandidates,
+      screeningSetsCount: screeningSets.length,
+      recurringConcepts: knowledgeMap.concepts.slice(0, 8)
+    };
+  }, [knowledgeMap.concepts, screeningSets.length, shortlists]);
 
   useEffect(() => {
     let isMounted = true;
@@ -64,8 +81,33 @@ export default function ResearchPage() {
 
       const { data, error } = await query;
 
+      const nextArticles = (data ?? []) as ArticleRow[];
+      const articleIds = nextArticles.map((article) => article.id);
+      let nextShortlists: SavedShortlist[] = [];
+      let nextScreeningSets: EvidenceScreeningSetRow[] = [];
+
+      if (!error && articleIds.length > 0) {
+        const [{ data: shortlistData }, { data: screeningData }] = await Promise.all([
+          supabase
+            .from("periodicos_shortlists")
+            .select("*")
+            .in("artigo_id", articleIds)
+            .order("updated_at", { ascending: false, nullsFirst: false }),
+          supabase
+            .from("triagem_conjuntos")
+            .select("*")
+            .in("artigo_id", articleIds)
+            .order("updated_at", { ascending: false, nullsFirst: false })
+        ]);
+
+        nextShortlists = (shortlistData ?? []) as SavedShortlist[];
+        nextScreeningSets = (screeningData ?? []) as EvidenceScreeningSetRow[];
+      }
+
       if (isMounted) {
-        setArticles((data ?? []) as ArticleRow[]);
+        setArticles(nextArticles);
+        setShortlists(nextShortlists);
+        setScreeningSets(nextScreeningSets);
         setErrorMessage(error?.message ?? null);
         setIsLoading(false);
       }
@@ -169,6 +211,70 @@ export default function ResearchPage() {
               </article>
             </div>
           )}
+        </div>
+      </section>
+
+      <section className="public-content-section public-muted-section">
+        <div className="lovable-container">
+          <div className="public-section-head-row">
+            <div>
+              <h2 className="public-section-title">Memória do laboratório</h2>
+              <p className="public-section-kicker">
+                Um resumo vivo do que a equipe já escreveu, avaliou e começou a triar.
+              </p>
+            </div>
+            <Link className="lovable-small-button" href="/dashboard/triagem">
+              Abrir triagem
+            </Link>
+          </div>
+
+          <div className="lab-memory-grid">
+            <article className="lab-memory-card">
+              <span className="eyebrow">temas recorrentes</span>
+              <strong>{labMemory.recurringConcepts.length}</strong>
+              <p>Conceitos detectados nos manuscritos da equipe.</p>
+              {labMemory.recurringConcepts.length > 0 ? (
+                <div className="knowledge-chip-list">
+                  {labMemory.recurringConcepts.map((concept) => (
+                    <span key={concept.term}>{concept.term}</span>
+                  ))}
+                </div>
+              ) : null}
+            </article>
+
+            <article className="lab-memory-card">
+              <span className="eyebrow">radar editorial</span>
+              <strong>{labMemory.uniqueJournals.length}</strong>
+              <p>
+                Revistas já passaram pela shortlist. {labMemory.strongCandidates} aparecem como candidatas fortes e{" "}
+                {labMemory.favoriteJournals} estão favoritas.
+              </p>
+              {labMemory.uniqueJournals.length > 0 ? (
+                <div className="lab-memory-list">
+                  {labMemory.uniqueJournals.map((journal) => (
+                    <span key={journal}>{journal}</span>
+                  ))}
+                </div>
+              ) : (
+                <Link href="/dashboard/periodicos">Abrir radar editorial →</Link>
+              )}
+            </article>
+
+            <article className="lab-memory-card">
+              <span className="eyebrow">evidências</span>
+              <strong>{labMemory.screeningSetsCount}</strong>
+              <p>Conjuntos de triagem vinculados aos manuscritos da equipe.</p>
+              {screeningSets.length > 0 ? (
+                <div className="lab-memory-list">
+                  {screeningSets.slice(0, 6).map((set) => (
+                    <span key={set.id}>{set.titulo}</span>
+                  ))}
+                </div>
+              ) : (
+                <Link href="/dashboard/triagem">Criar conjunto de triagem →</Link>
+              )}
+            </article>
+          </div>
         </div>
       </section>
 
