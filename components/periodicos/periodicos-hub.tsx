@@ -523,12 +523,12 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
         <section className="hero-panel" style={{ display: "grid", gap: "12px" }}>
           <span className="eyebrow">radar editorial</span>
           <h1 className="section-title" style={{ fontSize: "clamp(2.2rem, 4.2vw, 3.3rem)" }}>
-            Mapeie revistas, indexadores e caminhos de submissao a partir do seu manuscrito.
+            Encontre as revistas mais promissoras para submeter seu manuscrito.
           </h1>
           <p className="section-lead">
-            Esta sala do WebLab foi desenhada para responder primeiro a pergunta mais importante de quem publica:
-            onde esse artigo tem mais aderencia editorial e melhor encaixe de indexacao? As referencias aparecem
-            como apoio, sem roubar o protagonismo da busca por periodicos.
+            O radar editorial cruza tema, indexadores e sinais de aderencia para ajudar a decidir onde vale
+            investir submissao. As referencias ficam aqui como apoio de escrita, mas o centro da ferramenta e a
+            escolha do periodico certo.
           </p>
         </section>
 
@@ -547,9 +547,6 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                 onChange={(event) => setSelectedArticleId(event.target.value)}
                 style={{
                   borderRadius: "18px",
-                  border: "1px solid rgba(36,26,19,0.08)",
-                  background: "rgba(255,255,255,0.92)",
-                  color: "var(--foreground)",
                   padding: "14px 16px"
                 }}
               >
@@ -574,8 +571,8 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                 gap: "8px",
                 padding: "16px 18px",
                 borderRadius: "20px",
-                background: "rgba(255,255,255,0.68)",
-                border: "1px solid rgba(36,26,19,0.08)"
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)"
               }}
             >
               <strong>{selectedArticle?.titulo ?? "Nenhum manuscrito selecionado"}</strong>
@@ -601,9 +598,9 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                     className="button"
                     onClick={() => toggleIndexer(indexer)}
                     style={{
-                      background: active ? "var(--accent)" : "rgba(255,255,255,0.88)",
-                      color: active ? "white" : "var(--foreground)",
-                      border: active ? "none" : "1px solid rgba(36,26,19,0.08)"
+                      background: active ? "rgba(214,255,247,0.18)" : "rgba(255,255,255,0.04)",
+                      color: "var(--foreground)",
+                      border: active ? "1px solid rgba(214,255,247,0.22)" : "1px solid rgba(255,255,255,0.08)"
                     }}
                   >
                     {indexer}
@@ -626,9 +623,6 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                 onChange={(event) => setMinimumMatchedIndexers(Number(event.target.value))}
                 style={{
                   borderRadius: "18px",
-                  border: "1px solid rgba(36,26,19,0.08)",
-                  background: "rgba(255,255,255,0.92)",
-                  color: "var(--foreground)",
                   padding: "14px 16px"
                 }}
               >
@@ -692,7 +686,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
           {savedShortlist.length === 0 ? (
             <div
               className="muted"
-              style={{ padding: "18px", borderRadius: "18px", background: "rgba(255,255,255,0.6)" }}
+              style={{ padding: "18px", borderRadius: "18px", background: "rgba(255,255,255,0.04)" }}
             >
               Nenhuma revista foi salva ainda. Use o radar abaixo para montar sua shortlist de submissao.
             </div>
@@ -706,8 +700,8 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                     gap: "12px",
                     padding: "18px",
                     borderRadius: "20px",
-                    background: "rgba(255,255,255,0.76)",
-                    border: "1px solid rgba(36,26,19,0.08)"
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)"
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
@@ -721,10 +715,10 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                         borderRadius: "999px",
                         background:
                           entry.recommendation_level === "candidata_forte"
-                            ? "rgba(32, 89, 66, 0.14)"
+                            ? "rgba(72, 158, 132, 0.16)"
                             : entry.recommendation_level === "candidata_moderada"
-                              ? "rgba(196, 125, 54, 0.16)"
-                              : "rgba(74, 60, 49, 0.12)",
+                              ? "rgba(209, 162, 84, 0.16)"
+                              : "rgba(255, 255, 255, 0.06)",
                         fontWeight: 700
                       }}
                     >
@@ -756,8 +750,8 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                       }
                       style={{
                         borderRadius: "999px",
-                        border: "1px solid rgba(36,26,19,0.08)",
-                        background: "rgba(255,255,255,0.92)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        background: "rgba(255,255,255,0.05)",
                         color: "var(--foreground)",
                         padding: "10px 14px"
                       }}
@@ -798,7 +792,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
           </div>
 
           {filteredJournalResults.length === 0 ? (
-            <div className="muted" style={{ padding: "18px", borderRadius: "18px", background: "rgba(255,255,255,0.6)" }}>
+            <div className="muted" style={{ padding: "18px", borderRadius: "18px", background: "rgba(255,255,255,0.04)" }}>
               {isLoading
                 ? "Consultando bases e organizando revistas candidatas..."
                 : "Nenhuma revista apareceu com os filtros atuais. Tente ampliar termos, afrouxar os filtros ou rodar uma nova busca."}
@@ -816,8 +810,8 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                       gap: "12px",
                       padding: "18px",
                       borderRadius: "20px",
-                      background: "rgba(255,255,255,0.76)",
-                      border: "1px solid rgba(36,26,19,0.08)"
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.08)"
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
@@ -896,7 +890,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
           </div>
 
           {relatedWorks.length === 0 ? (
-            <div className="muted" style={{ padding: "18px", borderRadius: "18px", background: "rgba(255,255,255,0.6)" }}>
+            <div className="muted" style={{ padding: "18px", borderRadius: "18px", background: "rgba(255,255,255,0.04)" }}>
               Rode uma busca editorial para carregar referencias relacionadas ao manuscrito.
             </div>
           ) : (
@@ -909,8 +903,8 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                     gap: "10px",
                     padding: "16px",
                     borderRadius: "16px",
-                    background: "rgba(255,255,255,0.72)",
-                    border: "1px solid rgba(36,26,19,0.08)"
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)"
                   }}
                 >
                   <div style={{ display: "grid", gap: "6px" }}>

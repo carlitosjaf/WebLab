@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import type { Route } from "next";
@@ -17,14 +17,18 @@ type NavLink = {
 };
 
 const links: NavLink[] = [
-  { href: "/dashboard", label: "Nucleo de projetos", icon: "01" },
-  { href: "/dashboard/periodicos" as Route, label: "Radar editorial", icon: "02" },
-  { href: "/dashboard/assistente-lattes", label: "Assistente Lattes", icon: "03" },
-  { href: "/dashboard/plataforma-brasil", label: "Plataforma Brasil", icon: "04" },
+  { href: "/dashboard", label: "Home", icon: "01" },
+  { href: "/dashboard/equipe" as Route, label: "Equipe", icon: "02" },
+  { href: "/dashboard/artigos" as Route, label: "Artigos", icon: "03" },
+  { href: "/dashboard/publicacoes" as Route, label: "Publicações", icon: "04" },
+  { href: "/dashboard/avisos" as Route, label: "Avisos", icon: "05" }
+];
+
+const accountLinks: NavLink[] = [
   {
     href: "/configuracoes",
-    label: "Configuracoes da equipe",
-    icon: "05",
+    label: "Configurações",
+    icon: "06",
     coordinatorOnly: true
   }
 ];
@@ -77,6 +81,17 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     [role]
   );
 
+  const visibleAccountLinks = useMemo(
+    () =>
+      accountLinks.filter(
+        (link) =>
+          !link.coordinatorOnly ||
+          role === "coordenador" ||
+          role === "coordenador_geral"
+      ),
+    [role]
+  );
+
   const handleSignOut = () => {
     startSignOutTransition(async () => {
       const supabase = getSupabaseClient();
@@ -87,38 +102,23 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="sidebar-shell">
-      <aside
-        className="sidebar-panel"
-        style={{ zIndex: 40 }}
-      >
-        <div className="sidebar-brand">
-          <span className="sidebar-brand-mark">nucleo ativo</span>
-          <div style={{ display: "grid", gap: "6px" }}>
-            <h2 className="sidebar-title">WebLab</h2>
-            <p style={{ margin: 0, color: "rgba(255,255,255,0.66)", lineHeight: 1.6 }}>
-              Laboratorio virtual para escrita, submissao e memoria cientifica colaborativa.
-            </p>
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gap: "6px",
-              padding: "14px 16px",
-              borderRadius: "18px",
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.06)"
-            }}
-          >
-            <span style={{ fontSize: "0.76rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(162,220,213,0.78)" }}>
-              ambiente
+    <div className="app-frame">
+      <header className="app-header">
+        <div className="container app-header-inner">
+          <button className="brand-lockup brand-button" onClick={() => router.push("/dashboard")} type="button">
+            <span className="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 32 32" role="img">
+                <path d="M6 14h20v14H6z" />
+                <path d="M10 14V8m6 6V5m6 9V8" />
+                <path d="M4 14h24" />
+                <path d="M12 22h8" />
+                <path d="M14 28v-6h4v6" />
+              </svg>
             </span>
-            <strong>Fluxo protegido por equipe</strong>
-          </div>
-        </div>
+            <span>WebLab</span>
+          </button>
 
-        <nav style={{ display: "flex", flexDirection: "column", gap: "8px", flex: 1 }}>
-          <div className="sidebar-nav-label">Navegacao</div>
+          <nav className="app-nav" aria-label="Navegacao do laboratorio">
           {visibleLinks.map((link) => {
             const isActive =
               pathname === link.href ||
@@ -130,36 +130,31 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
                 href={link.href}
                 className={isActive ? "nav-link nav-link-active" : "nav-link"}
               >
-                <span className="nav-icon">
-                  {link.icon}
-                </span>
                 {link.label}
               </Link>
             );
           })}
-        </nav>
+          </nav>
 
-        <div style={{ marginTop: "auto", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "24px" }}>
-          <button
-            className="button button-secondary"
-            onClick={handleSignOut}
-            style={{
-              width: "100%",
-              justifyContent: "center",
-              display: "flex",
-              gap: "8px",
-              background: "rgba(255,255,255,0.08)",
-              color: "white",
-              border: "1px solid rgba(255,255,255,0.12)"
-            }}
-            type="button"
-          >
-            {isSigningOut ? "Saindo..." : "Sair da conta"}
-          </button>
+          <div className="app-account-actions">
+            {visibleAccountLinks.map((link) => (
+              <Link className="app-account-link" href={link.href} key={link.href}>
+                {link.label}
+              </Link>
+            ))}
+            <button
+              className="app-account-link app-sign-out-link"
+              onClick={handleSignOut}
+              type="button"
+            >
+              {isSigningOut ? "Saindo..." : "Sair"}
+            </button>
+          </div>
         </div>
-      </aside>
+      </header>
 
-      <main style={{ flex: 1, overflowX: "hidden", minWidth: 0 }}>{children}</main>
+      <main className="app-main">{children}</main>
     </div>
   );
 }
+

@@ -1,18 +1,18 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans, IBM_Plex_Serif } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 
 import "./globals.css";
 
-const plexSans = IBM_Plex_Sans({
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
   weight: ["400", "500", "600", "700"]
 });
 
-const plexSerif = IBM_Plex_Serif({
+const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-display",
-  weight: ["400", "500", "600", "700"]
+  variable: "--font-mono",
+  weight: ["300", "400", "500", "600"]
 });
 
 export const metadata: Metadata = {
@@ -27,7 +27,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${plexSans.variable} ${plexSerif.variable}`}>{children}</body>
+      <body className={`${inter.variable} ${jetbrainsMono.variable}`}>{children}</body>
     </html>
   );
 }

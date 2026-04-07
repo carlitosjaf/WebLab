@@ -1012,11 +1012,11 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                       ? "rgba(196, 69, 54, 0.12)"
                       : saveState === "saving"
                         ? "var(--accent-soft)"
-                        : "rgba(255,255,255,0.8)",
+                        : "rgba(255,255,255,0.06)",
                   color: saveTone,
                   fontWeight: 700,
                   fontSize: "0.88rem",
-                  border: "1px solid rgba(36,26,19,0.08)"
+                  border: "1px solid rgba(255,255,255,0.08)"
                 }}
               >
                 {saveState === "saving"
@@ -1039,8 +1039,8 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
               onChange={(event) => void handleStatusChange(event.target.value as ArticleStatus)}
               style={{
                 borderRadius: "999px",
-                border: "1px solid rgba(36,26,19,0.08)",
-                background: "rgba(255,255,255,0.92)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                background: "rgba(255,255,255,0.05)",
                 color: "var(--foreground)",
                 padding: "10px 14px"
               }}
@@ -1075,9 +1075,9 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
               className="button"
               onClick={() => setAbntMode((current) => !current)}
               style={{
-                background: abntMode ? "var(--accent)" : "rgba(255,255,255,0.92)",
-                color: abntMode ? "white" : "var(--foreground)",
-                border: abntMode ? "none" : "1px solid rgba(36,26,19,0.08)"
+                background: abntMode ? "rgba(214,255,247,0.18)" : "rgba(255,255,255,0.05)",
+                color: "var(--foreground)",
+                border: abntMode ? "1px solid rgba(214,255,247,0.22)" : "1px solid rgba(255,255,255,0.08)"
               }}
               type="button"
             >
@@ -1100,8 +1100,8 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
               gap: "10px",
               padding: "18px 20px",
               borderRadius: "22px",
-              background: "rgba(255,255,255,0.65)",
-              border: "1px solid rgba(36,26,19,0.08)"
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.08)"
             }}
           >
             <strong>Artigo em {statusLabels[status].toLowerCase()}</strong>
@@ -1141,13 +1141,14 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
               gap: "10px",
               padding: "18px 20px",
               borderRadius: "22px",
-              background: "rgba(255,255,255,0.65)",
-              border: "1px solid rgba(36,26,19,0.08)"
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.08)"
             }}
           >
             <strong>Revistas para submissao</strong>
             <span className="muted">
-              O radar editorial agora vive em uma sala propria do laboratorio. Use esse modulo para cruzar tema, indexadores e referencias de apoio sem tirar a escrita do centro.
+              Use o radar editorial quando for decidir submissao: o modulo cruza tema, indexadores e
+              shortlist sem quebrar o fluxo do manuscrito.
             </span>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               <Link
@@ -1166,7 +1167,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
               gap: "10px",
               flexWrap: "wrap",
               paddingBottom: "16px",
-              borderBottom: "1px solid rgba(36,26,19,0.08)"
+              borderBottom: "1px solid rgba(255,255,255,0.08)"
             }}
           >
             {[
@@ -1220,16 +1221,16 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                 onClick={item.action}
                 style={{
                   background: item.disabled
-                    ? "rgba(255,255,255,0.45)"
+                    ? "rgba(255,255,255,0.03)"
                     : item.active
-                      ? "var(--accent)"
-                      : "rgba(255,255,255,0.85)",
+                      ? "rgba(214,255,247,0.18)"
+                      : "rgba(255,255,255,0.05)",
                   color: item.disabled
-                    ? "rgba(36,26,19,0.4)"
-                    : item.active
-                      ? "white"
-                      : "var(--foreground)",
-                  border: item.active ? "none" : "1px solid rgba(36,26,19,0.08)",
+                    ? "rgba(245,245,247,0.35)"
+                    : "var(--foreground)",
+                  border: item.active
+                    ? "1px solid rgba(214,255,247,0.22)"
+                    : "1px solid rgba(255,255,255,0.08)",
                   padding: "10px 14px"
                 }}
                 type="button"
@@ -1244,7 +1245,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
               display: "grid",
               gap: "12px",
               padding: "18px 0 4px",
-              borderBottom: "1px solid rgba(36,26,19,0.08)"
+              borderBottom: "1px solid rgba(255,255,255,0.08)"
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
@@ -1260,12 +1261,12 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                   onClick={() => setSelectedTemplateId(template.id)}
                   style={{
                     background:
-                      selectedTemplateId === template.id ? "var(--accent)" : "rgba(255,255,255,0.85)",
-                    color: selectedTemplateId === template.id ? "white" : "var(--foreground)",
+                      selectedTemplateId === template.id ? "rgba(214,255,247,0.18)" : "rgba(255,255,255,0.05)",
+                    color: "var(--foreground)",
                     border:
                       selectedTemplateId === template.id
-                        ? "none"
-                        : "1px solid rgba(36,26,19,0.08)",
+                        ? "1px solid rgba(214,255,247,0.22)"
+                        : "1px solid rgba(255,255,255,0.08)",
                     padding: "10px 14px"
                   }}
                   type="button"
@@ -1281,8 +1282,8 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                 gap: "10px",
                 padding: "16px",
                 borderRadius: "20px",
-                background: "rgba(255,255,255,0.72)",
-                border: "1px solid rgba(36,26,19,0.08)"
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)"
               }}
             >
               <div style={{ display: "grid", gap: "6px" }}>
@@ -1331,8 +1332,8 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                 }}
                 style={{
                   borderRadius: "999px",
-                  border: "1px solid rgba(36,26,19,0.08)",
-                  background: "rgba(255,255,255,0.92)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "rgba(255,255,255,0.05)",
                   color: "var(--foreground)",
                   padding: "10px 14px",
                   minWidth: "160px"
@@ -1350,8 +1351,8 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                 onChange={(event) => setSelectedSectionLabel(event.target.value)}
                 style={{
                   borderRadius: "999px",
-                  border: "1px solid rgba(36,26,19,0.08)",
-                  background: "rgba(255,255,255,0.92)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "rgba(255,255,255,0.05)",
                   color: "var(--foreground)",
                   padding: "10px 14px",
                   minWidth: "220px"

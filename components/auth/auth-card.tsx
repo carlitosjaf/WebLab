@@ -25,6 +25,25 @@ export function AuthCard() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const translateAuthError = (message: string) => {
+    const normalizedMessage = message.toLowerCase();
+
+    if (normalizedMessage.includes("email rate limit exceeded")) {
+      return "O Supabase bloqueou temporariamente novos e-mails de cadastro. Aguarde alguns minutos e tente novamente, ou peça para a coordenação liberar o limite/SMTP no Supabase.";
+    }
+
+    if (normalizedMessage.includes("invalid login credentials")) {
+      return "E-mail ou senha incorretos.";
+    }
+
+    if (normalizedMessage.includes("user already registered")) {
+      return "Este e-mail já está cadastrado. Use a aba Acessar para entrar.";
+    }
+
+    return message;
+  };
 
   const bindProfileToInviteCode = async (inviteCode: string) => {
     const supabase = getSupabaseClient();
@@ -36,8 +55,8 @@ export function AuthCard() {
     if (error) {
       throw new Error(
         error.message.includes("claim_team_invite")
-          ? "O Supabase ainda nao recebeu a funcao de vinculo por convite. Rode o SQL de seguranca multi-tenant do WebLab."
-          : error.message
+          ? "O Supabase ainda não recebeu a função de vínculo por convite. Rode o SQL de segurança multi-tenant do WebLab."
+          : translateAuthError(error.message)
       );
     }
   };
@@ -58,7 +77,9 @@ export function AuthCard() {
       } catch (error) {
         if (isMounted) {
           setErrorMessage(
-            error instanceof Error ? error.message : "Nao foi possivel iniciar a autenticacao."
+            error instanceof Error
+              ? translateAuthError(error.message)
+              : "Não foi possível iniciar a autenticação."
           );
         }
       }
@@ -73,8 +94,14 @@ export function AuthCard() {
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (isSubmitting) {
+      return;
+    }
+
     setErrorMessage(null);
     setFeedback(null);
+    setIsSubmitting(true);
 
     startTransition(async () => {
       try {
@@ -87,7 +114,7 @@ export function AuthCard() {
           });
 
           if (error) {
-            setErrorMessage(error.message);
+            setErrorMessage(translateAuthError(error.message));
             return;
           }
 
@@ -96,10 +123,9 @@ export function AuthCard() {
           return;
         }
 
-        const normalizedInviteCode =
-          mode === "register" && formState.inviteCode.trim()
-            ? normalizeInviteCode(formState.inviteCode)
-            : "";
+        const normalizedInviteCode = formState.inviteCode.trim()
+          ? normalizeInviteCode(formState.inviteCode)
+          : "";
 
         const { data, error } = await supabase.auth.signUp({
           email: formState.email,
@@ -113,7 +139,7 @@ export function AuthCard() {
         });
 
         if (error) {
-          setErrorMessage(error.message);
+          setErrorMessage(translateAuthError(error.message));
           return;
         }
 
@@ -151,8 +177,8 @@ export function AuthCard() {
                 await supabase.auth.signOut();
                 setFeedback(
                   inviteError instanceof Error
-                    ? `Cadastro criado, mas o codigo de convite nao foi validado: ${inviteError.message}`
-                    : "Cadastro criado, mas nao foi possivel validar o codigo de convite."
+                    ? `Cadastro criado, mas o código de convite não foi validado: ${translateAuthError(inviteError.message)}`
+                    : "Cadastro criado, mas não foi possível validar o código de convite."
                 );
                 setMode("login");
                 setFormState((current) => ({ ...current, password: "", inviteCode: "" }));
@@ -170,15 +196,19 @@ export function AuthCard() {
 
         setFeedback(
           normalizedInviteCode
-            ? "Cadastro realizado. Se a conta nao entrar automaticamente, faca login manualmente e o WebLab tentara vincular sua equipe com o codigo informado."
-            : "Cadastro realizado. Se a conta nao entrar automaticamente, faca login manualmente em seguida."
+            ? "Cadastro realizado. Se a conta não entrar automaticamente, faça login manualmente e o WebLab tentará vincular sua equipe com o código informado."
+            : "Cadastro realizado. Se a conta não entrar automaticamente, faça login manualmente em seguida."
         );
         setMode("login");
         setFormState((current) => ({ ...current, password: "", inviteCode: "" }));
       } catch (error) {
         setErrorMessage(
-          error instanceof Error ? error.message : "Nao foi possivel concluir a autenticacao."
+          error instanceof Error
+            ? translateAuthError(error.message)
+            : "Não foi possível concluir a autenticação."
         );
+      } finally {
+        setIsSubmitting(false);
       }
     });
   };
@@ -186,17 +216,26 @@ export function AuthCard() {
   return (
     <div
       className="glass-card auth-card"
-      style={{ width: "min(520px, 100%)" }}
+      style={{
+        width: "min(440px, 100%)",
+        alignSelf: "stretch",
+        display: "grid",
+        gap: "20px",
+        padding: "24px"
+      }}
     >
-      <div style={{ display: "grid", gap: "12px", marginBottom: "24px" }}>
-        <span className="eyebrow">ambiente protegido</span>
-        <div>
-          <h1 style={{ margin: 0, fontSize: "clamp(2.1rem, 5vw, 3.1rem)" }}>WebLab</h1>
-          <p className="muted" style={{ marginBottom: 0, lineHeight: 1.65 }}>
-            Entre no laboratorio para abrir seu nucleo de escrita, colaborar com sua equipe e manter
-            cada artigo em um fluxo editorial consistente.
-          </p>
-        </div>
+      <div
+        className="auth-card-head"
+        style={{
+          display: "grid",
+          gap: "8px"
+        }}
+      >
+        <span className="eyebrow">acesso</span>
+        <h2 style={{ margin: 0 }}>Entrar no laboratório</h2>
+        <p className="muted" style={{ margin: 0, lineHeight: 1.55 }}>
+          Use sua conta ou um convite de equipe.
+        </p>
       </div>
 
       <div className="auth-tabs">
@@ -228,7 +267,7 @@ export function AuthCard() {
                   nomeCompleto: event.target.value
                 }))
               }
-              placeholder="Como voce quer ser identificada(o) no laboratorio"
+              placeholder="Como você será identificada(o) no laboratório"
               required
               value={formState.nomeCompleto}
             />
@@ -237,7 +276,7 @@ export function AuthCard() {
 
         {mode === "register" ? (
           <div className="field">
-            <label htmlFor="inviteCode">Codigo de convite da equipe</label>
+            <label htmlFor="inviteCode">Código de convite</label>
             <input
               id="inviteCode"
               onChange={(event) =>
@@ -253,7 +292,7 @@ export function AuthCard() {
         ) : null}
 
         <div className="field">
-          <label htmlFor="email">E-mail</label>
+          <label htmlFor="email">E-mail institucional</label>
           <input
             id="email"
             onChange={(event) =>
@@ -280,7 +319,7 @@ export function AuthCard() {
                 password: event.target.value
               }))
             }
-            placeholder="Minimo de 6 caracteres"
+            placeholder="Mínimo de 6 caracteres"
             required
             type="password"
             value={formState.password}
@@ -299,11 +338,11 @@ export function AuthCard() {
           </p>
         ) : null}
 
-        <button className="button button-primary" disabled={isPending} type="submit">
-          {isPending
+        <button className="button button-primary" disabled={isPending || isSubmitting} type="submit">
+          {isPending || isSubmitting
             ? "Sincronizando..."
             : mode === "login"
-              ? "Entrar no laboratorio"
+              ? "Entrar no laboratório"
               : "Criar acesso"}
         </button>
       </form>

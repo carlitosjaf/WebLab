@@ -15,6 +15,13 @@ export default function ConfiguracoesPage() {
   const router = useRouter();
   const [team, setTeam] = useState<TeamRow | null>(null);
   const [role, setRole] = useState<UserRole | null>(null);
+  const [teamContent, setTeamContent] = useState({
+    tituloPublico: "",
+    resumoPublico: "",
+    integranteNome: "",
+    integranteFuncao: "",
+    integranteCategoria: ""
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
@@ -122,6 +129,15 @@ export default function ConfiguracoesPage() {
     setTimeout(() => setCopyMessage(null), 2000);
   };
 
+  const handleTeamContentChange =
+    (field: keyof typeof teamContent) =>
+    (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setTeamContent((current) => ({
+        ...current,
+        [field]: event.target.value
+      }));
+    };
+
   if (isLoading) {
     return (
       <main className="shell">
@@ -218,6 +234,94 @@ export default function ConfiguracoesPage() {
             Se o usuario nao tiver codigo, ele continua podendo criar a propria equipe no primeiro
             acesso.
           </p>
+        </section>
+
+        <section className="glass-card" style={{ padding: "28px", display: "grid", gap: "18px" }}>
+          <div style={{ display: "grid", gap: "8px" }}>
+            <span className="eyebrow">conteúdo público</span>
+            <h2 style={{ margin: 0 }}>Equipe no WebLab</h2>
+            <p className="muted" style={{ margin: 0 }}>
+              Rascunhe aqui os textos e integrantes que devem aparecer na aba Equipe. Nesta primeira
+              versão, o painel organiza o conteúdo para revisão; para salvar e publicar em tempo
+              real, precisamos adicionar uma tabela de conteúdo da equipe no Supabase.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: "16px"
+            }}
+          >
+            <div className="field">
+              <label htmlFor="tituloPublico">Título público da equipe</label>
+              <input
+                id="tituloPublico"
+                onChange={handleTeamContentChange("tituloPublico")}
+                placeholder="Ex.: Laboratório de Inovações em Terapias, Ensino e Bioprodutos"
+                value={teamContent.tituloPublico}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="integranteCategoria">Categoria do integrante</label>
+              <input
+                id="integranteCategoria"
+                onChange={handleTeamContentChange("integranteCategoria")}
+                placeholder="Ex.: Pós-doutorandos"
+                value={teamContent.integranteCategoria}
+              />
+            </div>
+          </div>
+
+          <div className="field">
+            <label htmlFor="resumoPublico">Resumo público</label>
+            <textarea
+              id="resumoPublico"
+              onChange={handleTeamContentChange("resumoPublico")}
+              placeholder="Resumo curto para a página Equipe."
+              rows={4}
+              value={teamContent.resumoPublico}
+            />
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: "16px"
+            }}
+          >
+            <div className="field">
+              <label htmlFor="integranteNome">Nome do integrante</label>
+              <input
+                id="integranteNome"
+                onChange={handleTeamContentChange("integranteNome")}
+                placeholder="Nome completo"
+                value={teamContent.integranteNome}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="integranteFuncao">Função</label>
+              <input
+                id="integranteFuncao"
+                onChange={handleTeamContentChange("integranteFuncao")}
+                placeholder="Ex.: Pesquisadora, estudante, bolsista"
+                value={teamContent.integranteFuncao}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            <button className="button button-secondary" disabled type="button">
+              Salvar conteúdo
+            </button>
+            <span className="muted">
+              Próxima etapa: persistir esses campos no Supabase e alimentar a página Equipe.
+            </span>
+          </div>
         </section>
       </div>
     </main>
