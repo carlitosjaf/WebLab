@@ -10,10 +10,17 @@ import {
   type TeamSiteContentState
 } from "@/lib/site-content";
 import { getSupabaseClient } from "@/lib/supabaseClient";
-import type { Database, TeamSiteMember, UserRole } from "@/lib/types";
+import type { Database, TeamNoticeCategory, TeamNoticeRow, TeamSiteMember, UserRole } from "@/lib/types";
 import { formatRoleLabel } from "@/lib/weblab";
 
 type TeamRow = Database["public"]["Tables"]["equipes"]["Row"];
+type NoticeDraft = {
+  titulo: string;
+  texto: string;
+  categoria: TeamNoticeCategory;
+  dataEvento: string;
+  linkUrl: string;
+};
 
 const ALLOWED_ROLES: UserRole[] = ["coordenador", "coordenador_geral"];
 
@@ -24,6 +31,16 @@ const emptyMember: TeamSiteMember = {
   email: "",
   imagem: ""
 };
+
+const emptyNotice: NoticeDraft = {
+  titulo: "",
+  texto: "",
+  categoria: "Aviso",
+  dataEvento: "",
+  linkUrl: ""
+};
+
+const noticeCategories: TeamNoticeCategory[] = ["Aviso", "Evento", "Publicação", "Prazo"];
 
 function getInitials(name: string) {
   return name
@@ -41,11 +58,15 @@ export default function ConfiguracoesPage() {
   const [teamContent, setTeamContent] = useState<TeamSiteContentState>(defaultTeamSiteContent);
   const [registeredMembers, setRegisteredMembers] = useState<TeamSiteMember[]>([]);
   const [memberDraft, setMemberDraft] = useState<TeamSiteMember>(emptyMember);
+  const [notices, setNotices] = useState<TeamNoticeRow[]>([]);
+  const [noticeDraft, setNoticeDraft] = useState<NoticeDraft>(emptyNotice);
+  const [isPublishingNotice, setIsPublishingNotice] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, startSaveTransition] = useTransition();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -157,6 +178,12 @@ export default function ConfiguracoesPage() {
             ];
           }) ?? [];
 
+        const { data: loadedNotices, error: noticesError } = await supabase
+          .from("avisos_equipe")
+          .select("id, equipe_id, titulo, texto, categoria, data_evento, link_url, created_by, publicado_em, updated_at")
+          .eq("equipe_id", loadedTeam.id)
+          .order("publicado_em", { ascending: false });
+
         if (isMounted) {
           const siteContent = getTeamSiteContentFromRow(
             (loadedContent as TeamSiteContentRow | null) ?? null,
@@ -169,6 +196,12 @@ export default function ConfiguracoesPage() {
             ...siteContent,
             integrantes: siteContent.integrantes.length > 0 ? siteContent.integrantes : registeredTeamMembers
           });
+          setNotices((loadedNotices as TeamNoticeRow[] | null) ?? []);
+          setNoticeMessage(
+            noticesError?.message.includes("avisos_equipe")
+              ? "Rode a migração de configurações para publicar eventos e avisos."
+              : null
+          );
           setErrorMessage(contentError ? contentError.message : null);
           setIsLoading(false);
         }
@@ -212,6 +245,15 @@ export default function ConfiguracoesPage() {
     (field: keyof TeamSiteMember) =>
     (event: ChangeEvent<HTMLInputElement>) => {
       setMemberDraft((current) => ({
+        ...current,
+        [field]: event.target.value
+      }));
+    };
+
+  const handleNoticeDraftChange =
+    (field: keyof NoticeDraft) =>
+    (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      setNoticeDraft((current) => ({
         ...current,
         [field]: event.target.value
       }));
@@ -300,6 +342,77 @@ export default function ConfiguracoesPage() {
 
       setSaveMessage("Conteúdo salvo. A aba Equipe já pode usar essas informações.");
     });
+  };
+
+  const handlePublishNotice = async () => {
+    if (!team || isPublishingNotice) {
+      return;
+    }
+
+    const titulo = noticeDraft.titulo.trim();
+    const texto = noticeDraft.texto.trim();
+
+    if (!titulo || !texto) {
+      setNoticeMessage("Preencha título e texto antes de publicar.");
+      return;
+    }
+
+    setIsPublishingNotice(true);
+    setNoticeMessage(null);
+
+    const supabase = getSupabaseClient();
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setNoticeMessage("Sua sessão expirou. Entre novamente para publicar.");
+      setIsPublishingNotice(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("avisos_equipe")
+      .insert({
+        equipe_id: team.id,
+        titulo,
+        texto,
+        categoria: noticeDraft.categoria,
+        data_evento: noticeDraft.dataEvento || null,
+        link_url: noticeDraft.linkUrl.trim() || null,
+        created_by: user.id,
+        updated_at: new Date().toISOString()
+      })
+      .select("id, equipe_id, titulo, texto, categoria, data_evento, link_url, created_by, publicado_em, updated_at")
+      .single();
+
+    setIsPublishingNotice(false);
+
+    if (error) {
+      setNoticeMessage(
+        error.message.includes("avisos_equipe")
+          ? "O Supabase ainda não recebeu a tabela de avisos. Rode a migração de configurações."
+          : error.message
+      );
+      return;
+    }
+
+    setNotices((current) => [data as TeamNoticeRow, ...current]);
+    setNoticeDraft(emptyNotice);
+    setNoticeMessage("Aviso publicado.");
+  };
+
+  const handleDeleteNotice = async (noticeId: string) => {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.from("avisos_equipe").delete().eq("id", noticeId);
+
+    if (error) {
+      setNoticeMessage(error.message);
+      return;
+    }
+
+    setNotices((current) => current.filter((notice) => notice.id !== noticeId));
+    setNoticeMessage("Aviso removido.");
   };
 
   if (isLoading) {
@@ -505,6 +618,119 @@ export default function ConfiguracoesPage() {
           <button className="button button-primary" disabled={isSaving} onClick={handleSaveContent} type="button">
             {isSaving ? "Salvando..." : "Salvar conteúdo da equipe"}
           </button>
+        </section>
+
+        <section className="glass-card config-site-panel">
+          <div style={{ display: "grid", gap: "8px" }}>
+            <span className="eyebrow">avisos e eventos</span>
+            <h2 style={{ margin: 0 }}>Publicações internas da equipe</h2>
+            <p className="muted" style={{ margin: 0 }}>
+              Publique comunicados, prazos, eventos e novidades que aparecem na aba Avisos.
+            </p>
+          </div>
+
+          <div className="config-member-editor">
+            <div className="field">
+              <label htmlFor="avisoTitulo">Título</label>
+              <input
+                id="avisoTitulo"
+                onChange={handleNoticeDraftChange("titulo")}
+                placeholder="Ex.: Reunião de acompanhamento"
+                value={noticeDraft.titulo}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="avisoCategoria">Categoria</label>
+              <select
+                id="avisoCategoria"
+                onChange={handleNoticeDraftChange("categoria")}
+                value={noticeDraft.categoria}
+              >
+                {noticeCategories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label htmlFor="avisoData">Data do evento ou prazo</label>
+              <input
+                id="avisoData"
+                onChange={handleNoticeDraftChange("dataEvento")}
+                type="date"
+                value={noticeDraft.dataEvento}
+              />
+            </div>
+
+            <div className="field">
+              <label htmlFor="avisoLink">Link</label>
+              <input
+                id="avisoLink"
+                onChange={handleNoticeDraftChange("linkUrl")}
+                placeholder="Opcional"
+                type="url"
+                value={noticeDraft.linkUrl}
+              />
+            </div>
+          </div>
+
+          <div className="field">
+            <label htmlFor="avisoTexto">Texto</label>
+            <textarea
+              id="avisoTexto"
+              onChange={handleNoticeDraftChange("texto")}
+              placeholder="Escreva o comunicado de forma curta e direta."
+              rows={4}
+              value={noticeDraft.texto}
+            />
+          </div>
+
+          <div className="config-action-row">
+            <button
+              className="button button-primary"
+              disabled={isPublishingNotice}
+              onClick={() => void handlePublishNotice()}
+              type="button"
+            >
+              {isPublishingNotice ? "Publicando..." : "Publicar aviso"}
+            </button>
+          </div>
+
+          {noticeMessage ? <p className="muted">{noticeMessage}</p> : null}
+
+          <div className="config-member-list">
+            {notices.length > 0 ? (
+              notices.map((notice) => (
+                <article className="config-notice-item" key={notice.id}>
+                  <div>
+                    <span className="lovable-news-meta">
+                      {notice.categoria}
+                      {notice.data_evento ? ` · ${new Date(`${notice.data_evento}T00:00:00`).toLocaleDateString("pt-BR")}` : ""}
+                    </span>
+                    <strong>{notice.titulo}</strong>
+                    <p className="muted">{notice.texto}</p>
+                    {notice.link_url ? (
+                      <a className="public-inline-link" href={notice.link_url} rel="noreferrer" target="_blank">
+                        Abrir link
+                      </a>
+                    ) : null}
+                  </div>
+                  <button
+                    className="lovable-small-button dashboard-home-delete"
+                    onClick={() => void handleDeleteNotice(notice.id)}
+                    type="button"
+                  >
+                    Remover
+                  </button>
+                </article>
+              ))
+            ) : (
+              <div className="config-empty-members">Nenhum aviso publicado ainda.</div>
+            )}
+          </div>
         </section>
       </div>
     </main>

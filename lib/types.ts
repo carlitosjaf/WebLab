@@ -18,6 +18,8 @@ export type TeamSiteMember = {
   imagem?: string | null;
 };
 
+export type TeamNoticeCategory = "Aviso" | "Evento" | "Publicação" | "Prazo";
+
 export type Database = {
   public: {
     Views: Record<string, never>;
@@ -276,8 +278,59 @@ export type Database = {
           }
         ];
       };
+      avisos_equipe: {
+        Row: {
+          id: string;
+          equipe_id: string;
+          titulo: string;
+          texto: string;
+          categoria: TeamNoticeCategory;
+          data_evento: string | null;
+          link_url: string | null;
+          created_by: string;
+          publicado_em: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          equipe_id: string;
+          titulo: string;
+          texto: string;
+          categoria?: TeamNoticeCategory;
+          data_evento?: string | null;
+          link_url?: string | null;
+          created_by?: string;
+          publicado_em?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          titulo?: string;
+          texto?: string;
+          categoria?: TeamNoticeCategory;
+          data_evento?: string | null;
+          link_url?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "avisos_equipe_equipe_id_fkey";
+            columns: ["equipe_id"];
+            isOneToOne: false;
+            referencedRelation: "equipes";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "avisos_equipe_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "perfis";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
   };
 };
 
 export type ArticleRow = Database["public"]["Tables"]["artigos"]["Row"];
+export type TeamNoticeRow = Database["public"]["Tables"]["avisos_equipe"]["Row"];

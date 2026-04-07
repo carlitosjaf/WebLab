@@ -1985,11 +1985,14 @@ textarea:focus,
   align-items: center;
   min-height: 38px;
   padding: 0 16px;
+  border: 0;
   border-radius: 999px;
   background: #e2e8f0;
   color: #64748b;
+  font: inherit;
   font-size: 0.88rem;
   font-weight: 800;
+  cursor: pointer;
 }
 
 .public-filter.active {
@@ -2395,6 +2398,30 @@ textarea:focus,
   background: rgba(255, 255, 255, 0.62);
   color: #64748b;
   font-weight: 700;
+}
+
+.config-notice-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+}
+
+.config-notice-item > div {
+  display: grid;
+  gap: 6px;
+}
+
+.config-notice-item strong {
+  color: #0f172a;
+  font-size: 1.02rem;
+}
+
+.config-notice-item p {
+  margin: 0;
 }
 
 .editor-workspace {
