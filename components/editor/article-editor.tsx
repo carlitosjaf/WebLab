@@ -116,6 +116,8 @@ type ReferenceSuggestion = {
   title?: string;
   publication_year?: number;
   doi?: string;
+  matched_terms?: string[];
+  match_reason?: string;
   biblio?: {
     volume?: string;
     issue?: string;
@@ -134,6 +136,8 @@ type ReferenceSuggestion = {
     };
   }>;
 };
+
+type ReferenceTriageStatus = "usada" | "revisar" | "descartada";
 
 const EMPTY_DOC: ArticleContent = {
   type: "doc",
@@ -1477,6 +1481,11 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
   const [cognitiveTab, setCognitiveTab] = useState<CognitiveTab>("referencias");
   const [activeGapId, setActiveGapId] = useState<string | null>(null);
   const [referenceSuggestions, setReferenceSuggestions] = useState<ReferenceSuggestion[]>([]);
+  const [referenceSearchContext, setReferenceSearchContext] = useState<{
+    query?: string;
+    keywords?: string[];
+  } | null>(null);
+  const [referenceTriage, setReferenceTriage] = useState<Record<string, ReferenceTriageStatus>>({});
   const [referenceMessage, setReferenceMessage] = useState<string | null>(null);
   const [isFetchingReferences, setIsFetchingReferences] = useState(false);
   const [deepAnalysis, setDeepAnalysis] = useState<DeepManuscriptAnalysis | null>(null);
@@ -1697,6 +1706,13 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
     manuscriptAnalysis.citationGaps.find((gap) => gap.id === activeGapId) ??
     manuscriptAnalysis.citationGaps[0] ??
     null;
+  const triageSummary = Object.values(referenceTriage).reduce(
+    (summary, status) => ({
+      ...summary,
+      [status]: summary[status] + 1
+    }),
+    { usada: 0, revisar: 0, descartada: 0 } satisfies Record<ReferenceTriageStatus, number>
+  );
 
   const runDeepManuscriptAnalysis = async () => {
     setIsAnalyzingManuscript(true);
@@ -1731,6 +1747,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
     setIsFetchingReferences(true);
     setReferenceMessage(null);
     setReferenceSuggestions([]);
+    setReferenceSearchContext(null);
 
     try {
       const response = await fetch("/api/referencias/sugerir", {
@@ -1740,6 +1757,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
         },
         body: JSON.stringify({
           claim: gap.text,
+          section: gap.section,
           context: extractDocumentText(currentContent)
         })
       });
@@ -1748,8 +1766,17 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
         throw new Error("Não foi possível consultar referências agora.");
       }
 
-      const payload = (await response.json()) as { works?: ReferenceSuggestion[] };
+      const payload = (await response.json()) as {
+        works?: ReferenceSuggestion[];
+        query?: string;
+        keywords?: string[];
+      };
       setReferenceSuggestions(payload.works ?? []);
+      setReferenceSearchContext({
+        query: payload.query,
+        keywords: payload.keywords
+      });
+      /* Mensagem curta: as sugestões são triagem verificável, não citação automática. */
       setReferenceMessage(
         payload.works?.length
           ? "Sugestões carregadas a partir de fonte verificável."
@@ -1774,6 +1801,10 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
     const nextContent = appendReferenceToContent(editor.getJSON() as ArticleContent, citation);
     editor.commands.setContent(nextContent);
     setEditorVersion((current) => current + 1);
+    setReferenceTriage((current) => ({
+      ...current,
+      [work.id]: "usada"
+    }));
     scheduleSave(nextContent);
     setReferenceMessage("Citação inserida no texto e referência adicionada à seção Referências.");
   };
@@ -2299,6 +2330,12 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                   </div>
 
                   {referenceMessage ? <p className="muted">{referenceMessage}</p> : null}
+                  {referenceSearchContext?.keywords?.length ? (
+                    <div className="editor-reference-search-context">
+                      <span>Busca contextual</span>
+                      <strong>{referenceSearchContext.query ?? referenceSearchContext.keywords.join(" ")}</strong>
+                    </div>
+                  ) : null}
 
                   {referenceSuggestions.length === 0 ? (
                     <p className="muted">
@@ -2306,20 +2343,62 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                     </p>
                   ) : (
                     <div className="editor-reference-suggestions">
-                      {referenceSuggestions.map((work) => (
-                        <article key={work.id}>
+                      {referenceSuggestions.map((work) => {
+                        const triageStatus = referenceTriage[work.id];
+
+                        return (
+                        <article data-status={triageStatus ?? "nova"} key={work.id}>
                           <strong>{work.title ?? "Título não informado"}</strong>
                           <span>
                             {work.primary_location?.source?.display_name ?? "Fonte não informada"} ·{" "}
                             {work.publication_year ?? "s.d."}
                           </span>
+                          <p className="editor-reference-reason">
+                            {work.match_reason ??
+                              "Resultado verificável encontrado para a afirmação selecionada. Confira a aderência antes de inserir."}
+                          </p>
+                          {work.matched_terms?.length ? (
+                            <div className="editor-reference-term-list">
+                              {work.matched_terms.map((term) => (
+                                <span key={term}>{term}</span>
+                              ))}
+                            </div>
+                          ) : null}
+                          {triageStatus ? (
+                            <span className="editor-reference-status">Marcada como {triageStatus}</span>
+                          ) : null}
                           <div>
                             <button
                               className="button button-primary"
+                              disabled={triageStatus === "descartada"}
                               onClick={() => insertReferenceSuggestion(work)}
                               type="button"
                             >
                               Inserir citação
+                            </button>
+                            <button
+                              className="button button-secondary"
+                              onClick={() =>
+                                setReferenceTriage((current) => ({
+                                  ...current,
+                                  [work.id]: "revisar"
+                                }))
+                              }
+                              type="button"
+                            >
+                              Revisar depois
+                            </button>
+                            <button
+                              className="button button-secondary"
+                              onClick={() =>
+                                setReferenceTriage((current) => ({
+                                  ...current,
+                                  [work.id]: "descartada"
+                                }))
+                              }
+                              type="button"
+                            >
+                              Descartar
                             </button>
                             {work.primary_location?.landing_page_url ? (
                               <a
@@ -2333,13 +2412,19 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                             ) : null}
                           </div>
                         </article>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
 
                 <div className="editor-cognitive-block">
                   <strong>Referências usadas</strong>
+                  <div className="editor-bibliography-status">
+                    <span>{manuscriptAnalysis.usedReferences.length} no texto</span>
+                    <span>{manuscriptAnalysis.citationGaps.length} lacunas abertas</span>
+                    <span>{triageSummary.revisar} para revisar</span>
+                  </div>
                   {manuscriptAnalysis.usedReferences.length === 0 ? (
                     <p className="muted">A seção Referências ainda não tem itens detectáveis.</p>
                   ) : (
