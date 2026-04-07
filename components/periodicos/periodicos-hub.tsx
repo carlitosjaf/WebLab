@@ -83,6 +83,28 @@ type JournalCandidate = {
   recommendationLevel: RecommendationLevel;
 };
 
+type LicensedJournalCandidate = {
+  id: string;
+  title: string;
+  hostName: string | null;
+  landingPageUrl: string | null;
+  isOpenAccess: boolean;
+  matchCount: number;
+  detectedIndexers: IndexerName[];
+};
+
+type RadarSourceStatus = {
+  source: "OpenAlex" | "Scopus" | "Web of Science";
+  status: "active" | "missing_key" | "error";
+  message: string;
+};
+
+type RadarApiResponse = {
+  works: OpenAlexWork[];
+  licensedJournals: LicensedJournalCandidate[];
+  sourceStatus: RadarSourceStatus[];
+};
+
 type PeriodicosHubProps = {
   articles: ArticleRow[];
 };
@@ -125,6 +147,17 @@ function formatAccessModel(accessModel: (typeof INDEXER_STRATEGY)[number]["acces
       return "Depende de licença";
     default:
       return "Verificação assistida";
+  }
+}
+
+function formatSourceStatusLabel(status: RadarSourceStatus["status"]) {
+  switch (status) {
+    case "active":
+      return "Ativa";
+    case "missing_key":
+      return "Chave ausente";
+    default:
+      return "Atenção";
   }
 }
 
@@ -287,6 +320,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
   const [savedShortlist, setSavedShortlist] = useState<SavedShortlist[]>([]);
   const [journalResults, setJournalResults] = useState<JournalCandidate[]>([]);
   const [relatedWorks, setRelatedWorks] = useState<OpenAlexWork[]>([]);
+  const [sourceStatus, setSourceStatus] = useState<RadarSourceStatus[]>([]);
 
   useEffect(() => {
     setArticleSnapshots(articles);
@@ -404,16 +438,24 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
       const articleText = extractPlainText(selectedArticle.conteudo_json);
       const querySeed = searchInput.trim() || selectedArticle.titulo;
       const keywordQuery = buildKeywordQuery(querySeed, articleText);
-      const response = await fetch(
-        `https://api.openalex.org/works?search=${encodeURIComponent(keywordQuery)}&per-page=40`
-      );
+      const response = await fetch("/api/periodicos/radar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          query: keywordQuery
+        })
+      });
 
       if (!response.ok) {
-        throw new Error("Não foi possível consultar o OpenAlex agora.");
+        throw new Error("Não foi possível consultar as fontes editoriais agora.");
       }
 
-      const payload = (await response.json()) as { results?: OpenAlexWork[] };
-      const works = payload.results ?? [];
+      const payload = (await response.json()) as RadarApiResponse;
+      const works = payload.works ?? [];
+      setSourceStatus(payload.sourceStatus ?? []);
+
       const journalMap = new Map<string, JournalCandidate>();
 
       works.forEach((work) => {
@@ -465,6 +507,56 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
         );
       });
 
+      (payload.licensedJournals ?? []).forEach((journal) => {
+        const detectedIndexers = journal.detectedIndexers.filter((indexer): indexer is IndexerName =>
+          INDEXER_OPTIONS.includes(indexer)
+        );
+        const coverage = getIndexerCoverageSummary(detectedIndexers, selectedIndexers);
+        const current = journalMap.get(journal.id);
+
+        if (current) {
+          const mergedIndexers = Array.from(new Set([...current.detectedIndexers, ...detectedIndexers]));
+          const mergedCoverage = getIndexerCoverageSummary(mergedIndexers, selectedIndexers);
+          current.detectedIndexers = mergedIndexers;
+          current.matchedSelectedIndexers = mergedCoverage.matched;
+          current.matchCount += journal.matchCount;
+          current.landingPageUrl = current.landingPageUrl ?? journal.landingPageUrl;
+          current.hostName = current.hostName ?? journal.hostName;
+          current.editorialScore = calculateEditorialScore({
+            matchedSelectedIndexers: current.matchedSelectedIndexers.length,
+            detectedIndexers: current.detectedIndexers.length,
+            matchCount: current.matchCount,
+            hIndex: current.hIndex,
+            isOpenAccess: current.isOpenAccess || journal.isOpenAccess
+          });
+          current.recommendationLevel = inferRecommendationLevel(
+            current.editorialScore,
+            current.matchedSelectedIndexers.length
+          );
+          return;
+        }
+
+        const editorialScore = calculateEditorialScore({
+          matchedSelectedIndexers: coverage.matched.length,
+          detectedIndexers: detectedIndexers.length,
+          matchCount: journal.matchCount,
+          isOpenAccess: journal.isOpenAccess
+        });
+
+        journalMap.set(journal.id, {
+          id: journal.id,
+          title: journal.title,
+          hostName: journal.hostName,
+          landingPageUrl: journal.landingPageUrl,
+          isOpenAccess: journal.isOpenAccess,
+          matchCount: journal.matchCount,
+          detectedIndexers,
+          matchedSelectedIndexers: coverage.matched,
+          editorialScore,
+          recommendationLevel: inferRecommendationLevel(editorialScore, coverage.matched.length)
+        });
+      });
+
       setJournalResults(
         Array.from(journalMap.values()).sort((left, right) => {
           if (right.editorialScore !== left.editorialScore) {
@@ -481,6 +573,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
       setSearchMessage(error instanceof Error ? error.message : "Erro inesperado na consulta editorial.");
       setJournalResults([]);
       setRelatedWorks([]);
+      setSourceStatus([]);
     } finally {
       setIsLoading(false);
     }
@@ -827,6 +920,20 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
               Antes de submeter, confirme escopo, indexação ativa, APC e instruções aos autores.
             </span>
           </div>
+
+          {sourceStatus.length > 0 ? (
+            <div className="periodicos-source-status" aria-label="Status das fontes do radar">
+              {sourceStatus.map((source) => (
+                <article key={source.source} data-status={source.status}>
+                  <div>
+                    <strong>{source.source}</strong>
+                    <span>{formatSourceStatusLabel(source.status)}</span>
+                  </div>
+                  <p>{source.message}</p>
+                </article>
+              ))}
+            </div>
+          ) : null}
 
           <div className="periodicos-source-strategy">
             <div>

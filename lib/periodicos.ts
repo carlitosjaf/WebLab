@@ -67,13 +67,13 @@ export const INDEXER_STRATEGY: IndexerStrategy[] = [
     indexer: "Scopus",
     accessModel: "licenca_institucional",
     priority: "alta",
-    note: "Integração completa depende de acesso institucional/API Elsevier."
+    note: "Ativa quando ELSEVIER_API_KEY estiver configurada no servidor; ainda exige acesso institucional/API Elsevier."
   },
   {
     indexer: "Web of Science",
     accessModel: "licenca_institucional",
     priority: "alta",
-    note: "Integração completa depende de licença paga/API Clarivate."
+    note: "Ativa quando CLARIVATE_API_KEY estiver configurada no servidor; ainda exige licença Clarivate."
   },
   {
     indexer: "Portal CAPES",
