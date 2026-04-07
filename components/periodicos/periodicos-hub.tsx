@@ -520,21 +520,23 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
   return (
     <main className="shell">
       <div className="container" style={{ display: "grid", gap: "20px" }}>
-        <section className="glass-card" style={{ padding: "26px", display: "grid", gap: "12px" }}>
-          <span className="eyebrow">Submissao editorial</span>
-          <h1 style={{ margin: 0 }}>Localizador de revistas e indices</h1>
-          <p className="muted" style={{ margin: 0, maxWidth: "82ch" }}>
-            O foco principal deste modulo e encontrar periodicos com melhor encaixe para o seu manuscrito e
-            com sinais de presenca nos indexadores que mais importam para a estrategia de submissao.
-            Como apoio, o WebLab tambem traz referencias relacionadas e permite enviar a citacao direto para o artigo.
+        <section className="hero-panel" style={{ display: "grid", gap: "12px" }}>
+          <span className="eyebrow">radar editorial</span>
+          <h1 className="section-title" style={{ fontSize: "clamp(2.2rem, 4.2vw, 3.3rem)" }}>
+            Mapeie revistas, indexadores e caminhos de submissao a partir do seu manuscrito.
+          </h1>
+          <p className="section-lead">
+            Esta sala do WebLab foi desenhada para responder primeiro a pergunta mais importante de quem publica:
+            onde esse artigo tem mais aderencia editorial e melhor encaixe de indexacao? As referencias aparecem
+            como apoio, sem roubar o protagonismo da busca por periodicos.
           </p>
         </section>
 
         <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "18px" }}>
           <div style={{ display: "grid", gap: "8px" }}>
-            <strong>1. Selecione o artigo que vai orientar a busca</strong>
+            <strong>1. Protocolo de busca</strong>
             <span className="muted">
-              A analise editorial usa o titulo e o texto do artigo selecionado para buscar revistas e referencias.
+              Escolha o manuscrito, refine o recorte tematico e diga ao WebLab quais indexadores pesam mais na decisao.
             </span>
           </div>
 
@@ -576,19 +578,19 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                 border: "1px solid rgba(36,26,19,0.08)"
               }}
             >
-              <strong>{selectedArticle?.titulo ?? "Nenhum artigo selecionado"}</strong>
+              <strong>{selectedArticle?.titulo ?? "Nenhum manuscrito selecionado"}</strong>
               <span className="muted">Ultima edicao: {formatRelativeUpdate(selectedArticle?.updated_at ?? null)}</span>
               <Link
                 href={selectedArticle ? (`/editor/${selectedArticle.id}` as Route) : ("/dashboard" as Route)}
                 className="muted"
               >
-                Abrir artigo no editor
+                Abrir manuscrito no editor
               </Link>
             </div>
           </div>
 
           <div style={{ display: "grid", gap: "10px" }}>
-            <strong>2. Escolha os indexadores prioritarios</strong>
+            <strong>2. Prioridades de indexacao</strong>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               {INDEXER_OPTIONS.map((indexer) => {
                 const active = selectedIndexers.includes(indexer);
@@ -641,7 +643,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
 
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
             <button className="button button-primary" type="button" onClick={() => void searchJournals()} disabled={isLoading}>
-              {isLoading ? "Analisando revistas..." : "Buscar revistas para submissao"}
+              {isLoading ? "Varredura em andamento..." : "Rodar varredura editorial"}
             </button>
 
             <button
@@ -649,7 +651,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
               type="button"
               onClick={() => setOnlyOpenAccess((current) => !current)}
             >
-              {onlyOpenAccess ? "Mostrando apenas acesso aberto" : "Filtrar acesso aberto"}
+              {onlyOpenAccess ? "Mostrando apenas acesso aberto" : "Restringir a acesso aberto"}
             </button>
 
             <button
@@ -657,7 +659,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
               type="button"
               onClick={() => setShowOnlyFavorites((current) => !current)}
             >
-              {showOnlyFavorites ? `Somente favoritas (${favoriteCount})` : `Ver favoritas (${favoriteCount})`}
+              {showOnlyFavorites ? `Somente favoritas (${favoriteCount})` : `Filtrar favoritas (${favoriteCount})`}
             </button>
           </div>
 
@@ -677,9 +679,9 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
         <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "14px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
             <div style={{ display: "grid", gap: "4px" }}>
-              <strong>Shortlist editorial</strong>
+              <strong>Caderno de shortlist</strong>
               <span className="muted">
-                Salve revistas por artigo, marque favoritas e classifique quais sao candidatas fortes para submissao.
+                Salve revistas por manuscrito, marque favoritas e deixe claro quais sao as candidatas mais fortes.
               </span>
             </div>
             <span className="muted">
@@ -692,7 +694,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
               className="muted"
               style={{ padding: "18px", borderRadius: "18px", background: "rgba(255,255,255,0.6)" }}
             >
-              Sua shortlist ainda esta vazia. Salve as melhores revistas encontradas logo abaixo para montar a estrategia de submissao.
+              Nenhuma revista foi salva ainda. Use o radar abaixo para montar sua shortlist de submissao.
             </div>
           ) : (
             <div style={{ display: "grid", gap: "12px" }}>
@@ -789,9 +791,9 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
 
         <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "14px" }}>
           <div style={{ display: "grid", gap: "4px" }}>
-            <strong>Revistas recomendadas para submissao</strong>
+            <strong>Revistas candidatas</strong>
             <span className="muted">
-              O ranking combina aderencia tematica, sinais dos indexadores escolhidos, acesso aberto e impacto editorial aproximado.
+              O ranking combina aderencia tematica, peso dos indexadores escolhidos, acesso aberto e sinais editoriais detectados.
             </span>
           </div>
 
@@ -887,9 +889,9 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
 
         <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "14px" }}>
           <div style={{ display: "grid", gap: "4px" }}>
-            <strong>Referencias relacionadas</strong>
+            <strong>Referencias de apoio</strong>
             <span className="muted">
-              Funcao secundaria do modulo: encontrar artigos proximos e mandar a referencia direto para o texto selecionado.
+              Quando a decisao editorial estiver encaminhada, use esta area para puxar referencias relacionadas para o manuscrito.
             </span>
           </div>
 

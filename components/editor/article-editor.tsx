@@ -1147,7 +1147,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
           >
             <strong>Revistas para submissao</strong>
             <span className="muted">
-              A busca editorial saiu do centro do editor e virou um modulo proprio do WebLab, focado em encontrar revistas com os indexadores mais adequados para o seu artigo.
+              O radar editorial agora vive em uma sala propria do laboratorio. Use esse modulo para cruzar tema, indexadores e referencias de apoio sem tirar a escrita do centro.
             </span>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               <Link

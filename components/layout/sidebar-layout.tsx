@@ -17,14 +17,14 @@ type NavLink = {
 };
 
 const links: NavLink[] = [
-  { href: "/dashboard", label: "Dashboard", icon: "Dashboard" },
-  { href: "/dashboard/periodicos" as Route, label: "Revistas e indices", icon: "Periodicos" },
-  { href: "/dashboard/assistente-lattes", label: "Assistente Lattes", icon: "Lattes" },
-  { href: "/dashboard/plataforma-brasil", label: "Plataforma Brasil", icon: "Comite" },
+  { href: "/dashboard", label: "Nucleo de projetos", icon: "01" },
+  { href: "/dashboard/periodicos" as Route, label: "Radar editorial", icon: "02" },
+  { href: "/dashboard/assistente-lattes", label: "Assistente Lattes", icon: "03" },
+  { href: "/dashboard/plataforma-brasil", label: "Plataforma Brasil", icon: "04" },
   {
     href: "/configuracoes",
     label: "Configuracoes da equipe",
-    icon: "Equipe",
+    icon: "05",
     coordinatorOnly: true
   }
 ];
@@ -87,43 +87,38 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", backgroundColor: "var(--background)" }}>
+    <div className="sidebar-shell">
       <aside
-        className="glass-card"
-        style={{
-          width: "280px",
-          margin: "16px",
-          padding: "24px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "32px",
-          position: "sticky",
-          top: "16px",
-          height: "calc(100vh - 32px)",
-          borderRadius: "24px",
-          zIndex: 40
-        }}
+        className="sidebar-panel"
+        style={{ zIndex: 40 }}
       >
-        <div style={{ padding: "0 8px" }}>
-          <h2 style={{ margin: 0, fontSize: "1.5rem", color: "var(--accent-strong)" }}>WebLab</h2>
-          <p className="muted" style={{ fontSize: "0.9rem", margin: "4px 0 0" }}>
-            Fiocruz Labs
-          </p>
+        <div className="sidebar-brand">
+          <span className="sidebar-brand-mark">nucleo ativo</span>
+          <div style={{ display: "grid", gap: "6px" }}>
+            <h2 className="sidebar-title">WebLab</h2>
+            <p style={{ margin: 0, color: "rgba(255,255,255,0.66)", lineHeight: 1.6 }}>
+              Laboratorio virtual para escrita, submissao e memoria cientifica colaborativa.
+            </p>
+          </div>
+          <div
+            style={{
+              display: "grid",
+              gap: "6px",
+              padding: "14px 16px",
+              borderRadius: "18px",
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.06)"
+            }}
+          >
+            <span style={{ fontSize: "0.76rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(162,220,213,0.78)" }}>
+              ambiente
+            </span>
+            <strong>Fluxo protegido por equipe</strong>
+          </div>
         </div>
 
         <nav style={{ display: "flex", flexDirection: "column", gap: "8px", flex: 1 }}>
-          <div
-            className="muted"
-            style={{
-              fontSize: "0.75rem",
-              textTransform: "uppercase",
-              letterSpacing: "1px",
-              margin: "0 8px 8px",
-              fontWeight: 700
-            }}
-          >
-            Navegacao
-          </div>
+          <div className="sidebar-nav-label">Navegacao</div>
           {visibleLinks.map((link) => {
             const isActive =
               pathname === link.href ||
@@ -133,28 +128,9 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               <Link
                 key={link.href}
                 href={link.href}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "12px 16px",
-                  borderRadius: "14px",
-                  textDecoration: "none",
-                  fontWeight: isActive ? 600 : 500,
-                  color: isActive ? "white" : "var(--foreground)",
-                  background: isActive ? "var(--accent)" : "transparent",
-                  border: isActive ? "none" : "1px solid transparent",
-                  transition: "all 0.2s ease"
-                }}
+                className={isActive ? "nav-link nav-link-active" : "nav-link"}
               >
-                <span
-                  style={{
-                    fontSize: "0.8rem",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.08em",
-                    opacity: isActive ? 0.9 : 0.65
-                  }}
-                >
+                <span className="nav-icon">
                   {link.icon}
                 </span>
                 {link.label}
@@ -163,11 +139,19 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div style={{ marginTop: "auto", borderTop: "1px solid var(--surface-border)", paddingTop: "24px" }}>
+        <div style={{ marginTop: "auto", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: "24px" }}>
           <button
             className="button button-secondary"
             onClick={handleSignOut}
-            style={{ width: "100%", justifyContent: "center", display: "flex", gap: "8px" }}
+            style={{
+              width: "100%",
+              justifyContent: "center",
+              display: "flex",
+              gap: "8px",
+              background: "rgba(255,255,255,0.08)",
+              color: "white",
+              border: "1px solid rgba(255,255,255,0.12)"
+            }}
             type="button"
           >
             {isSigningOut ? "Saindo..." : "Sair da conta"}

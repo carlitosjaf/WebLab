@@ -15,37 +15,26 @@ export default function LoginPage() {
         }}
       >
         <section
+          className="hero-panel"
           style={{
-            padding: "28px",
             display: "grid",
             alignContent: "space-between",
             minHeight: "calc(100vh - 64px)"
           }}
         >
           <div style={{ maxWidth: "620px", display: "grid", gap: "18px" }}>
-            <p
-              style={{
-                margin: 0,
-                color: "var(--accent-strong)",
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                fontSize: "0.82rem",
-                fontWeight: 700
-              }}
-            >
-              pesquisa colaborativa
-            </p>
-            <h2 style={{ margin: 0, fontSize: "clamp(2.8rem, 7vw, 5.2rem)", lineHeight: 0.95 }}>
-              Produza ciencia com fluxo, contexto e equipe protegida.
-            </h2>
-            <p className="muted" style={{ margin: 0, maxWidth: "52ch", fontSize: "1.05rem" }}>
-              O WebLab foi pensado para pesquisadores que precisam sair do caos de arquivos
-              espalhados e trabalhar em artigos com autonomia, historico e foco.
+            <span className="eyebrow">laboratorio virtual para pesquisa</span>
+            <h1 className="display-title">
+              Construa, refine e publique ciencia dentro de um unico laboratorio.
+            </h1>
+            <p className="section-lead">
+              O WebLab organiza escrita, memoria editorial, recomendacao de periodicos e trabalho em equipe
+              num ambiente com cara de infraestrutura cientifica, nao de pasta solta.
             </p>
           </div>
 
           <div
-            className="glass-card"
+            className="surface-muted"
             style={{
               padding: "24px",
               display: "grid",
@@ -53,19 +42,26 @@ export default function LoginPage() {
               maxWidth: "560px"
             }}
           >
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "12px" }}>
+            <div style={{ display: "grid", gap: "10px" }}>
+              <strong style={{ fontSize: "1.1rem" }}>Tres nucleos do laboratorio</strong>
+              <span className="muted">
+                Cada parte do produto foi desenhada para apoiar a vida real de quem pesquisa, escreve e submete.
+              </span>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px" }}>
               {[
-                ["Equipes isoladas", "Cada time visualiza apenas os proprios artigos."],
-                ["Editor vivo", "Escrita com salvamento automatico e menos perda de contexto."],
-                ["Dashboard claro", "Entrada unica para criar, abrir e acompanhar os textos."]
+                ["Nucleo protegido", "Cada equipe opera em seu proprio espaco, com isolamento e regras claras."],
+                ["Caderno vivo", "O editor salva, estrutura e acompanha a evolucao do artigo sem quebrar o fluxo."],
+                ["Radar editorial", "O laboratorio ajuda a encontrar revistas e referencias sem tirar o foco da escrita."]
               ].map(([title, description]) => (
                 <article
                   key={title}
                   style={{
                     padding: "16px",
                     borderRadius: "20px",
-                    background: "rgba(255,255,255,0.68)",
-                    border: "1px solid rgba(36,26,19,0.08)"
+                    background: "rgba(255,255,255,0.72)",
+                    border: "1px solid rgba(16,40,52,0.08)"
                   }}
                 >
                   <strong style={{ display: "block", marginBottom: "8px" }}>{title}</strong>

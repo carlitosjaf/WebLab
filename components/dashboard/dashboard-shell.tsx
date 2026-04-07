@@ -50,17 +50,17 @@ export function DashboardShell({
 
   const scopeDescription = useMemo(() => {
     if (role === "coordenador_geral") {
-      return "Visao consolidada de todas as equipes vinculadas ao laboratorio.";
+      return "Visao consolidada das equipes, dos manuscritos ativos e da memoria editorial do laboratorio.";
     }
 
-    return "Projetos visiveis para a sua equipe, respeitando o isolamento configurado no banco.";
+    return "Tudo o que a equipe precisa para abrir manuscritos, retomar contexto e mover a escrita com seguranca.";
   }, [role]);
 
   const handleCreateArticle = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!title.trim()) {
-      setErrorMessage("Digite um titulo para criar o artigo.");
+      setErrorMessage("Digite um titulo para iniciar o manuscrito.");
       return;
     }
 
@@ -73,7 +73,7 @@ export function DashboardShell({
       } = await supabase.auth.getUser();
 
       if (!user) {
-        setErrorMessage("Sua sessao expirou. Entre novamente para criar artigos.");
+        setErrorMessage("Sua sessao expirou. Entre novamente para criar manuscritos.");
         router.replace("/");
         return;
       }
@@ -147,40 +147,23 @@ export function DashboardShell({
     <main className="shell">
       <div className="container" style={{ display: "grid", gap: "24px" }}>
         <section
-          className="glass-card"
+          className="hero-panel"
           style={{
-            padding: "28px",
             display: "flex",
             justifyContent: "space-between",
             gap: "24px",
             flexWrap: "wrap"
           }}
         >
-          <div style={{ display: "grid", gap: "10px" }}>
-            <span
-              style={{
-                width: "fit-content",
-                padding: "8px 12px",
-                borderRadius: "999px",
-                background: "var(--accent-soft)",
-                color: "var(--accent-strong)",
-                fontWeight: 700,
-                fontSize: "0.88rem"
-              }}
-            >
-              {teamName}
-            </span>
-            <div>
-              <h1 style={{ margin: 0, fontSize: "clamp(2rem, 5vw, 3rem)" }}>
-                Projetos da equipe
+          <div style={{ display: "grid", gap: "12px", maxWidth: "760px" }}>
+            <span className="eyebrow">{teamName}</span>
+            <div style={{ display: "grid", gap: "10px" }}>
+              <h1 className="section-title" style={{ fontSize: "clamp(2.2rem, 4.5vw, 3.4rem)" }}>
+                {role === "coordenador_geral" ? "Painel central do laboratorio" : "Nucleo de projetos"}
               </h1>
-              <p className="muted" style={{ marginBottom: 0 }}>
-                {scopeDescription}
-              </p>
+              <p className="section-lead">{scopeDescription}</p>
             </div>
-            <span className="muted">
-              {profileName} · {formatRoleLabel(role)}
-            </span>
+            <span className="muted">Responsavel em foco: {profileName} - {formatRoleLabel(role)}</span>
           </div>
 
           <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
@@ -188,17 +171,17 @@ export function DashboardShell({
               className="button button-primary"
               onClick={() => router.push("/dashboard/assistente-lattes" as Route)}
               type="button"
-              style={{ background: "#4a3c31" }}
+              style={{ background: "linear-gradient(135deg, var(--secondary-accent), #2f7ab4)" }}
             >
-              Assistente Lattes
+              Abrir Lattes
             </button>
             <button
               className="button button-primary"
               onClick={() => router.push("/dashboard/plataforma-brasil" as Route)}
               type="button"
-              style={{ background: "var(--accent-strong)" }}
+              style={{ background: "linear-gradient(135deg, var(--accent-strong), var(--accent))" }}
             >
-              Plataforma Brasil
+              Abrir Plataforma Brasil
             </button>
           </div>
         </section>
@@ -211,23 +194,15 @@ export function DashboardShell({
           }}
         >
           {[
-            ["Em rascunho", draftedCount, "Textos em desenvolvimento ativo."],
-            ["Submetidos", submittedCount, "Artigos em revisao ou circulacao interna."],
-            ["Aprovados", approvedCount, "Textos finalizados para referencia da equipe."]
+            ["Rascunhos ativos", draftedCount, "Textos em construcao dentro do laboratorio."],
+            ["Em avaliacao", submittedCount, "Manuscritos em revisao, circulacao ou preparo de submissao."],
+            ["Biblioteca valida", approvedCount, "Artigos consolidados para memoria e referencia da equipe."]
           ].map(([label, value, description]) => (
-            <article
-              key={label}
-              className="glass-card"
-              style={{
-                padding: "22px",
-                display: "grid",
-                gap: "8px"
-              }}
-            >
+            <article key={label} className="metric-card">
               <span className="muted" style={{ fontSize: "0.9rem" }}>
                 {label}
               </span>
-              <strong style={{ fontSize: "2.2rem", lineHeight: 1 }}>{value}</strong>
+              <strong className="metric-number">{value}</strong>
               <span className="muted">{description}</span>
             </article>
           ))}
@@ -242,19 +217,21 @@ export function DashboardShell({
         >
           <aside className="glass-card" style={{ padding: "24px", height: "fit-content" }}>
             <div style={{ display: "grid", gap: "12px", marginBottom: "20px" }}>
-              <h2 style={{ margin: 0 }}>Novo artigo</h2>
-              <p className="muted" style={{ margin: 0 }}>
-                Comece com o titulo. O restante do conteudo pode ser desenvolvido dentro do editor.
+              <span className="eyebrow">iniciar manuscrito</span>
+              <h2 style={{ margin: 0 }}>Abrir uma nova bancada de escrita</h2>
+              <p className="muted" style={{ margin: 0, lineHeight: 1.65 }}>
+                Comece pelo titulo e leve o texto para o editor vivo do WebLab, onde a estrutura,
+                o autosave e o fluxo editorial continuam.
               </p>
             </div>
 
             <form onSubmit={handleCreateArticle} style={{ display: "grid", gap: "16px" }}>
               <div className="field">
-                <label htmlFor="title">Titulo do artigo</label>
+                <label htmlFor="title">Titulo do manuscrito</label>
                 <input
                   id="title"
                   onChange={(event) => setTitle(event.target.value)}
-                  placeholder="Ex.: Efeitos da vigilancia integrada em arboviroses"
+                  placeholder="Ex.: Vigilancia integrada e resposta territorial em arboviroses"
                   value={title}
                 />
               </div>
@@ -266,7 +243,7 @@ export function DashboardShell({
               ) : null}
 
               <button className="button button-primary" disabled={isCreating} type="submit">
-                {isCreating ? "Criando..." : "Criar e abrir editor"}
+                {isCreating ? "Abrindo bancada..." : "Criar manuscrito"}
               </button>
             </form>
           </aside>
@@ -282,13 +259,12 @@ export function DashboardShell({
                 flexWrap: "wrap"
               }}
             >
-              <div>
-                <h2 style={{ margin: "0 0 6px 0" }}>
-                  {role === "coordenador_geral" ? "Artigos do laboratorio" : "Artigos da equipe"}
+              <div style={{ display: "grid", gap: "6px" }}>
+                <h2 style={{ margin: 0 }}>
+                  {role === "coordenador_geral" ? "Acervo vivo do laboratorio" : "Caderno vivo da equipe"}
                 </h2>
                 <p className="muted" style={{ margin: 0 }}>
-                  {localArticles.length} artigo(s) carregado(s) com status, ultima atualizacao e autoria
-                  recente.
+                  {localArticles.length} manuscrito(s) com status, memoria recente e acesso rapido ao editor.
                 </p>
               </div>
             </div>
@@ -296,59 +272,36 @@ export function DashboardShell({
             <div style={{ display: "grid", gap: "14px" }}>
               {localArticles.length === 0 ? (
                 <div
+                  className="surface-muted"
                   style={{
                     padding: "28px",
-                    borderRadius: "24px",
-                    background: "rgba(255,255,255,0.7)",
-                    border: "1px dashed rgba(36,26,19,0.14)"
+                    borderStyle: "dashed",
+                    borderColor: "rgba(16,40,52,0.16)"
                   }}
                 >
                   <strong style={{ display: "block", marginBottom: "8px" }}>
-                    Nenhum artigo encontrado
+                    Nenhum manuscrito encontrado
                   </strong>
                   <span className="muted">
-                    Crie o primeiro rascunho usando o formulario ao lado.
+                    Crie a primeira bancada de escrita usando o painel ao lado.
                   </span>
                 </div>
               ) : (
                 localArticles.map((article) => (
                   <article
                     key={article.id}
+                    className="surface-muted"
                     style={{
                       display: "grid",
                       gridTemplateColumns: "minmax(0, 1fr) auto",
                       gap: "12px",
-                      padding: "18px",
-                      borderRadius: "24px",
-                      background: "rgba(255,255,255,0.76)",
-                      border: "1px solid rgba(36,26,19,0.08)"
+                      padding: "18px"
                     }}
                   >
                     <div style={{ display: "grid", gap: "10px" }}>
                       <strong style={{ fontSize: "1.05rem" }}>{article.titulo}</strong>
                       <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                        <span
-                          style={{
-                            padding: "6px 10px",
-                            borderRadius: "999px",
-                            background:
-                              article.status === "aprovado"
-                                ? "rgba(13,122,105,0.14)"
-                                : article.status === "submetido"
-                                  ? "rgba(196,125,54,0.14)"
-                                  : "rgba(36,26,19,0.06)",
-                            color:
-                              article.status === "aprovado"
-                                ? "var(--accent-strong)"
-                                : article.status === "submetido"
-                                  ? "#9a5f16"
-                                  : "var(--foreground)",
-                            fontSize: "0.88rem",
-                            fontWeight: 600
-                          }}
-                        >
-                          {formatStatusLabel(article.status)}
-                        </span>
+                        <span className="status-chip">{formatStatusLabel(article.status)}</span>
                         <span className="muted" style={{ fontSize: "0.9rem" }}>
                           {countArticleWords(article.conteudo_json)} palavra(s)
                         </span>
@@ -359,17 +312,7 @@ export function DashboardShell({
                           Ultimo editor: {article.last_editor_name ?? "Ainda nao identificado"}
                         </span>
                         {role === "coordenador_geral" ? (
-                          <span
-                            className="muted"
-                            style={{
-                              fontSize: "0.85rem",
-                              padding: "4px 8px",
-                              background: "rgba(36,26,19,0.04)",
-                              borderRadius: "99px"
-                            }}
-                          >
-                            {article.team_name ?? "Equipe"}
-                          </span>
+                          <span className="status-chip">{article.team_name ?? "Equipe"}</span>
                         ) : null}
                       </div>
                     </div>
@@ -380,7 +323,7 @@ export function DashboardShell({
                         onClick={() => router.push(`/editor/${article.id}`)}
                         type="button"
                       >
-                        Abrir artigo
+                        Abrir no editor
                       </button>
 
                       {canDeleteArticle(article) ? (
@@ -389,9 +332,9 @@ export function DashboardShell({
                           disabled={articlePendingId === article.id}
                           onClick={() => handleDeleteArticle(article)}
                           style={{
-                            background: "rgba(196, 69, 54, 0.12)",
+                            background: "var(--danger-soft)",
                             color: "var(--danger)",
-                            border: "1px solid rgba(196, 69, 54, 0.18)"
+                            border: "1px solid rgba(180, 67, 56, 0.2)"
                           }}
                           type="button"
                         >

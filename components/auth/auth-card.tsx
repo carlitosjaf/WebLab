@@ -185,58 +185,34 @@ export function AuthCard() {
 
   return (
     <div
-      className="glass-card"
-      style={{
-        padding: "32px",
-        width: "min(520px, 100%)"
-      }}
+      className="glass-card auth-card"
+      style={{ width: "min(520px, 100%)" }}
     >
       <div style={{ display: "grid", gap: "12px", marginBottom: "24px" }}>
-        <span
-          style={{
-            width: "fit-content",
-            padding: "8px 12px",
-            borderRadius: "999px",
-            background: "var(--accent-soft)",
-            color: "var(--accent-strong)",
-            fontSize: "0.9rem",
-            fontWeight: 600
-          }}
-        >
-          Laboratorio virtual para pesquisa
-        </span>
+        <span className="eyebrow">ambiente protegido</span>
         <div>
-          <h1 style={{ margin: 0, fontSize: "clamp(2rem, 5vw, 3rem)" }}>WebLab</h1>
-          <p className="muted" style={{ marginBottom: 0 }}>
-            Escreva, organize e evolua artigos cientificos com seguranca por equipe.
+          <h1 style={{ margin: 0, fontSize: "clamp(2.1rem, 5vw, 3.1rem)" }}>WebLab</h1>
+          <p className="muted" style={{ marginBottom: 0, lineHeight: 1.65 }}>
+            Entre no laboratorio para abrir seu nucleo de escrita, colaborar com sua equipe e manter
+            cada artigo em um fluxo editorial consistente.
           </p>
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "8px",
-          padding: "6px",
-          borderRadius: "999px",
-          background: "rgba(255,255,255,0.75)",
-          marginBottom: "24px"
-        }}
-      >
+      <div className="auth-tabs">
         <button
           className={`button ${mode === "login" ? "button-primary" : "button-secondary"}`}
           onClick={() => setMode("login")}
           type="button"
         >
-          Entrar
+          Acessar
         </button>
         <button
           className={`button ${mode === "register" ? "button-primary" : "button-secondary"}`}
           onClick={() => setMode("register")}
           type="button"
         >
-          Criar conta
+          Novo cadastro
         </button>
       </div>
 
@@ -252,7 +228,7 @@ export function AuthCard() {
                   nomeCompleto: event.target.value
                 }))
               }
-              placeholder="Seu nome"
+              placeholder="Como voce quer ser identificada(o) no laboratorio"
               required
               value={formState.nomeCompleto}
             />
@@ -270,7 +246,7 @@ export function AuthCard() {
                   inviteCode: event.target.value
                 }))
               }
-              placeholder="Opcional. Ex.: WEBLAB-AB12CD"
+              placeholder="Opcional. Ex.: NUCLEO-FIOCRUZ-AB12CD"
               value={formState.inviteCode}
             />
           </div>
@@ -325,10 +301,10 @@ export function AuthCard() {
 
         <button className="button button-primary" disabled={isPending} type="submit">
           {isPending
-            ? "Processando..."
+            ? "Sincronizando..."
             : mode === "login"
-              ? "Entrar no dashboard"
-              : "Cadastrar"}
+              ? "Entrar no laboratorio"
+              : "Criar acesso"}
         </button>
       </form>
     </div>
