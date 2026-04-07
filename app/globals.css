@@ -2333,6 +2333,125 @@ textarea:focus,
   color: #5eead4;
 }
 
+.periodicos-hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  max-width: 900px;
+  margin-top: 8px;
+}
+
+.periodicos-hero-metrics article,
+.periodicos-shortlist-summary span,
+.periodicos-integrity-note,
+.periodicos-decision-line,
+.periodicos-validation-details {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 18px;
+}
+
+.periodicos-hero-metrics article {
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  color: #0f172a;
+}
+
+.periodicos-hero-metrics strong {
+  font-size: 1.8rem;
+  letter-spacing: -0.06em;
+}
+
+.periodicos-hero-metrics span,
+.periodicos-integrity-note span,
+.periodicos-decision-line span {
+  color: #64748b;
+  line-height: 1.55;
+}
+
+.periodicos-integrity-note {
+  display: grid;
+  gap: 6px;
+  padding: 16px 18px;
+}
+
+.periodicos-shortlist-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.periodicos-shortlist-summary span {
+  padding: 9px 12px;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.periodicos-decision-line {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+}
+
+.periodicos-validation-details {
+  padding: 14px 16px;
+}
+
+.periodicos-validation-details summary {
+  cursor: pointer;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.periodicos-validation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.periodicos-validation-grid a {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  transition: border-color 160ms ease, transform 160ms ease;
+}
+
+.periodicos-validation-grid a:hover {
+  transform: translateY(-1px);
+  border-color: rgba(40, 148, 135, 0.38);
+}
+
+.periodicos-validation-grid span {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.periodicos-validation-grid small {
+  color: #64748b;
+}
+
+.hero-panel .periodicos-hero-metrics article {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: white;
+}
+
+.hero-panel .periodicos-hero-metrics span {
+  color: rgba(226, 232, 240, 0.82);
+}
+
+@media (max-width: 780px) {
+  .periodicos-hero-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .config-member-editor {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

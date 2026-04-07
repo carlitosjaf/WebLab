@@ -17,6 +17,12 @@ export const INDEXER_OPTIONS = [
 
 export type IndexerName = (typeof INDEXER_OPTIONS)[number];
 
+export type IndexerSearchLink = {
+  indexer: IndexerName;
+  href: string;
+  label: string;
+};
+
 type OpenAlexSourceLike = {
   display_name?: string;
   host_organization_name?: string;
@@ -89,6 +95,40 @@ export function inferIndexerSignals(source: OpenAlexSourceLike): IndexerName[] {
   }
 
   return Array.from(detected);
+}
+
+export function buildIndexerSearchLinks(journalTitle: string, indexers: IndexerName[]): IndexerSearchLink[] {
+  const query = encodeURIComponent(journalTitle);
+  const normalized = encodeURIComponent(`"${journalTitle}"`);
+
+  const links: Record<IndexerName, string> = {
+    Scopus: `https://www.scopus.com/sources.uri`,
+    "Web of Science": `https://mjl.clarivate.com/search-results?issn=&hide_exact_match_fl=true&utm_source=mjl&utm_medium=share-by-link&utm_campaign=search-results-share-this-journal`,
+    "Portal CAPES": `https://www.periodicos.capes.gov.br/index.php/acervo/buscador.html?q=${query}`,
+    SciELO: `https://search.scielo.org/?q=${query}&lang=pt`,
+    "Educ@": `https://www.fcc.org.br/fcc/educ/?s=${query}`,
+    ERIC: `https://eric.ed.gov/?q=${query}`,
+    Redalyc: `https://www.redalyc.org/busquedaArticuloFiltros.oa?q=${query}`,
+    Latindex: `https://www.latindex.org/latindex/bAvanzada`,
+    DOAJ: `https://doaj.org/search/journals?source=%7B%22query%22%3A%7B%22query_string%22%3A%7B%22query%22%3A${normalized}%2C%22default_operator%22%3A%22AND%22%7D%7D%7D`,
+    "Google Scholar": `https://scholar.google.com/scholar?q=${query}`,
+    Diadorim: `https://diadorim.ibict.br/vufind/Search/Results?lookfor=${query}&type=AllFields`,
+    AURA: "https://aura.amelica.org/"
+  };
+
+  return indexers.map((indexer) => ({
+    indexer,
+    href: links[indexer],
+    label: `Verificar em ${indexer}`
+  }));
+}
+
+export function formatIndexerEvidence(indexer: IndexerName, detectedIndexers: IndexerName[]) {
+  if (detectedIndexers.includes(indexer)) {
+    return "Sinal detectado";
+  }
+
+  return "Validar manualmente";
 }
 
 export function extractPlainText(content: ArticleContent | null) {

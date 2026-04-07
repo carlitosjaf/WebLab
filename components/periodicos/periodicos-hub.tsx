@@ -6,13 +6,16 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   INDEXER_OPTIONS,
+  buildIndexerSearchLinks,
   buildKeywordQuery,
   calculateEditorialScore,
   extractPlainText,
+  formatIndexerEvidence,
   formatRecommendationLevel,
   getIndexerCoverageSummary,
   inferIndexerSignals,
-  inferRecommendationLevel
+  inferRecommendationLevel,
+  type IndexerName
 } from "@/lib/periodicos";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type {
@@ -65,8 +68,8 @@ type JournalCandidate = {
   isOpenAccess: boolean;
   hIndex?: number;
   matchCount: number;
-  detectedIndexers: string[];
-  matchedSelectedIndexers: string[];
+  detectedIndexers: IndexerName[];
+  matchedSelectedIndexers: IndexerName[];
   editorialScore: number;
   recommendationLevel: RecommendationLevel;
 };
@@ -86,7 +89,7 @@ const DEFAULT_INDEXERS = [
   "SciELO",
   "DOAJ",
   "Portal CAPES"
-] as const;
+] as const satisfies readonly IndexerName[];
 
 function buildReferenceList(citation: string) {
   return {
@@ -173,7 +176,7 @@ function appendCitationToContent(content: ArticleContent | null, citation: strin
 export function PeriodicosHub({ articles }: PeriodicosHubProps) {
   const [articleSnapshots, setArticleSnapshots] = useState<ArticleRow[]>(articles);
   const [selectedArticleId, setSelectedArticleId] = useState(articles[0]?.id ?? "");
-  const [selectedIndexers, setSelectedIndexers] = useState<string[]>([...DEFAULT_INDEXERS]);
+  const [selectedIndexers, setSelectedIndexers] = useState<IndexerName[]>([...DEFAULT_INDEXERS]);
   const [searchInput, setSearchInput] = useState("");
   const [hostFilter, setHostFilter] = useState("");
   const [onlyOpenAccess, setOnlyOpenAccess] = useState(false);
@@ -277,8 +280,14 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
   ]);
 
   const favoriteCount = savedShortlist.filter((entry) => entry.is_favorite).length;
+  const strongCandidateCount = filteredJournalResults.filter(
+    (journal) => journal.recommendationLevel === "candidata_forte"
+  ).length;
+  const needsValidationCount = filteredJournalResults.filter(
+    (journal) => journal.recommendationLevel === "precisa_validar"
+  ).length;
 
-  const toggleIndexer = (indexer: string) => {
+  const toggleIndexer = (indexer: IndexerName) => {
     setSelectedIndexers((current) =>
       current.includes(indexer) ? current.filter((item) => item !== indexer) : [...current, indexer]
     );
@@ -317,7 +326,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
         }
 
         const detectedIndexers = inferIndexerSignals(source);
-        const coverage = getIndexerCoverageSummary(detectedIndexers, selectedIndexers as never[]);
+        const coverage = getIndexerCoverageSummary(detectedIndexers, selectedIndexers);
         const current = journalMap.get(source.id);
 
         if (!current) {
@@ -526,10 +535,31 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
             Encontre as revistas mais promissoras para submeter seu manuscrito.
           </h1>
           <p className="section-lead">
-            O radar editorial cruza tema, indexadores e sinais de aderencia para ajudar a decidir onde vale
-            investir submissao. As referencias ficam aqui como apoio de escrita, mas o centro da ferramenta e a
-            escolha do periodico certo.
+            O radar editorial cruza tema, indexadores e sinais de aderência para ajudar a decidir onde vale
+            investir submissão. Referências ficam como apoio; o centro é escolher o periódico certo.
           </p>
+          <div className="periodicos-hero-metrics" aria-label="Resumo do radar editorial">
+            <article>
+              <strong>{journalResults.length}</strong>
+              <span>revistas mapeadas</span>
+            </article>
+            <article>
+              <strong>{strongCandidateCount}</strong>
+              <span>candidatas fortes</span>
+            </article>
+            <article>
+              <strong>{savedShortlist.length}</strong>
+              <span>na shortlist</span>
+            </article>
+            <article>
+              <strong>{favoriteCount}</strong>
+              <span>favoritas</span>
+            </article>
+            <article>
+              <strong>{needsValidationCount}</strong>
+              <span>a validar</span>
+            </article>
+          </div>
         </section>
 
         <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "18px" }}>
@@ -545,11 +575,13 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
               <select
                 value={selectedArticle?.id ?? ""}
                 onChange={(event) => setSelectedArticleId(event.target.value)}
+                disabled={articleSnapshots.length === 0}
                 style={{
                   borderRadius: "18px",
                   padding: "14px 16px"
                 }}
               >
+                {articleSnapshots.length === 0 ? <option>Nenhum artigo disponível</option> : null}
                 {articleSnapshots.map((article) => (
                   <option key={article.id} value={article.id}>
                     {article.titulo}
@@ -581,7 +613,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                 href={selectedArticle ? (`/editor/${selectedArticle.id}` as Route) : ("/dashboard" as Route)}
                 className="muted"
               >
-                Abrir manuscrito no editor
+                {selectedArticle ? "Abrir manuscrito no editor" : "Criar manuscrito na Home"}
               </Link>
             </div>
           </div>
@@ -668,6 +700,14 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
               {citationMessage}
             </p>
           ) : null}
+
+          <div className="periodicos-integrity-note">
+            <strong>Como ler os indexadores?</strong>
+            <span>
+              O WebLab usa sinais bibliográficos para sugerir revistas e abre a verificação nas fontes oficiais.
+              Antes de submeter, confirme escopo, indexação ativa, APC e instruções aos autores.
+            </span>
+          </div>
         </section>
 
         <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "14px" }}>
@@ -682,6 +722,15 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
               {loadingShortlist ? "Carregando shortlist..." : `${savedShortlist.length} revista(s) salvas`}
             </span>
           </div>
+
+          {savedShortlist.length > 0 ? (
+            <div className="periodicos-shortlist-summary" aria-label="Resumo da shortlist">
+              <span>{savedShortlist.filter((entry) => entry.recommendation_level === "candidata_forte").length} fortes</span>
+              <span>{savedShortlist.filter((entry) => entry.recommendation_level === "candidata_moderada").length} moderadas</span>
+              <span>{savedShortlist.filter((entry) => entry.recommendation_level === "precisa_validar").length} a validar</span>
+              <span>{favoriteCount} favoritas</span>
+            </div>
+          ) : null}
 
           {savedShortlist.length === 0 ? (
             <div
@@ -740,6 +789,18 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                     ))}
                   </div>
 
+                  <details className="periodicos-validation-details">
+                    <summary>Verificação nos indexadores</summary>
+                    <div className="periodicos-validation-grid">
+                      {buildIndexerSearchLinks(entry.journal_title, selectedIndexers).map((link) => (
+                        <a href={link.href} key={link.indexer} rel="noreferrer" target="_blank">
+                          <span>{link.indexer}</span>
+                          <small>{formatIndexerEvidence(link.indexer, entry.detected_indexers as IndexerName[])}</small>
+                        </a>
+                      ))}
+                    </div>
+                  </details>
+
                   <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                     <select
                       value={entry.recommendation_level}
@@ -776,6 +837,12 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                     >
                       Remover da shortlist
                     </button>
+
+                    {entry.source_url ? (
+                      <a className="button button-secondary" href={entry.source_url} rel="noreferrer" target="_blank">
+                        Abrir fonte
+                      </a>
+                    ) : null}
                   </div>
                 </article>
               ))}
@@ -801,6 +868,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
             <div style={{ display: "grid", gap: "14px" }}>
               {filteredJournalResults.map((journal) => {
                 const savedEntry = shortlistedByJournalId.get(journal.id);
+                const validationLinks = buildIndexerSearchLinks(journal.title, selectedIndexers);
 
                 return (
                   <article
@@ -832,6 +900,17 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                       <span className="muted">Indexadores aderentes: {journal.matchedSelectedIndexers.length}</span>
                     </div>
 
+                    <div className="periodicos-decision-line">
+                      <strong>Leitura editorial:</strong>
+                      <span>
+                        {journal.recommendationLevel === "candidata_forte"
+                          ? "priorize validação de escopo e instruções aos autores."
+                          : journal.recommendationLevel === "candidata_moderada"
+                            ? "boa para comparação, mas confirme aderência e indexação."
+                            : "mantenha como hipótese; ainda precisa de confirmação manual forte."}
+                      </span>
+                    </div>
+
                     <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                       {journal.matchedSelectedIndexers.length > 0 ? (
                         journal.matchedSelectedIndexers.map((indexer) => (
@@ -843,6 +922,18 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                         <span className="muted">Sem indexadores priorizados detectados automaticamente</span>
                       )}
                     </div>
+
+                    <details className="periodicos-validation-details">
+                      <summary>Verificar indexadores prioritários</summary>
+                      <div className="periodicos-validation-grid">
+                        {validationLinks.map((link) => (
+                          <a href={link.href} key={link.indexer} rel="noreferrer" target="_blank">
+                            <span>{link.indexer}</span>
+                            <small>{formatIndexerEvidence(link.indexer, journal.detectedIndexers)}</small>
+                          </a>
+                        ))}
+                      </div>
+                    </details>
 
                     <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                       {journal.detectedIndexers
