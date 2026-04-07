@@ -835,6 +835,32 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
     setCitationMessage(`Dossiê de ${entry.journal_title} baixado em Markdown.`);
   };
 
+  const handleDownloadSubmissionDocx = async (entry: SavedShortlist) => {
+    if (!selectedArticle) {
+      setCitationMessage("Selecione um manuscrito antes de baixar o pacote de submissão.");
+      return;
+    }
+
+    const readiness = getSubmissionReadiness(entry);
+    const { exportSubmissionDocx } = await import("@/lib/docx-export");
+    await exportSubmissionDocx(selectedArticle.titulo, selectedArticle.conteudo_json ?? EMPTY_DOC, {
+      journalTitle: entry.journal_title,
+      hostName: entry.host_name,
+      recommendationLabel: formatRecommendationLevel(entry.recommendation_level),
+      readinessLabel: readiness.label,
+      readinessPercent: readiness.percent,
+      editorialScore: entry.editorial_score,
+      indexers: entry.matched_indexers,
+      notes: entry.editorial_notes,
+      checklist: SHORTLIST_CHECKLIST.map((item) => ({
+        label: item.label,
+        checked: Boolean(entry[item.key])
+      })),
+      sourceUrl: entry.source_url
+    });
+    setCitationMessage(`Pacote DOCX de ${entry.journal_title} gerado com ficha editorial e manuscrito.`);
+  };
+
   const handleCopyCitation = async (work: OpenAlexWork) => {
     const citation = formatAbntCitation(work);
     await navigator.clipboard.writeText(citation);
@@ -1317,6 +1343,14 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                       onClick={() => handleDownloadSubmissionDossier(entry)}
                     >
                       Baixar dossiê
+                    </button>
+
+                    <button
+                      className="button button-primary"
+                      type="button"
+                      onClick={() => void handleDownloadSubmissionDocx(entry)}
+                    >
+                      Baixar pacote DOCX
                     </button>
 
                     {entry.source_url ? (
