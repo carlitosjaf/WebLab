@@ -529,6 +529,8 @@ function diagnoseSections(sectionTexts: Map<string, string>, usedReferences: Use
     return entry?.[1].toLowerCase() ?? "";
   };
 
+  const recognizedSectionCount = expectedScientificSections.filter((section) => Boolean(getSectionText(section))).length;
+
   const resumo = getSectionText("Resumo");
   if (resumo) {
     const hasSummaryCore =
@@ -622,6 +624,15 @@ function diagnoseSections(sectionTexts: Map<string, string>, usedReferences: Use
   }
 
   if (diagnostics.length === 0 && sectionTexts.size > 0) {
+    if (recognizedSectionCount === 0) {
+      pushDiagnostic(
+        "Estrutura",
+        "Ainda não reconheci seções científicas como Resumo, Introdução, Metodologia, Resultados, Discussão ou Referências.",
+        "Use títulos H2/H3 para marcar as seções. A leitura fica mais útil quando o manuscrito está dividido por função científica."
+      );
+      return diagnostics.slice(0, 8);
+    }
+
     pushDiagnostic(
       "Estrutura",
       "A estrutura básica está coerente nesta leitura automática.",
@@ -1611,12 +1622,13 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
     setIsUpdatingStatus(false);
   };
 
-  const insertScientificSection = (blocks: JSONContent[]) => {
+  const insertScientificSection = (blocks: JSONContent[], placement: "cursor" | "end" = "cursor") => {
     if (!editor) {
       return;
     }
 
-    editor.chain().focus("end").insertContent(blocks).run();
+    const chain = placement === "end" ? editor.chain().focus("end") : editor.chain().focus();
+    chain.insertContent(blocks).run();
   };
 
   const applyCompleteTemplate = () => {
@@ -2067,7 +2079,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
 
                 <button
                   className="button button-secondary"
-                  onClick={() => insertScientificSection(activeTemplate.content)}
+                  onClick={() => insertScientificSection(activeTemplate.content, "end")}
                   type="button"
                 >
                   Inserir no fim do texto

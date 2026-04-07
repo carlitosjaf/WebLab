@@ -3285,6 +3285,13 @@ textarea:focus,
   border: 1px solid rgba(245, 158, 11, 0.28);
   border-radius: 16px;
   background: #fffbeb;
+  overflow: hidden;
+}
+
+.editor-section-diagnostic-list img,
+.editor-text-diagnostic-list img,
+.editor-concept-signal-list img {
+  display: none !important;
 }
 
 .editor-section-diagnostic-list article[data-severity="ok"] {
