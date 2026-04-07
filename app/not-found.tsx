@@ -14,12 +14,12 @@ export default function NotFound() {
         }}
       >
         <span className="muted">404</span>
-        <h1 style={{ margin: 0 }}>Conteudo nao encontrado</h1>
+        <h1 style={{ margin: 0 }}>Conteúdo não encontrado</h1>
         <p className="muted" style={{ margin: 0 }}>
-          O recurso solicitado pode nao existir ou nao estar acessivel para a sua equipe.
+          O recurso solicitado pode não existir ou não estar acessível para a sua equipe.
         </p>
         <Link className="button button-primary" href="/">
-          Voltar ao inicio
+          Voltar ao início
         </Link>
       </div>
     </main>

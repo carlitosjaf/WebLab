@@ -34,7 +34,7 @@ export default async function PlataformaBrasilPage({ searchParams }: PlataformaB
             <h1 style={{ margin: "0 0 8px 0" }}>Plataforma Brasil</h1>
             <p className="muted" style={{ margin: 0 }}>
               Gere rapidamente os documentos essenciais e acompanhe o checklist da equipe para
-              submissao.
+              submissão.
             </p>
           </div>
           <Link

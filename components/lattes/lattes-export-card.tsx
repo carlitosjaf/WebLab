@@ -9,8 +9,8 @@ export function LattesExportCard({ article }: { article: ArticleRow }) {
 
   const currentYear = new Date().getFullYear();
   const authorsPlaceholder = "Preencha com os autores na ordem correta";
-  const journalPlaceholder = "Preencha com o nome real do periodico";
-  const doiPlaceholder = "Preencha com DOI ou URL final da publicacao";
+  const journalPlaceholder = "Preencha com o nome real do periódico";
+  const doiPlaceholder = "Preencha com DOI ou URL final da publicação";
 
   const abntDraft = `${authorsPlaceholder}. ${article.titulo}. ${journalPlaceholder}, ${currentYear}. DOI/URL: ${doiPlaceholder}.`;
 
@@ -20,7 +20,7 @@ export function LattesExportCard({ article }: { article: ArticleRow }) {
       setCopiedField(fieldName);
       setTimeout(() => setCopiedField(null), 2000);
     } catch {
-      alert("Falha ao copiar texto. Verifique as permissoes do navegador.");
+      alert("Falha ao copiar texto. Verifique as permissões do navegador.");
     }
   };
 
@@ -48,8 +48,8 @@ export function LattesExportCard({ article }: { article: ArticleRow }) {
           {abntDraft}
         </p>
         <span className="muted" style={{ fontSize: "0.85rem" }}>
-          Os campos de autores, periodico e DOI ainda dependem de preenchimento manual com os
-          metadados reais da publicacao.
+          Os campos de autores, periódico e DOI ainda dependem de preenchimento manual com os
+          metadados reais da publicação.
         </span>
         <button
           className="button button-primary"
@@ -63,8 +63,8 @@ export function LattesExportCard({ article }: { article: ArticleRow }) {
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
         {[
-          ["titulo", "Titulo integral", article.titulo],
-          ["ano", "Ano de publicacao", currentYear.toString()],
+          ["titulo", "Título integral", article.titulo],
+          ["ano", "Ano de publicação", currentYear.toString()],
           ["autores", "Autores", authorsPlaceholder],
           ["doi", "DOI ou link", doiPlaceholder]
         ].map(([field, label, value]) => (

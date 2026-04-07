@@ -4,11 +4,11 @@ import { useState } from "react";
 
 export function CronogramaGenerator() {
   const [etapas, setEtapas] = useState([
-    { id: 1, descricao: "Revisao bibliografica", inicio: "", fim: "" },
-    { id: 2, descricao: "Submissao ao CEP", inicio: "", fim: "" },
+    { id: 1, descricao: "Revisão bibliográfica", inicio: "", fim: "" },
+    { id: 2, descricao: "Submissão ao CEP", inicio: "", fim: "" },
     { id: 3, descricao: "Coleta de dados", inicio: "", fim: "" },
-    { id: 4, descricao: "Analise de dados", inicio: "", fim: "" },
-    { id: 5, descricao: "Redacao do artigo", inicio: "", fim: "" }
+    { id: 4, descricao: "Análise de dados", inicio: "", fim: "" },
+    { id: 5, descricao: "Redação do artigo", inicio: "", fim: "" }
   ]);
 
   const addEtapa = () => {
@@ -26,9 +26,9 @@ export function CronogramaGenerator() {
   return (
     <div style={{ display: "grid", gap: "32px" }}>
       <div className="no-print" style={{ display: "grid", gap: "16px" }}>
-        <h2 style={{ margin: 0 }}>Gerar cronograma de execucao</h2>
+        <h2 style={{ margin: 0 }}>Gerar cronograma de execução</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Preencha as fases da pesquisa. O formato tabular ajuda a organizar a submissao na
+          Preencha as fases da pesquisa. O formato tabular ajuda a organizar a submissão na
           Plataforma Brasil.
         </p>
       </div>
@@ -49,11 +49,11 @@ export function CronogramaGenerator() {
               <input
                 value={etapa.descricao}
                 onChange={(event) => updateEtapa(etapa.id, "descricao", event.target.value)}
-                placeholder="Descricao da atividade"
+                placeholder="Descrição da atividade"
               />
             </div>
             <div className="field">
-              <label>Mes/ano de inicio</label>
+              <label>Mês/ano de início</label>
               <input
                 type="month"
                 value={etapa.inicio}
@@ -61,7 +61,7 @@ export function CronogramaGenerator() {
               />
             </div>
             <div className="field">
-              <label>Mes/ano de termino</label>
+              <label>Mês/ano de término</label>
               <input
                 type="month"
                 value={etapa.fim}
@@ -101,7 +101,7 @@ export function CronogramaGenerator() {
             fontSize: "16pt"
           }}
         >
-          CRONOGRAMA DE EXECUCAO DO PROJETO
+          CRONOGRAMA DE EXECUÇÃO DO PROJETO
         </h2>
 
         <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "32px" }}>
@@ -115,12 +115,12 @@ export function CronogramaGenerator() {
               <th
                 style={{ border: "1px solid #000", padding: "8px", textAlign: "center", fontSize: "12pt" }}
               >
-                Inicio (mes/ano)
+                Início (mês/ano)
               </th>
               <th
                 style={{ border: "1px solid #000", padding: "8px", textAlign: "center", fontSize: "12pt" }}
               >
-                Termino (mes/ano)
+                Término (mês/ano)
               </th>
             </tr>
           </thead>
@@ -156,7 +156,7 @@ export function CronogramaGenerator() {
         </table>
 
         <p style={{ fontSize: "12pt", textAlign: "justify" }}>
-          O cronograma acima descreve as atividades a serem desenvolvidas em cada periodo do estudo,
+          O cronograma acima descreve as atividades a serem desenvolvidas em cada período do estudo,
           garantindo que o tempo previsto seja adequado para o cumprimento dos objetivos propostos.
         </p>
       </div>

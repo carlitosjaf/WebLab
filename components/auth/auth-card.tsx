@@ -301,7 +301,7 @@ export function AuthCard() {
                 email: event.target.value
               }))
             }
-            placeholder="voce@instituicao.br"
+              placeholder="seu.email@instituicao.br"
             required
             type="email"
             value={formState.email}

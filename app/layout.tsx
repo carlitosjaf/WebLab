@@ -17,7 +17,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "WebLab",
-  description: "Laboratorio virtual para escrita, colaboracao e submissao cientifica."
+  description: "Laboratório virtual para escrita, colaboração e submissão científica."
 };
 
 export default function RootLayout({

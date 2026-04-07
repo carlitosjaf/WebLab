@@ -225,7 +225,12 @@ function appendCitationToContent(content: ArticleContent | null, citation: strin
   const referencesIndex = clonedContent.findIndex((node) => {
     return (
       node.type === "heading" &&
-      extractNodeText(node).toLowerCase().replace(/\s+/g, " ").trim() === "referencias"
+      extractNodeText(node)
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ")
+        .trim() === "referencias"
     );
   });
 
@@ -237,7 +242,7 @@ function appendCitationToContent(content: ArticleContent | null, citation: strin
         {
           type: "heading",
           attrs: { level: 2 },
-          content: [{ type: "text", text: "Referencias" }]
+          content: [{ type: "text", text: "Referências" }]
         },
         buildReferenceList(citation) as Record<string, unknown>
       ]
@@ -387,7 +392,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
 
   const searchJournals = async () => {
     if (!selectedArticle) {
-      setSearchMessage("Selecione um artigo para buscar revistas e referencias.");
+      setSearchMessage("Selecione um artigo para buscar revistas e referências.");
       return;
     }
 
@@ -404,7 +409,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
       );
 
       if (!response.ok) {
-        throw new Error("Nao foi possivel consultar o OpenAlex agora.");
+        throw new Error("Não foi possível consultar o OpenAlex agora.");
       }
 
       const payload = (await response.json()) as { results?: OpenAlexWork[] };
@@ -496,7 +501,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        throw new Error("Sessao expirada. Entre novamente para salvar revistas.");
+        throw new Error("Sessão expirada. Entre novamente para salvar revistas.");
       }
 
       const payload: Database["public"]["Tables"]["periodicos_shortlists"]["Insert"] = {
@@ -520,7 +525,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
         .single();
 
       if (error || !data) {
-        throw new Error(error?.message ?? "Nao foi possivel salvar a revista.");
+        throw new Error(error?.message ?? "Não foi possível salvar a revista.");
       }
 
       setSavedShortlist((current) => {
@@ -550,7 +555,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
       .single();
 
     if (error || !data) {
-      throw new Error(error?.message ?? "Nao foi possivel atualizar a shortlist.");
+      throw new Error(error?.message ?? "Não foi possível atualizar a shortlist.");
     }
 
     setSavedShortlist((current) =>
@@ -596,7 +601,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
   const handleCopyCitation = async (work: OpenAlexWork) => {
     const citation = formatAbntCitation(work);
     await navigator.clipboard.writeText(citation);
-    setCitationMessage("Referencia copiada para a area de transferencia.");
+    setCitationMessage("Referência copiada para a área de transferência.");
   };
 
   const handleInsertCitation = async (work: OpenAlexWork) => {
@@ -637,7 +642,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
           : article
       )
     );
-    setCitationMessage("Referencia enviada para o artigo selecionado.");
+    setCitationMessage("Referência enviada para o artigo selecionado.");
   };
 
   return (
@@ -680,7 +685,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
           <div style={{ display: "grid", gap: "8px" }}>
             <strong>1. Protocolo de busca</strong>
             <span className="muted">
-              Escolha o manuscrito, refine o recorte tematico e diga ao WebLab quais indexadores pesam mais na decisao.
+              Escolha o manuscrito, refine o recorte temático e diga ao WebLab quais indexadores pesam mais na decisão.
             </span>
           </div>
 
@@ -722,7 +727,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
               }}
             >
               <strong>{selectedArticle?.titulo ?? "Nenhum manuscrito selecionado"}</strong>
-              <span className="muted">Ultima edicao: {formatRelativeUpdate(selectedArticle?.updated_at ?? null)}</span>
+              <span className="muted">Última edição: {formatRelativeUpdate(selectedArticle?.updated_at ?? null)}</span>
               <Link
                 href={selectedArticle ? (`/editor/${selectedArticle.id}` as Route) : ("/dashboard" as Route)}
                 className="muted"
@@ -733,7 +738,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
           </div>
 
           <div style={{ display: "grid", gap: "10px" }}>
-            <strong>2. Prioridades de indexacao</strong>
+            <strong>2. Prioridades de indexação</strong>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               {INDEXER_OPTIONS.map((indexer) => {
                 const active = selectedIndexers.includes(indexer);
@@ -763,7 +768,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
             </label>
 
             <label style={{ display: "grid", gap: "8px" }}>
-              <span className="muted">Minimo de indexadores priorizados</span>
+              <span className="muted">Mínimo de indexadores priorizados</span>
               <select
                 value={minimumMatchedIndexers}
                 onChange={(event) => setMinimumMatchedIndexers(Number(event.target.value))}
@@ -774,7 +779,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
               >
                 {[0, 1, 2, 3, 4].map((value) => (
                   <option key={value} value={value}>
-                    {value === 0 ? "Sem corte minimo" : `${value} ou mais`}
+                    {value === 0 ? "Sem corte mínimo" : `${value} ou mais`}
                   </option>
                 ))}
               </select>
@@ -849,7 +854,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
             <div style={{ display: "grid", gap: "4px" }}>
               <strong>Caderno de shortlist</strong>
               <span className="muted">
-                Salve revistas por manuscrito, marque favoritas e deixe claro quais sao as candidatas mais fortes.
+                Salve revistas por manuscrito, marque favoritas e deixe claro quais são as candidatas mais fortes.
               </span>
             </div>
             <div className="periodicos-report-actions">
@@ -883,7 +888,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
               className="muted"
               style={{ padding: "18px", borderRadius: "18px", background: "rgba(255,255,255,0.04)" }}
             >
-              Nenhuma revista foi salva ainda. Use o radar abaixo para montar sua shortlist de submissao.
+              Nenhuma revista foi salva ainda. Use o radar abaixo para montar sua shortlist de submissão.
             </div>
           ) : (
             <div style={{ display: "grid", gap: "12px" }}>
@@ -905,7 +910,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                   <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
                     <div style={{ display: "grid", gap: "6px" }}>
                       <strong>{entry.journal_title}</strong>
-                      <span className="muted">{entry.host_name ?? "Host nao informado"}</span>
+                      <span className="muted">{entry.host_name ?? "Host não informado"}</span>
                     </div>
                     <span
                       style={{
@@ -927,7 +932,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                   <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                     <span className="muted">Score editorial: {entry.editorial_score}</span>
                     <span className="muted">Indexadores priorizados: {entry.matched_indexers.length}</span>
-                    <span className="muted">{entry.is_favorite ? "Favorita" : "Ainda nao favorita"}</span>
+                    <span className="muted">{entry.is_favorite ? "Favorita" : "Ainda não favorita"}</span>
                     <span className="muted">
                       Checklist: {progress.completed}/{progress.total}
                     </span>
@@ -1049,7 +1054,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
           <div style={{ display: "grid", gap: "4px" }}>
             <strong>Revistas candidatas</strong>
             <span className="muted">
-              O ranking combina aderencia tematica, peso dos indexadores escolhidos, acesso aberto e sinais editoriais detectados.
+              O ranking combina aderência temática, peso dos indexadores escolhidos, acesso aberto e sinais editoriais detectados.
             </span>
           </div>
 
@@ -1080,7 +1085,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                     <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
                       <div style={{ display: "grid", gap: "6px" }}>
                         <strong>{journal.title}</strong>
-                        <span className="muted">{journal.hostName ?? "Host nao informado"}</span>
+                        <span className="muted">{journal.hostName ?? "Host não informado"}</span>
                       </div>
                       <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
                         <span className="status-chip">Score {journal.editorialScore}</span>
@@ -1089,9 +1094,9 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                     </div>
 
                     <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                      <span className="muted">H-index: {journal.hIndex ?? "Nao informado"}</span>
-                      <span className="muted">Acesso aberto: {journal.isOpenAccess ? "sim" : "nao"}</span>
-                      <span className="muted">Ocorrencias relacionadas: {journal.matchCount}</span>
+                      <span className="muted">H-index: {journal.hIndex ?? "Não informado"}</span>
+                      <span className="muted">Acesso aberto: {journal.isOpenAccess ? "sim" : "não"}</span>
+                      <span className="muted">Ocorrências relacionadas: {journal.matchCount}</span>
                       <span className="muted">Indexadores aderentes: {journal.matchedSelectedIndexers.length}</span>
                     </div>
 
@@ -1169,15 +1174,15 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
 
         <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "14px" }}>
           <div style={{ display: "grid", gap: "4px" }}>
-            <strong>Referencias de apoio</strong>
+            <strong>Referências de apoio</strong>
             <span className="muted">
-              Quando a decisao editorial estiver encaminhada, use esta area para puxar referencias relacionadas para o manuscrito.
+              Quando a decisão editorial estiver encaminhada, use esta área para puxar referências relacionadas para o manuscrito.
             </span>
           </div>
 
           {relatedWorks.length === 0 ? (
             <div className="muted" style={{ padding: "18px", borderRadius: "18px", background: "rgba(255,255,255,0.04)" }}>
-              Rode uma busca editorial para carregar referencias relacionadas ao manuscrito.
+              Rode uma busca editorial para carregar referências relacionadas ao manuscrito.
             </div>
           ) : (
             <div style={{ display: "grid", gap: "12px" }}>
@@ -1194,10 +1199,10 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                   }}
                 >
                   <div style={{ display: "grid", gap: "6px" }}>
-                    <strong>{work.title ?? "Titulo nao informado"}</strong>
+                    <strong>{work.title ?? "Título não informado"}</strong>
                     <span className="muted" style={{ fontSize: "0.9rem" }}>
-                      {work.primary_location?.source?.display_name ?? "Fonte nao informada"} -{" "}
-                      {work.publication_year ?? "Ano nao informado"}
+                      {work.primary_location?.source?.display_name ?? "Fonte não informada"} -{" "}
+                      {work.publication_year ?? "Ano não informado"}
                     </span>
                   </div>
 

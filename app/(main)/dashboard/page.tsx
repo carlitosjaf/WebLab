@@ -53,7 +53,7 @@ export default function DashboardPage() {
 
         if (profileError || !rawProfile) {
           if (isMounted) {
-            setErrorMessage(profileError?.message ?? "Nao foi possivel carregar o perfil.");
+            setErrorMessage(profileError?.message ?? "Não foi possível carregar o perfil.");
             setIsLoading(false);
           }
           return;
@@ -74,7 +74,7 @@ export default function DashboardPage() {
             if (isMounted) {
               setErrorMessage(
                 inviteError.message.includes("claim_team_invite")
-                  ? "O WebLab precisa da funcao de vinculo por convite no Supabase para concluir a associacao automatica."
+                  ? "O WebLab precisa da função de vínculo por convite no Supabase para concluir a associação automática."
                   : inviteError.message
               );
               setIsLoading(false);
@@ -114,7 +114,7 @@ export default function DashboardPage() {
             }
 
             teamMap = new Map((teams ?? []).map((team) => [team.id, team]));
-            teamName = "Visao global";
+            teamName = "Visão global";
           } else if (profile.equipe_id) {
             const { data: team, error: teamError } = await supabase
               .from("equipes")
@@ -152,7 +152,7 @@ export default function DashboardPage() {
               setErrorMessage(
                 articlesError.message.includes("updated_at") ||
                   articlesError.message.includes("last_editor_id")
-                  ? "O dashboard precisa da migracao de consolidacao no Supabase para exibir ultima edicao e autoria."
+                  ? "O dashboard precisa da migração de consolidação no Supabase para exibir última edição e autoria."
                   : articlesError.message
               );
               setIsLoading(false);
@@ -244,7 +244,7 @@ export default function DashboardPage() {
     return (
       <main className="shell">
         <div className="container glass-card" style={{ padding: "32px", display: "grid", gap: "12px" }}>
-          <h1 style={{ margin: 0 }}>Nao foi possivel abrir o dashboard</h1>
+          <h1 style={{ margin: 0 }}>Não foi possível abrir o dashboard</h1>
           <p className="danger" style={{ margin: 0 }}>
             {errorMessage ?? "Erro inesperado ao carregar os dados da equipe."}
           </p>

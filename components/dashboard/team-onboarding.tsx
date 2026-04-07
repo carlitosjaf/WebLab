@@ -45,8 +45,8 @@ export function TeamOnboarding({ profileId, profileName }: TeamOnboardingProps) 
         if (teamError || !createdTeam) {
           setErrorMessage(
             teamError?.message?.includes("codigo_convite")
-              ? "O banco ainda nao recebeu a migracao de codigo de convite. Rode o SQL de consolidacao do WebLab no Supabase."
-              : teamError?.message ?? "Nao foi possivel criar a equipe."
+              ? "O banco ainda não recebeu a migração de código de convite. Rode o SQL de consolidação do WebLab no Supabase."
+              : teamError?.message ?? "Não foi possível criar a equipe."
           );
           return;
         }
@@ -68,7 +68,7 @@ export function TeamOnboarding({ profileId, profileName }: TeamOnboardingProps) 
         window.location.assign("/dashboard");
       } catch (error) {
         setErrorMessage(
-          error instanceof Error ? error.message : "Nao foi possivel concluir a configuracao da equipe."
+          error instanceof Error ? error.message : "Não foi possível concluir a configuração da equipe."
         );
       }
     });
@@ -114,7 +114,7 @@ export function TeamOnboarding({ profileId, profileName }: TeamOnboardingProps) 
             </h1>
             <p className="muted" style={{ margin: 0, maxWidth: "54ch" }}>
               {profileName || "Pesquisador"}, antes de abrir o dashboard, precisamos vincular seu
-              perfil a uma equipe. Isso garante o isolamento dos artigos e a organizacao do trabalho
+              perfil a uma equipe. Isso garante o isolamento dos artigos e a organização do trabalho
               colaborativo.
             </p>
           </div>
@@ -141,7 +141,7 @@ export function TeamOnboarding({ profileId, profileName }: TeamOnboardingProps) 
           <div style={{ display: "grid", gap: "8px" }}>
             <h2 style={{ margin: 0 }}>Criar equipe</h2>
             <p className="muted" style={{ margin: 0 }}>
-              Escolha um nome claro para o seu laboratorio, grupo de pesquisa ou nucleo editorial.
+              Escolha um nome claro para o seu laboratório, grupo de pesquisa ou núcleo editorial.
             </p>
           </div>
 
@@ -151,7 +151,7 @@ export function TeamOnboarding({ profileId, profileName }: TeamOnboardingProps) 
               <input
                 id="teamName"
                 onChange={(event) => setTeamName(event.target.value)}
-                placeholder="Ex.: Laboratorio de Vigilancia Translacional"
+                placeholder="Ex.: Laboratório de Vigilância Translacional"
                 value={teamName}
               />
             </div>

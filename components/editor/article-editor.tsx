@@ -60,16 +60,16 @@ const scientificSections: Array<{
         content: [
           {
             type: "text",
-            text: "Apresente objetivo, metodo principal, resultados centrais e conclusao em um unico bloco sintese."
+            text: "Apresente objetivo, método principal, resultados centrais e conclusão em um único bloco-síntese."
           }
         ]
       }
     ]
   },
   {
-    label: "Introducao",
+    label: "Introdução",
     content: [
-      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Introducao" }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Introdução" }] },
       {
         type: "paragraph",
         content: [
@@ -90,7 +90,7 @@ const scientificSections: Array<{
         content: [
           {
             type: "text",
-            text: "Descreva desenho do estudo, participantes, fontes de dados, criterios e procedimentos analiticos."
+            text: "Descreva desenho do estudo, participantes, fontes de dados, critérios e procedimentos analíticos."
           }
         ]
       }
@@ -105,37 +105,37 @@ const scientificSections: Array<{
         content: [
           {
             type: "text",
-            text: "Organize os achados com objetividade, destacando evidencias, tabelas e comparacoes relevantes."
+            text: "Organize os achados com objetividade, destacando evidências, tabelas e comparações relevantes."
           }
         ]
       }
     ]
   },
   {
-    label: "Discussao",
+    label: "Discussão",
     content: [
-      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Discussao" }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Discussão" }] },
       {
         type: "paragraph",
         content: [
           {
             type: "text",
-            text: "Interprete os resultados, compare com a literatura e destaque implicacoes, limites e proximos passos."
+            text: "Interprete os resultados, compare com a literatura e destaque implicações, limites e próximos passos."
           }
         ]
       }
     ]
   },
   {
-    label: "Referencias",
+    label: "Referências",
     content: [
-      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Referencias" }] },
+      { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Referências" }] },
       {
         type: "bulletList",
         content: [
           {
             type: "listItem",
-            content: [{ type: "paragraph", content: [{ type: "text", text: "Autor, A. Titulo. Periodico, ano." }] }]
+            content: [{ type: "paragraph", content: [{ type: "text", text: "Autor, A. Título. Periódico, ano." }] }]
           }
         ]
       }
@@ -148,7 +148,7 @@ const sectionGroups: SectionGroup[] = [
     id: "structure",
     label: "Estrutura",
     sections: scientificSections.filter((section) =>
-      ["Resumo", "Introducao", "Metodologia", "Resultados", "Discussao", "Referencias"].includes(
+      ["Resumo", "Introdução", "Metodologia", "Resultados", "Discussão", "Referências"].includes(
         section.label
       )
     )
@@ -166,7 +166,7 @@ const sectionGroups: SectionGroup[] = [
             content: [
               {
                 type: "text",
-                text: "Descreva aqui o que a tabela apresenta, sua finalidade analitica e a leitura esperada dos dados."
+                text: "Descreva aqui o que a tabela apresenta, sua finalidade analítica e a leitura esperada dos dados."
               }
             ]
           }
@@ -181,22 +181,22 @@ const sectionGroups: SectionGroup[] = [
             content: [
               {
                 type: "text",
-                text: "Explique o que a figura ilustra, por que ela e relevante e como dialoga com os resultados apresentados."
+                text: "Explique o que a figura ilustra, por que ela é relevante e como dialoga com os resultados apresentados."
               }
             ]
           }
         ]
       },
       {
-        label: "Quadro-sintese",
+        label: "Quadro-síntese",
         content: [
-          { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Quadro-sintese" }] },
+          { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Quadro-síntese" }] },
           {
             type: "paragraph",
             content: [
               {
                 type: "text",
-                text: "Use este bloco para resumir categorias, achados, comparacoes ou etapas metodologicas de maneira visual."
+                text: "Use este bloco para resumir categorias, achados, comparações ou etapas metodológicas de maneira visual."
               }
             ]
           }
@@ -207,13 +207,13 @@ const sectionGroups: SectionGroup[] = [
 ];
 
 const completeScientificTemplate: JSONContent[] = [
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Titulo do artigo" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Título do artigo" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Escreva um titulo claro, especifico e informativo. Ele deve indicar o tema central, o recorte do estudo e, quando fizer sentido, o contexto, a populacao ou o periodo analisado."
+        text: "Escreva um título claro, específico e informativo. Ele deve indicar o tema central, o recorte do estudo e, quando fizer sentido, o contexto, a população ou o período analisado."
       }
     ]
   },
@@ -233,7 +233,7 @@ const completeScientificTemplate: JSONContent[] = [
     content: [
       {
         type: "text",
-        text: "Sintetize em 150 a 250 palavras o problema investigado, o objetivo do estudo, a abordagem metodologica, os principais resultados e a contribuicao do trabalho. O resumo deve funcionar como uma visao rapida e completa do artigo."
+        text: "Sintetize em 150 a 250 palavras o problema investigado, o objetivo do estudo, a abordagem metodológica, os principais resultados e a contribuição do trabalho. O resumo deve funcionar como uma visão rápida e completa do artigo."
       }
     ]
   },
@@ -243,11 +243,11 @@ const completeScientificTemplate: JSONContent[] = [
     content: [
       {
         type: "text",
-        text: "Liste de tres a cinco termos que representem o tema central, os conceitos principais, o contexto empirico ou a abordagem do estudo."
+        text: "Liste de três a cinco termos que representem o tema central, os conceitos principais, o contexto empírico ou a abordagem do estudo."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Introducao" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Introdução" }] },
   {
     type: "bulletList",
     content: [
@@ -257,11 +257,11 @@ const completeScientificTemplate: JSONContent[] = [
       },
       {
         type: "listItem",
-        content: [{ type: "paragraph", content: [{ type: "text", text: "Apresente o que a literatura ja discute sobre o tema e quais dimensoes do problema sao mais importantes para o seu argumento." }] }]
+        content: [{ type: "paragraph", content: [{ type: "text", text: "Apresente o que a literatura já discute sobre o tema e quais dimensões do problema são mais importantes para o seu argumento." }] }]
       },
       {
         type: "listItem",
-        content: [{ type: "paragraph", content: [{ type: "text", text: "Construa o argumento central da introducao, mostrando por que o tema merece investigacao e qual recorte o artigo assume." }] }]
+        content: [{ type: "paragraph", content: [{ type: "text", text: "Construa o argumento central da introdução, mostrando por que o tema merece investigação e qual recorte o artigo assume." }] }]
       },
       {
         type: "listItem",
@@ -273,7 +273,7 @@ const completeScientificTemplate: JSONContent[] = [
       },
       {
         type: "listItem",
-        content: [{ type: "paragraph", content: [{ type: "text", text: "Feche a secao com o objetivo do artigo e, se couber, uma breve indicacao da contribuicao esperada." }] }]
+        content: [{ type: "paragraph", content: [{ type: "text", text: "Feche a seção com o objetivo do artigo e, se couber, uma breve indicação da contribuição esperada." }] }]
       }
     ]
   },
@@ -288,7 +288,7 @@ const completeScientificTemplate: JSONContent[] = [
     content: [
       {
         type: "text",
-        text: "Explique o tipo de estudo, a abordagem metodologica adotada e a logica geral do desenho de pesquisa."
+        text: "Explique o tipo de estudo, a abordagem metodológica adotada e a lógica geral do desenho de pesquisa."
       }
     ]
   },
@@ -302,7 +302,7 @@ const completeScientificTemplate: JSONContent[] = [
     content: [
       {
         type: "text",
-        text: "Descreva quem participou da pesquisa, quantos participantes foram incluidos, quais criterios de inclusao ou exclusao foram adotados e qual o contexto da amostra."
+        text: "Descreva quem participou da pesquisa, quantos participantes foram incluídos, quais critérios de inclusão ou exclusão foram adotados e qual o contexto da amostra."
       }
     ]
   },
@@ -316,7 +316,7 @@ const completeScientificTemplate: JSONContent[] = [
     content: [
       {
         type: "text",
-        text: "Apresente os instrumentos, fontes ou procedimentos usados para produzir os dados: questionarios, entrevistas, documentos, bancos secundarios, observacao, entre outros."
+        text: "Apresente os instrumentos, fontes ou procedimentos usados para produzir os dados: questionários, entrevistas, documentos, bancos secundários, observação, entre outros."
       }
     ]
   },
@@ -330,94 +330,94 @@ const completeScientificTemplate: JSONContent[] = [
     content: [
       {
         type: "text",
-        text: "Explique como a coleta foi realizada, em que periodo ocorreu e quais cuidados eticos ou operacionais foram tomados."
+        text: "Explique como a coleta foi realizada, em que período ocorreu e quais cuidados éticos ou operacionais foram tomados."
       }
     ]
   },
   {
     type: "heading",
     attrs: { level: 3 },
-    content: [{ type: "text", text: "2.5 Analise quantitativa" }]
+    content: [{ type: "text", text: "2.5 Análise quantitativa" }]
   },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Descreva como os dados numericos foram tratados: estatistica descritiva, testes, cruzamentos, indicadores ou outras tecnicas utilizadas."
+        text: "Descreva como os dados numéricos foram tratados: estatística descritiva, testes, cruzamentos, indicadores ou outras técnicas utilizadas."
       }
     ]
   },
   {
     type: "heading",
     attrs: { level: 3 },
-    content: [{ type: "text", text: "2.6 Analise qualitativa" }]
+    content: [{ type: "text", text: "2.6 Análise qualitativa" }]
   },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Explique como os dados textuais, narrativos ou documentais foram interpretados, incluindo etapas de codificacao, categorizacao ou tematizacao."
+        text: "Explique como os dados textuais, narrativos ou documentais foram interpretados, incluindo etapas de codificação, categorização ou tematização."
       }
     ]
   },
   {
     type: "heading",
     attrs: { level: 3 },
-    content: [{ type: "text", text: "2.7 Integracao dos dados" }]
+    content: [{ type: "text", text: "2.7 Integração dos dados" }]
   },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Mostre como as diferentes fontes e tecnicas dialogam entre si para sustentar a interpretacao final do artigo."
+        text: "Mostre como as diferentes fontes e técnicas dialogam entre si para sustentar a interpretação final do artigo."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Resultados e Discussao" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Resultados e Discussão" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Apresente os achados em uma sequencia logica, articulando descricao dos resultados e interpretacao. Organize a secao por eixos tematicos, categorias analiticas ou perguntas de pesquisa."
-      }
-    ]
-  },
-  {
-    type: "heading",
-    attrs: { level: 3 },
-    content: [{ type: "text", text: "4.1 Primeiro eixo analitico" }]
-  },
-  {
-    type: "paragraph",
-    content: [
-      {
-        type: "text",
-        text: "Nomeie este eixo de acordo com a sua analise. Aqui voce pode apresentar perfil da amostra, contexto inicial ou o primeiro conjunto de achados."
+        text: "Apresente os achados em uma sequência lógica, articulando descrição dos resultados e interpretação. Organize a seção por eixos temáticos, categorias analíticas ou perguntas de pesquisa."
       }
     ]
   },
   {
     type: "heading",
     attrs: { level: 3 },
-    content: [{ type: "text", text: "4.2 Segundo eixo analitico" }]
+    content: [{ type: "text", text: "4.1 Primeiro eixo analítico" }]
   },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Apresente aqui um segundo bloco de resultados, aprofundando relacoes, contrastes ou tendencias observadas no material empirico."
+        text: "Nomeie este eixo de acordo com a sua análise. Aqui você pode apresentar perfil da amostra, contexto inicial ou o primeiro conjunto de achados."
       }
     ]
   },
   {
     type: "heading",
     attrs: { level: 3 },
-    content: [{ type: "text", text: "4.3 Terceiro eixo analitico" }]
+    content: [{ type: "text", text: "4.2 Segundo eixo analítico" }]
+  },
+  {
+    type: "paragraph",
+    content: [
+      {
+        type: "text",
+        text: "Apresente aqui um segundo bloco de resultados, aprofundando relações, contrastes ou tendências observadas no material empírico."
+      }
+    ]
+  },
+  {
+    type: "heading",
+    attrs: { level: 3 },
+    content: [{ type: "text", text: "4.3 Terceiro eixo analítico" }]
   },
   {
     type: "paragraph",
@@ -431,85 +431,85 @@ const completeScientificTemplate: JSONContent[] = [
   {
     type: "heading",
     attrs: { level: 3 },
-    content: [{ type: "text", text: "4.4 Quarto eixo analitico" }]
+    content: [{ type: "text", text: "4.4 Quarto eixo analítico" }]
   },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Use esta secao para um quarto eixo, caso sua analise exija mais uma camada tematica ou interpretativa."
+        text: "Use esta seção para um quarto eixo, caso sua análise exija mais uma camada temática ou interpretativa."
       }
     ]
   },
   {
     type: "heading",
     attrs: { level: 3 },
-    content: [{ type: "text", text: "4.5 Quinto eixo analitico" }]
+    content: [{ type: "text", text: "4.5 Quinto eixo analítico" }]
   },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Acrescente um quinto eixo quando o material tiver densidade suficiente para isso. Caso nao precise, renomeie ou remova subsecoes."
+        text: "Acrescente um quinto eixo quando o material tiver densidade suficiente para isso. Caso não precise, renomeie ou remova subseções."
       }
     ]
   },
   {
     type: "heading",
     attrs: { level: 3 },
-    content: [{ type: "text", text: "4.6 Figuras, tabelas e sintese interpretativa" }]
+    content: [{ type: "text", text: "4.6 Figuras, tabelas e síntese interpretativa" }]
   },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Indique onde entram tabelas, figuras, mapas, nuvens de palavras ou quadros-sintese, sempre acompanhados de interpretacao e nao apenas descricao."
+        text: "Indique onde entram tabelas, figuras, mapas, nuvens de palavras ou quadros-síntese, sempre acompanhados de interpretação e não apenas descrição."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Conclusao" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Conclusão" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Retome o problema e o objetivo, sintetize os principais achados, destaque a contribuicao do estudo e indique limites, implicacoes e possiveis desdobramentos."
+        text: "Retome o problema e o objetivo, sintetize os principais achados, destaque a contribuição do estudo e indique limites, implicações e possíveis desdobramentos."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Referencias" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Referências" }] },
   {
     type: "bulletList",
     content: [
       {
         type: "listItem",
-        content: [{ type: "paragraph", content: [{ type: "text", text: "Insira aqui as referencias efetivamente citadas no texto, seguindo o estilo bibliografico exigido pelo periodico." }] }]
+        content: [{ type: "paragraph", content: [{ type: "text", text: "Insira aqui as referências efetivamente citadas no texto, seguindo o estilo bibliográfico exigido pelo periódico." }] }]
       }
     ]
   }
 ];
 
 const systematicReviewTemplate: JSONContent[] = [
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Titulo da revisao sistematica" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Título da revisão sistemática" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Deixe claro o tema, o problema central e, quando pertinente, indique no titulo que se trata de uma revisao sistematica."
+        text: "Deixe claro o tema, o problema central e, quando pertinente, indique no título que se trata de uma revisão sistemática."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Pergunta da revisao" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Pergunta da revisão" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Formule a pergunta orientadora da revisao. Se fizer sentido, use uma estrutura como PICO, PICo ou outra adaptada ao seu objeto."
+        text: "Formule a pergunta orientadora da revisão. Se fizer sentido, use uma estrutura como PICO, PICo ou outra adaptada ao seu objeto."
       }
     ]
   },
@@ -519,29 +519,29 @@ const systematicReviewTemplate: JSONContent[] = [
     content: [
       {
         type: "text",
-        text: "Resuma objetivo, bases consultadas, criterios de elegibilidade, estrategia de busca, resultados principais e conclusao da revisao."
+        text: "Resuma objetivo, bases consultadas, critérios de elegibilidade, estratégia de busca, resultados principais e conclusão da revisão."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Introducao" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Introdução" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Apresente o contexto do tema, a relevancia da revisao e a lacuna que justifica sintetizar as evidencias disponiveis."
+        text: "Apresente o contexto do tema, a relevância da revisão e a lacuna que justifica sintetizar as evidências disponíveis."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Metodos" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Métodos" }] },
   {
     type: "bulletList",
     content: [
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Criterios de inclusao e exclusao dos estudos" }] }] },
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Bases de dados e periodo de busca" }] }] },
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Descritores, operadores booleanos e estrategia de busca" }] }] },
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Processo de triagem e selecao dos estudos" }] }] },
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Extracao, sintese e avaliacao da qualidade das evidencias" }] }] }
+      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Critérios de inclusão e exclusão dos estudos" }] }] },
+      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Bases de dados e período de busca" }] }] },
+      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Descritores, operadores booleanos e estratégia de busca" }] }] },
+      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Processo de triagem e seleção dos estudos" }] }] },
+      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Extração, síntese e avaliação da qualidade das evidências" }] }] }
     ]
   },
   { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Resultados" }] },
@@ -550,40 +550,40 @@ const systematicReviewTemplate: JSONContent[] = [
     content: [
       {
         type: "text",
-        text: "Apresente o fluxo dos estudos identificados e organizados, e depois sintetize os achados por tema, populacao, intervencao ou categoria."
+        text: "Apresente o fluxo dos estudos identificados e organizados, e depois sintetize os achados por tema, população, intervenção ou categoria."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Discussao" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Discussão" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Interprete o conjunto de evidencias, discuta convergencias e lacunas da literatura e destaque o que a revisao acrescenta ao debate."
+        text: "Interprete o conjunto de evidências, discuta convergências e lacunas da literatura e destaque o que a revisão acrescenta ao debate."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Conclusao" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Conclusão" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Feche retomando a pergunta da revisao e o que pode ser afirmado a partir das evidencias reunidas."
+        text: "Feche retomando a pergunta da revisão e o que pode ser afirmado a partir das evidências reunidas."
       }
     ]
   }
 ];
 
 const caseReportTemplate: JSONContent[] = [
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Titulo do relato de caso" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Título do relato de caso" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Crie um titulo direto, destacando a condicao, o evento clinico ou o aspecto singular do caso."
+        text: "Crie um título direto, destacando a condição, o evento clínico ou o aspecto singular do caso."
       }
     ]
   },
@@ -593,17 +593,17 @@ const caseReportTemplate: JSONContent[] = [
     content: [
       {
         type: "text",
-        text: "Sintetize a relevancia do caso, os principais achados, a conduta adotada e a contribuicao clinica ou cientifica do relato."
+        text: "Sintetize a relevância do caso, os principais achados, a conduta adotada e a contribuição clínica ou científica do relato."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Introducao" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Introdução" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Explique por que o caso merece ser relatado: raridade, desafio diagnostico, resposta terapeutica, desfecho atipico ou valor educacional."
+        text: "Explique por que o caso merece ser relatado: raridade, desafio diagnóstico, resposta terapêutica, desfecho atípico ou valor educacional."
       }
     ]
   },
@@ -613,21 +613,21 @@ const caseReportTemplate: JSONContent[] = [
     content: [
       { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Contexto geral e identificacao do caso" }] }] },
       { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Historia clinica e cronologia" }] }] },
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Exames, hipoteses diagnosticas e conduta" }] }] },
+      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Exames, hipóteses diagnósticas e conduta" }] }] },
       { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Desfecho, seguimento e situacao atual" }] }] }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Discussao" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Discussão" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Compare o caso com a literatura e destaque o que ele ensina sobre diagnostico, manejo, limites e aprendizados clinicos."
+        text: "Compare o caso com a literatura e destaque o que ele ensina sobre diagnóstico, manejo, limites e aprendizados clínicos."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Conclusao" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Conclusão" }] },
   {
     type: "paragraph",
     content: [
@@ -640,23 +640,23 @@ const caseReportTemplate: JSONContent[] = [
 ];
 
 const clinicalTrialTemplate: JSONContent[] = [
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Titulo do ensaio clinico" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Título do ensaio clínico" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Apresente a intervencao, a populacao ou o problema investigado, deixando claro que se trata de um ensaio clinico."
+        text: "Apresente a intervenção, a população ou o problema investigado, deixando claro que se trata de um ensaio clínico."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Objetivo e hipotese" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Objetivo e hipótese" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Declare qual efeito, comparacao ou resultado o ensaio pretende testar e qual a hipotese principal do estudo."
+        text: "Declare qual efeito, comparação ou resultado o ensaio pretende testar e qual a hipótese principal do estudo."
       }
     ]
   },
@@ -666,29 +666,29 @@ const clinicalTrialTemplate: JSONContent[] = [
     content: [
       {
         type: "text",
-        text: "Sintetize o contexto, o desenho do estudo, os participantes, a intervencao, os desfechos principais, os resultados e a conclusao."
+        text: "Sintetize o contexto, o desenho do estudo, os participantes, a intervenção, os desfechos principais, os resultados e a conclusão."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Introducao" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Introdução" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Apresente o problema clinico, a justificativa da intervencao e a relevancia do ensaio para o campo."
+        text: "Apresente o problema clínico, a justificativa da intervenção e a relevância do ensaio para o campo."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Metodos" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Métodos" }] },
   {
     type: "bulletList",
     content: [
       { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Desenho do estudo e contexto" }] }] },
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Participantes e criterios de elegibilidade" }] }] },
+      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Participantes e critérios de elegibilidade" }] }] },
       { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Intervencoes e comparadores" }] }] },
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Desfechos primarios e secundarios" }] }] },
-      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Randomizacao, cegamento e analise estatistica" }] }] }
+      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Desfechos primários e secundários" }] }] },
+      { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Randomização, cegamento e análise estatística" }] }] }
     ]
   },
   { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Resultados" }] },
@@ -697,27 +697,27 @@ const clinicalTrialTemplate: JSONContent[] = [
     content: [
       {
         type: "text",
-        text: "Apresente fluxo de participantes, caracteristicas iniciais, resultados principais, estimativas de efeito e eventos adversos."
+        text: "Apresente fluxo de participantes, características iniciais, resultados principais, estimativas de efeito e eventos adversos."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Discussao" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Discussão" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Interprete os resultados do ensaio, compare com a literatura e discuta limites, aplicabilidade e implicacoes clinicas."
+        text: "Interprete os resultados do ensaio, compare com a literatura e discuta limites, aplicabilidade e implicações clínicas."
       }
     ]
   },
-  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Conclusao" }] },
+  { type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Conclusão" }] },
   {
     type: "paragraph",
     content: [
       {
         type: "text",
-        text: "Feche destacando o que o ensaio permite afirmar sobre a intervencao e quais sao os proximos passos recomendados."
+        text: "Feche destacando o que o ensaio permite afirmar sobre a intervenção e quais são os próximos passos recomendados."
       }
     ]
   }
@@ -726,44 +726,44 @@ const clinicalTrialTemplate: JSONContent[] = [
 const editorTemplates: EditorTemplate[] = [
   {
     id: "general",
-    name: "Artigo cientifico geral",
-    description: "Modelo mais flexivel para estudos academicos em geral.",
+    name: "Artigo científico geral",
+    description: "Modelo mais flexível para estudos acadêmicos em geral.",
     tips: [
-      "Use quando o artigo nao se encaixa num genero metodologico muito fechado.",
-      "Na introducao, caminhe do contexto para a lacuna e so depois apresente o objetivo.",
-      "Organize resultados e discussao por eixos ou categorias, nao por acumulacao de dados."
+      "Use quando o artigo não se encaixa num gênero metodológico muito fechado.",
+      "Na introdução, caminhe do contexto para a lacuna e só depois apresente o objetivo.",
+      "Organize resultados e discussão por eixos ou categorias, não por acumulação de dados."
     ],
     content: completeScientificTemplate
   },
   {
     id: "systematic-review",
-    name: "Revisao sistematica",
-    description: "Estrutura voltada para pergunta de revisao, busca, elegibilidade e sintese das evidencias.",
+    name: "Revisão sistemática",
+    description: "Estrutura voltada para pergunta de revisão, busca, elegibilidade e síntese das evidências.",
     tips: [
-      "Deixe a pergunta da revisao muito clara logo no inicio.",
-      "Descreva bases, descritores e criterios de selecao com transparencia.",
-      "Reserve um lugar claro para o fluxo PRISMA e para a sintese dos estudos incluidos."
+      "Deixe a pergunta da revisão muito clara logo no início.",
+      "Descreva bases, descritores e critérios de seleção com transparência.",
+      "Reserve um lugar claro para o fluxo PRISMA e para a síntese dos estudos incluídos."
     ],
     content: systematicReviewTemplate
   },
   {
     id: "case-report",
     name: "Relato de caso",
-    description: "Modelo centrado em cronologia, singularidade do caso e aprendizado clinico.",
+    description: "Modelo centrado em cronologia, singularidade do caso e aprendizado clínico.",
     tips: [
-      "Valorize a sequencia temporal do caso para facilitar a leitura.",
+      "Valorize a sequência temporal do caso para facilitar a leitura.",
       "Explique cedo por que esse caso merece ser relatado.",
-      "Na discussao, conecte o caso ao que a literatura ja sabe e ao que ele acrescenta."
+      "Na discussão, conecte o caso ao que a literatura já sabe e ao que ele acrescenta."
     ],
     content: caseReportTemplate
   },
   {
     id: "clinical-trial",
-    name: "Ensaio clinico",
-    description: "Modelo com foco em intervencao, comparador, desfechos e leitura transparente dos resultados.",
+    name: "Ensaio clínico",
+    description: "Modelo com foco em intervenção, comparador, desfechos e leitura transparente dos resultados.",
     tips: [
-      "Seja muito claro sobre intervencao, grupo comparador e desfechos.",
-      "Explique o desenho metodologico sem deixar lacunas sobre randomizacao e analise.",
+      "Seja muito claro sobre intervenção, grupo comparador e desfechos.",
+      "Explique o desenho metodológico sem deixar lacunas sobre randomização e análise.",
       "Nos resultados, separe bem fluxo de participantes, achados principais e eventos adversos."
     ],
     content: clinicalTrialTemplate
@@ -781,7 +781,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
   );
   const [abntMode, setAbntMode] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const [saveMessage, setSaveMessage] = useState("Sem alteracoes pendentes.");
+  const [saveMessage, setSaveMessage] = useState("Sem alterações pendentes.");
   const [isLeaving, setIsLeaving] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isExportingDocx, setIsExportingDocx] = useState(false);
@@ -800,7 +800,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
 
   const persistDraft = async (content: JSONContent) => {
     const supabase = getSupabaseClient();
-    const normalizedTitle = titleRef.current.trim() || "Sem titulo";
+    const normalizedTitle = titleRef.current.trim() || "Sem título";
     const snapshot = JSON.stringify({
       titulo: normalizedTitle,
       conteudo_json: content,
@@ -809,7 +809,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
 
     if (snapshot === lastSavedSnapshot.current) {
       setSaveState("saved");
-      setSaveMessage("Sem alteracoes pendentes.");
+      setSaveMessage("Sem alterações pendentes.");
       return;
     }
 
@@ -835,7 +835,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
       setSaveState("error");
       setSaveMessage(
         error.message.includes("updated_at") || error.message.includes("last_editor_id")
-          ? "O banco ainda nao recebeu os campos de ultima edicao. Rode a migracao de consolidacao."
+          ? "O banco ainda não recebeu os campos de última edição. Rode a migração de consolidação."
           : error.message
       );
       return;
@@ -874,7 +874,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
     extensions: [
       StarterKit,
       Placeholder.configure({
-      placeholder: "Descreva a pergunta de pesquisa, metodologia, resultados ou o proximo bloco do artigo."
+      placeholder: "Descreva a pergunta de pesquisa, metodologia, resultados ou o próximo bloco do artigo."
       })
     ],
     content: article.conteudo_json ?? EMPTY_DOC,
@@ -918,7 +918,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
 
     const content = editor.getJSON();
     const snapshot = JSON.stringify({
-      titulo: title.trim() || "Sem titulo",
+      titulo: title.trim() || "Sem título",
       conteudo_json: content,
       status
     });
@@ -1091,7 +1091,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
               }}
               type="button"
             >
-              {abntMode ? "ABNT ativa" : "Formatacao ABNT"}
+              {abntMode ? "ABNT ativa" : "Formatação ABNT"}
             </button>
           </div>
         </section>
@@ -1118,7 +1118,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
             <strong>Artigo em {statusLabels[status].toLowerCase()}</strong>
             <span className="muted">
               Use o editor para desenvolver o texto e altere o status conforme o artigo evolui entre
-              rascunho, submissao interna e aprovacao.
+              rascunho, submissão interna e aprovação.
             </span>
             <div style={{ display: "flex", gap: "14px", flexWrap: "wrap" }}>
               <span className="muted">
@@ -1127,14 +1127,14 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                   : countArticleWords(article.conteudo_json)}{" "}
                 palavra(s)
               </span>
-              <span className="muted">Ultima edicao: {formatRelativeUpdate(article.updated_at)}</span>
+              <span className="muted">Última edição: {formatRelativeUpdate(article.updated_at)}</span>
             </div>
           </div>
 
           <input
             className="editor-title-input"
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="Titulo do artigo"
+            placeholder="Título do artigo"
             style={{
               width: "100%",
               border: "none",
@@ -1157,9 +1157,9 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
               border: "1px solid rgba(255,255,255,0.08)"
             }}
           >
-            <strong>Revistas para submissao</strong>
+            <strong>Revistas para submissão</strong>
             <span className="muted">
-              Use o radar editorial quando for decidir submissao: o modulo cruza tema, indexadores e
+              Use o radar editorial quando for decidir submissão: o módulo cruza tema, indexadores e
               shortlist sem quebrar o fluxo do manuscrito.
             </span>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
@@ -1403,7 +1403,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                 onClick={() => selectedSection && insertScientificSection(selectedSection.content)}
                 type="button"
               >
-                Adicionar secao
+                Adicionar seção
               </button>
             </div>
           </div>

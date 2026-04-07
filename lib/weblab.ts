@@ -67,12 +67,12 @@ function collectText(nodes: Array<Record<string, unknown>>): string {
 
 export function formatRelativeUpdate(value: string | null) {
   if (!value) {
-    return "Ainda sem edicoes registradas";
+    return "Ainda sem edições registradas";
   }
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
-    return "Atualizacao indisponivel";
+    return "Atualização indisponível";
   }
 
   return new Intl.DateTimeFormat("pt-BR", {
@@ -129,9 +129,9 @@ export function formatAbntCitation(work: CitationWork) {
     .map(formatAuthorName);
 
   const authorsText =
-    authors.length > 0 ? authors.join("; ") : "AUTORIA NAO INFORMADA.";
-  const title = work.title?.trim() || "Titulo nao informado";
-  const source = work.primary_location?.source?.display_name?.trim() || "Fonte nao informada";
+    authors.length > 0 ? authors.join("; ") : "AUTORIA NÃO INFORMADA.";
+  const title = work.title?.trim() || "Título não informado";
+  const source = work.primary_location?.source?.display_name?.trim() || "Fonte não informada";
   const year = work.publication_year ? String(work.publication_year) : "s.d.";
   const volume = work.biblio?.volume ? `v. ${work.biblio.volume}` : "";
   const issue = work.biblio?.issue ? `n. ${work.biblio.issue}` : "";

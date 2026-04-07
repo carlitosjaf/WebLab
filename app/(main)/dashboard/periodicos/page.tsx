@@ -38,7 +38,7 @@ export default function PeriodicosPage() {
 
         if (profileError || !profile) {
           if (isMounted) {
-            setErrorMessage(profileError?.message ?? "Nao foi possivel carregar o perfil.");
+            setErrorMessage(profileError?.message ?? "Não foi possível carregar o perfil.");
             setIsLoading(false);
           }
           return;
@@ -90,7 +90,7 @@ export default function PeriodicosPage() {
       <main className="shell">
         <div className="container glass-card" style={{ padding: "32px" }}>
           <p className="muted" style={{ margin: 0 }}>
-            Carregando modulo de periodicos...
+            Carregando módulo de periódicos...
           </p>
         </div>
       </main>
@@ -101,7 +101,7 @@ export default function PeriodicosPage() {
     return (
       <main className="shell">
         <div className="container glass-card" style={{ padding: "32px", display: "grid", gap: "12px" }}>
-          <h1 style={{ margin: 0 }}>Nao foi possivel abrir o localizador de revistas</h1>
+          <h1 style={{ margin: 0 }}>Não foi possível abrir o localizador de revistas</h1>
           <p className="danger" style={{ margin: 0 }}>
             {errorMessage}
           </p>

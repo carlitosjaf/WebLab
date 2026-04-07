@@ -230,7 +230,7 @@ export function DashboardShell({
           <div className="lovable-hero-copy">
             <h1 id="dashboard-home-title">Fé Eterna na Ciência</h1>
             <p>
-              Producizir e compartilhar conhecimento, para o fortalecimento do sistema (sus) e por
+              Produzir e compartilhar conhecimento, para o fortalecimento do sistema (SUS) e por
               uma sociedade mais saudável, democrática e justa.
             </p>
             <div className="lovable-actions">

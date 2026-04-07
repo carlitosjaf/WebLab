@@ -52,7 +52,7 @@ export function SubmissionChecklist() {
           if (isMounted) {
             setErrorMessage(
               profileError?.message ??
-                "Seu perfil ainda nao esta vinculado a uma equipe para usar o checklist."
+                "Seu perfil ainda não está vinculado a uma equipe para usar o checklist."
             );
             setIsLoading(false);
           }
@@ -71,7 +71,7 @@ export function SubmissionChecklist() {
           if (isMounted) {
             setErrorMessage(
               error.message.includes("plataforma_brasil_checklists")
-                ? "A tabela do checklist ainda nao existe no banco. Rode a migracao de consolidacao do WebLab."
+                ? "A tabela do checklist ainda não existe no banco. Rode a migração de consolidação do WebLab."
                 : error.message
             );
             setIsLoading(false);
@@ -129,7 +129,7 @@ export function SubmissionChecklist() {
       if (error) {
         setErrorMessage(
           error.message.includes("plataforma_brasil_checklists")
-            ? "A tabela do checklist ainda nao existe no banco. Rode a migracao de consolidacao do WebLab."
+            ? "A tabela do checklist ainda não existe no banco. Rode a migração de consolidação do WebLab."
             : error.message
         );
         return;
@@ -143,9 +143,9 @@ export function SubmissionChecklist() {
   return (
     <section className="glass-card no-print" style={{ padding: "24px", display: "grid", gap: "16px" }}>
       <div style={{ display: "grid", gap: "6px" }}>
-        <h2 style={{ margin: 0 }}>Checklist de submissao</h2>
+        <h2 style={{ margin: 0 }}>Checklist de submissão</h2>
         <p className="muted" style={{ margin: 0 }}>
-          Estado persistente da equipe para acompanhar os itens burocraticos mais chatos da
+          Estado persistente da equipe para acompanhar os itens burocráticos mais chatos da
           Plataforma Brasil.
         </p>
       </div>
@@ -161,9 +161,9 @@ export function SubmissionChecklist() {
       ) : (
         <div style={{ display: "grid", gap: "12px" }}>
           {[
-            ["tcle_gerado", "TCLE gerado", "Termo pronto para revisao e impressao."],
+            ["tcle_gerado", "TCLE gerado", "Termo pronto para revisão e impressão."],
             ["cronograma_pronto", "Cronograma pronto", "Planejamento temporal finalizado."],
-            ["orcamento_detalhado", "Orcamento detalhado", "Custos e recursos organizados para submissao."]
+            ["orcamento_detalhado", "Orçamento detalhado", "Custos e recursos organizados para submissão."]
           ].map(([key, label, description]) => (
             <label
               key={key}

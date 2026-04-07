@@ -181,12 +181,12 @@ export function QualisIntelligent({
 
     if (onInsertCitation) {
       onInsertCitation(citation);
-      setCopyMessage("Referencia enviada para o editor.");
+      setCopyMessage("Referência enviada para o editor.");
       return;
     }
 
     await navigator.clipboard.writeText(citation);
-    setCopyMessage("Referencia copiada para a area de transferencia.");
+    setCopyMessage("Referência copiada para a área de transferência.");
   };
 
   if (!isOpen) {
@@ -197,7 +197,7 @@ export function QualisIntelligent({
         style={{ background: "#205942", fontWeight: 600 }}
         type="button"
       >
-        Encontrar periodicos e referencias
+        Encontrar periódicos e referências
       </button>
     );
   }
@@ -218,10 +218,10 @@ export function QualisIntelligent({
         }}
       >
         <div style={{ display: "grid", gap: "4px" }}>
-          <h3 style={{ margin: 0 }}>Motor Qualis e referencias</h3>
+          <h3 style={{ margin: 0 }}>Motor Qualis e referências</h3>
           <p className="muted" style={{ margin: 0, fontSize: "0.9rem", maxWidth: "72ch" }}>
-            O WebLab usa o OpenAlex para sugerir periodicos proximos do tema e artigos relacionados
-            que podem virar citacao ABNT diretamente dentro do editor.
+            O WebLab usa o OpenAlex para sugerir periódicos próximos do tema e artigos relacionados
+            que podem virar citação ABNT diretamente dentro do editor.
           </p>
         </div>
         <button className="button button-secondary" onClick={() => setIsOpen(false)} type="button">
@@ -241,7 +241,7 @@ export function QualisIntelligent({
           }}
           value={customSearch || articleTitle}
           onChange={(event) => setCustomSearch(event.target.value)}
-          placeholder="Palavras-chave ou titulo da pesquisa"
+          placeholder="Palavras-chave ou título da pesquisa"
         />
         <button
           className="button button-primary"
@@ -261,16 +261,16 @@ export function QualisIntelligent({
 
       {isLoading ? (
         <div style={{ padding: "30px", textAlign: "center" }} className="muted">
-          Extraindo contexto do titulo e do texto para localizar periodicos e trabalhos proximos do
+          Extraindo contexto do título e do texto para localizar periódicos e trabalhos próximos do
           seu tema.
         </div>
       ) : (
         <div style={{ display: "grid", gap: "20px" }}>
           <section style={{ display: "grid", gap: "12px" }}>
             <div style={{ display: "grid", gap: "4px" }}>
-              <strong>Periodicos sugeridos</strong>
+              <strong>Periódicos sugeridos</strong>
               <span className="muted">
-                Sinais de aderencia tematica com uma estimativa simples baseada em indexacao e
+                Sinais de aderência temática com uma estimativa simples baseada em indexação e
                 impacto.
               </span>
             </div>
@@ -285,7 +285,7 @@ export function QualisIntelligent({
                   borderRadius: "12px"
                 }}
               >
-                Nenhum periodico encontrado ainda. Tente refinar a busca com termos mais especificos
+                Nenhum periódico encontrado ainda. Tente refinar a busca com termos mais específicos
                 do seu tema.
               </div>
             ) : (
@@ -334,12 +334,12 @@ export function QualisIntelligent({
 
                     <div style={{ display: "flex", gap: "12px", fontSize: "0.82rem", flexWrap: "wrap" }}>
                       <span className="muted">
-                        H-index: {result.source.summary_stats?.h_index ?? "Nao informado"}
+                        H-index: {result.source.summary_stats?.h_index ?? "Não informado"}
                       </span>
                       <span className="muted">
-                        Open access: {result.source.is_oa ? "sim" : "nao"}
+                        Open access: {result.source.is_oa ? "sim" : "não"}
                       </span>
-                      <span className="muted">Ocorrencias relacionadas: {result.matchCount}</span>
+                      <span className="muted">Ocorrências relacionadas: {result.matchCount}</span>
                     </div>
                   </div>
                 ))}
@@ -351,7 +351,7 @@ export function QualisIntelligent({
             <div style={{ display: "grid", gap: "4px" }}>
               <strong>Artigos para citar</strong>
               <span className="muted">
-                Clique em citar para gerar a referencia em ABNT e inserir direto no texto.
+                Clique em citar para gerar a referência em ABNT e inserir direto no texto.
               </span>
             </div>
 
@@ -382,10 +382,10 @@ export function QualisIntelligent({
                     }}
                   >
                     <div style={{ display: "grid", gap: "6px" }}>
-                      <strong>{work.title ?? "Titulo nao informado"}</strong>
+                      <strong>{work.title ?? "Título não informado"}</strong>
                       <span className="muted" style={{ fontSize: "0.9rem" }}>
-                        {work.primary_location?.source?.display_name ?? "Fonte nao informada"} ·{" "}
-                        {work.publication_year ?? "Ano nao informado"}
+                        {work.primary_location?.source?.display_name ?? "Fonte não informada"} ·{" "}
+                        {work.publication_year ?? "Ano não informado"}
                       </span>
                     </div>
 

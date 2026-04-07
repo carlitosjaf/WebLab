@@ -94,9 +94,9 @@ export default function LattesAssistantPage() {
               </span>
               <h1 style={{ margin: 0 }}>Assistente Lattes</h1>
               <p className="muted" style={{ margin: 0, maxWidth: "60ch" }}>
-                Esta area organiza os artigos aprovados para facilitar o preenchimento manual do
-                Lattes. Onde ainda faltarem metadados reais do periodico, o WebLab deixa isso
-                explicito como rascunho assistido.
+                Esta área organiza os artigos aprovados para facilitar o preenchimento manual do
+                Lattes. Onde ainda faltarem metadados reais do periódico, o WebLab deixa isso
+                explícito como rascunho assistido.
               </p>
             </div>
             <Link href="/dashboard" className="button button-secondary" style={{ textDecoration: "none" }}>
@@ -107,7 +107,7 @@ export default function LattesAssistantPage() {
 
         {isLoading ? (
           <p className="muted" style={{ padding: "0 12px" }}>
-            Buscando publicacoes aprovadas...
+            Buscando publicações aprovadas...
           </p>
         ) : (
           <div style={{ display: "grid", gap: "24px" }}>

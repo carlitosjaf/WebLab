@@ -41,7 +41,7 @@ export default function EditorPage() {
 
       if (error || !data) {
         if (isMounted) {
-          setErrorMessage(error?.message ?? "Artigo nao encontrado.");
+        setErrorMessage(error?.message ?? "Artigo não encontrado.");
           setIsLoading(false);
         }
         return;
@@ -79,7 +79,7 @@ export default function EditorPage() {
     return (
       <main className="shell">
         <div className="container glass-card" style={{ padding: "32px", display: "grid", gap: "12px" }}>
-          <h1 style={{ margin: 0 }}>Nao foi possivel abrir o artigo</h1>
+          <h1 style={{ margin: 0 }}>Não foi possível abrir o artigo</h1>
           <p className="danger" style={{ margin: 0 }}>
             {errorMessage ?? "Erro inesperado ao carregar o artigo."}
           </p>

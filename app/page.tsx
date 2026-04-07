@@ -12,7 +12,7 @@ export default function LoginPage() {
             <span className="lovable-kicker">Laboratório virtual</span>
             <h1>Escreva. Organize. Submeta.</h1>
             <p>
-              Producizir e compartilhar conhecimento, para o fortalecimento do sistema (sus) e por
+              Produzir e compartilhar conhecimento, para o fortalecimento do sistema (SUS) e por
               uma sociedade mais saudável, democrática e justa.
             </p>
           </div>
