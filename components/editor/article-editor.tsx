@@ -88,6 +88,29 @@ type ManuscriptAnalysis = {
   conceptSignals: ConceptSignal[];
 };
 
+type DeepSectionReview = {
+  section: string;
+  status: "forte" | "revisar" | "ausente";
+  score: number;
+  diagnosis: string;
+  why: string[];
+  suggestions: string[];
+  evidence?: string;
+};
+
+type DeepManuscriptAnalysis = {
+  mode: "heuristic";
+  overallScore: number;
+  summary: string;
+  headings: string[];
+  sectionReviews: DeepSectionReview[];
+  priorities: Array<{
+    section: string;
+    action: string;
+  }>;
+  nextActions: string[];
+};
+
 type ReferenceSuggestion = {
   id: string;
   title?: string;
@@ -1456,6 +1479,9 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
   const [referenceSuggestions, setReferenceSuggestions] = useState<ReferenceSuggestion[]>([]);
   const [referenceMessage, setReferenceMessage] = useState<string | null>(null);
   const [isFetchingReferences, setIsFetchingReferences] = useState(false);
+  const [deepAnalysis, setDeepAnalysis] = useState<DeepManuscriptAnalysis | null>(null);
+  const [deepAnalysisMessage, setDeepAnalysisMessage] = useState<string | null>(null);
+  const [isAnalyzingManuscript, setIsAnalyzingManuscript] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isExportingDocx, setIsExportingDocx] = useState(false);
@@ -1671,6 +1697,34 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
     manuscriptAnalysis.citationGaps.find((gap) => gap.id === activeGapId) ??
     manuscriptAnalysis.citationGaps[0] ??
     null;
+
+  const runDeepManuscriptAnalysis = async () => {
+    setIsAnalyzingManuscript(true);
+    setDeepAnalysisMessage(null);
+
+    try {
+      const content = editor ? (editor.getJSON() as ArticleContent) : currentContent;
+      const response = await fetch("/api/manuscrito/analisar", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ content })
+      });
+
+      if (!response.ok) {
+        throw new Error("Não foi possível analisar o manuscrito agora.");
+      }
+
+      const payload = (await response.json()) as DeepManuscriptAnalysis;
+      setDeepAnalysis(payload);
+      setDeepAnalysisMessage("Análise estrutural atualizada a partir do manuscrito completo.");
+    } catch (error) {
+      setDeepAnalysisMessage(error instanceof Error ? error.message : "Erro ao analisar o manuscrito.");
+    } finally {
+      setIsAnalyzingManuscript(false);
+    }
+  };
 
   const loadReferenceSuggestions = async (gap: CitationGap) => {
     setActiveGapId(gap.id);
@@ -2311,6 +2365,58 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                     </strong>
                     <span>alertas estruturais</span>
                   </article>
+                </div>
+
+                <div className="editor-cognitive-block">
+                  <div className="editor-cognitive-block-title">
+                    <strong>Análise profunda</strong>
+                    <button
+                      className="button button-secondary"
+                      disabled={isAnalyzingManuscript}
+                      onClick={() => void runDeepManuscriptAnalysis()}
+                      type="button"
+                    >
+                      {isAnalyzingManuscript ? "Analisando..." : "Analisar manuscrito"}
+                    </button>
+                  </div>
+                  <p className="muted">
+                    Leitura server-side do manuscrito completo. Ela explica o critério e sugere revisão por seção.
+                  </p>
+                  {deepAnalysisMessage ? <p className="muted">{deepAnalysisMessage}</p> : null}
+
+                  {deepAnalysis ? (
+                    <div className="editor-deep-analysis">
+                      <div className="editor-deep-analysis-score">
+                        <strong>{deepAnalysis.overallScore}%</strong>
+                        <span>{deepAnalysis.summary}</span>
+                      </div>
+
+                      {deepAnalysis.priorities.length > 0 ? (
+                        <div className="editor-deep-priority-list">
+                          {deepAnalysis.priorities.map((priority) => (
+                            <article key={`${priority.section}-${priority.action}`}>
+                              <strong>{priority.section}</strong>
+                              <span>{priority.action}</span>
+                            </article>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      <div className="editor-deep-section-list">
+                        {deepAnalysis.sectionReviews.map((review) => (
+                          <article data-status={review.status} key={review.section}>
+                            <div>
+                              <strong>{review.section}</strong>
+                              <span>{review.status === "forte" ? "forte" : review.status === "ausente" ? "ausente" : "revisar"}</span>
+                            </div>
+                            <p>{review.diagnosis}</p>
+                            <small>Critério: {review.why.join(" ")}</small>
+                            <small>Como melhorar: {review.suggestions.join(" ")}</small>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="editor-cognitive-block">

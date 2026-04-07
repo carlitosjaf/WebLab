@@ -3456,6 +3456,95 @@ textarea:focus,
   line-height: 1.4;
 }
 
+.editor-deep-analysis {
+  display: grid;
+  gap: 12px;
+}
+
+.editor-deep-analysis-score {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid rgba(20, 184, 166, 0.24);
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(240, 253, 250, 0.92), #ffffff);
+}
+
+.editor-deep-analysis-score strong {
+  color: #0f766e;
+  font-size: 1.6rem;
+}
+
+.editor-deep-analysis-score span {
+  color: #475569;
+  line-height: 1.45;
+}
+
+.editor-deep-priority-list,
+.editor-deep-section-list {
+  display: grid;
+  gap: 10px;
+}
+
+.editor-deep-priority-list article,
+.editor-deep-section-list article {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  border-radius: 16px;
+  background: #fffbeb;
+}
+
+.editor-deep-section-list article[data-status="forte"] {
+  border-color: rgba(20, 184, 166, 0.26);
+  background: #f0fdfa;
+}
+
+.editor-deep-section-list article[data-status="ausente"] {
+  border-color: rgba(239, 68, 68, 0.22);
+  background: #fef2f2;
+}
+
+.editor-deep-priority-list article strong,
+.editor-deep-section-list article strong {
+  color: #0f172a;
+}
+
+.editor-deep-section-list article > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.editor-deep-section-list article span {
+  border-radius: 999px;
+  background: rgba(245, 158, 11, 0.16);
+  color: #92400e;
+  padding: 3px 8px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.editor-deep-section-list article[data-status="forte"] span {
+  background: rgba(20, 184, 166, 0.14);
+  color: #0f766e;
+}
+
+.editor-deep-section-list article[data-status="ausente"] span {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+
+.editor-deep-priority-list article span,
+.editor-deep-section-list small {
+  color: #64748b;
+  line-height: 1.4;
+}
+
 .editor-used-references,
 .editor-manuscript-map {
   display: grid;
