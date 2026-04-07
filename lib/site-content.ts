@@ -1,4 +1,3 @@
-import { principalInvestigator, teamMembers } from "@/lib/public-site";
 import type { Database, TeamSiteMember } from "@/lib/types";
 
 export type TeamSiteContentRow =
@@ -14,21 +13,7 @@ export const defaultTeamSiteContent: TeamSiteContentState = {
   tituloPublico: "Nossa equipe",
   resumoPublico:
     "Um grupo de pesquisadores conectado por ciência, formação e produção de conhecimento em saúde.",
-  integrantes: [
-    {
-      nome: principalInvestigator.name,
-      funcao: principalInvestigator.role,
-      categoria: "Coordenação",
-      email: principalInvestigator.email,
-      imagem: principalInvestigator.image
-    },
-    ...teamMembers.map((member) => ({
-      nome: member.name,
-      funcao: member.role,
-      categoria: member.category,
-      imagem: member.image
-    }))
-  ]
+  integrantes: []
 };
 
 export function normalizeTeamSiteMembers(value: unknown): TeamSiteMember[] {
@@ -82,7 +67,7 @@ export function getTeamSiteContentFromRow(
     tituloPublico:
       row.titulo_publico?.trim() || fallbackTitle || defaultTeamSiteContent.tituloPublico,
     resumoPublico: row.resumo_publico?.trim() || defaultTeamSiteContent.resumoPublico,
-    integrantes: integrantes.length > 0 ? integrantes : defaultTeamSiteContent.integrantes
+    integrantes
   };
 }
 

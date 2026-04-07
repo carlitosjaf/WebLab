@@ -20,8 +20,19 @@ const ALLOWED_ROLES: UserRole[] = ["coordenador", "coordenador_geral"];
 const emptyMember: TeamSiteMember = {
   nome: "",
   funcao: "",
-  categoria: ""
+  categoria: "",
+  email: "",
+  imagem: ""
 };
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
 
 export default function ConfiguracoesPage() {
   const router = useRouter();
@@ -120,11 +131,42 @@ export default function ConfiguracoesPage() {
           return;
         }
 
+        const { data: profileMembers } = await supabase
+          .from("perfis")
+          .select("nome_completo, role")
+          .eq("equipe_id", loadedTeam.id)
+          .order("nome_completo", { ascending: true });
+
+        const registeredMembers: TeamSiteMember[] =
+          profileMembers?.flatMap((member) => {
+            const nome = member.nome_completo?.trim();
+
+            if (!nome) {
+              return [];
+            }
+
+            return [
+              {
+                nome,
+                funcao: formatRoleLabel(member.role),
+                categoria: "Membros cadastrados",
+                email: null,
+                imagem: null
+              }
+            ];
+          }) ?? [];
+
         if (isMounted) {
-          setTeam(loadedTeam);
-          setTeamContent(
-            getTeamSiteContentFromRow((loadedContent as TeamSiteContentRow | null) ?? null, loadedTeam.nome)
+          const siteContent = getTeamSiteContentFromRow(
+            (loadedContent as TeamSiteContentRow | null) ?? null,
+            loadedTeam.nome
           );
+
+          setTeam(loadedTeam);
+          setTeamContent({
+            ...siteContent,
+            integrantes: siteContent.integrantes.length > 0 ? siteContent.integrantes : registeredMembers
+          });
           setErrorMessage(contentError ? contentError.message : null);
           setIsLoading(false);
         }
@@ -380,6 +422,17 @@ export default function ConfiguracoesPage() {
                 value={memberDraft.email ?? ""}
               />
             </div>
+
+            <div className="field">
+              <label htmlFor="integranteImagem">Imagem</label>
+              <input
+                id="integranteImagem"
+                onChange={handleMemberDraftChange("imagem")}
+                placeholder="URL da foto ou imagem institucional"
+                type="url"
+                value={memberDraft.imagem ?? ""}
+              />
+            </div>
           </div>
 
           <button className="button button-secondary" onClick={handleAddMember} type="button">
@@ -389,6 +442,9 @@ export default function ConfiguracoesPage() {
           <div className="config-member-list">
             {teamContent.integrantes.map((member, index) => (
               <article className="config-member-item" key={`${member.nome}-${index}`}>
+                <div className="config-member-preview" aria-hidden="true">
+                  {member.imagem ? <img alt="" src={member.imagem} /> : <span>{getInitials(member.nome)}</span>}
+                </div>
                 <div>
                   <strong>{member.nome}</strong>
                   <span className="muted">

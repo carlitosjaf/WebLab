@@ -1929,6 +1929,27 @@ textarea:focus,
   display: block;
 }
 
+.team-initial-avatar {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 30% 25%, rgba(94, 234, 212, 0.42), transparent 32%),
+    linear-gradient(135deg, #12343b 0%, #289487 100%);
+  color: white;
+  font-weight: 900;
+  letter-spacing: -0.06em;
+}
+
+.team-initial-avatar-large {
+  font-size: 4rem;
+}
+
+.team-initial-avatar-small {
+  font-size: 2.7rem;
+}
+
 .team-pi-card h2 {
   color: #0f172a;
   font-size: clamp(1.8rem, 3vw, 2.6rem);
@@ -2006,6 +2027,15 @@ textarea:focus,
 
 .team-member-card img {
   aspect-ratio: 1;
+}
+
+.team-member-photo {
+  aspect-ratio: 1;
+  padding: 0 !important;
+}
+
+.team-member-card .team-initial-avatar {
+  padding: 0;
 }
 
 .team-member-card div {
@@ -2316,6 +2346,25 @@ textarea:focus,
 .config-member-item div {
   display: grid;
   gap: 4px;
+}
+
+.config-member-preview {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  display: grid !important;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(40, 148, 135, 0.18), rgba(18, 52, 59, 0.16));
+  color: #12343b;
+  font-weight: 900;
+}
+
+.config-member-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .editor-workspace {
