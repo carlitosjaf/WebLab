@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
@@ -11,7 +11,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { exportArticleToDocx } from "@/lib/docx-export";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { ArticleContent, ArticleRow, ArticleStatus } from "@/lib/types";
-import { countArticleWords, formatRelativeUpdate } from "@/lib/weblab";
+import { countArticleWords, formatAbntCitation, formatRelativeUpdate } from "@/lib/weblab";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -33,6 +33,56 @@ type SectionGroup = {
   sections: Array<{
     label: string;
     content: JSONContent[];
+  }>;
+};
+
+type CognitiveTab = "referencias" | "estrutura";
+
+type ManuscriptHeading = {
+  id: string;
+  title: string;
+  level: number;
+};
+
+type CitationGap = {
+  id: string;
+  text: string;
+  section: string;
+};
+
+type UsedReference = {
+  id: string;
+  text: string;
+};
+
+type ManuscriptAnalysis = {
+  headings: ManuscriptHeading[];
+  missingSections: string[];
+  citationGaps: CitationGap[];
+  usedReferences: UsedReference[];
+};
+
+type ReferenceSuggestion = {
+  id: string;
+  title?: string;
+  publication_year?: number;
+  doi?: string;
+  biblio?: {
+    volume?: string;
+    issue?: string;
+    first_page?: string;
+    last_page?: string;
+  };
+  primary_location?: {
+    landing_page_url?: string;
+    source?: {
+      display_name?: string;
+    };
+  };
+  authorships?: Array<{
+    author?: {
+      display_name?: string;
+    };
   }>;
 };
 
@@ -142,6 +192,257 @@ const scientificSections: Array<{
     ]
   }
 ];
+
+const expectedScientificSections = [
+  "Resumo",
+  "Introdução",
+  "Metodologia",
+  "Resultados",
+  "Discussão",
+  "Referências"
+];
+
+const claimMarkers = [
+  "evidencia",
+  "evidências",
+  "estudos",
+  "pesquisas",
+  "literatura",
+  "dados",
+  "resultados",
+  "indicam",
+  "mostram",
+  "sugerem",
+  "demonstram",
+  "revelam",
+  "apontam",
+  "associado",
+  "associada",
+  "impacto",
+  "prevalência",
+  "desigualdade",
+  "fatores",
+  "risco"
+];
+
+const citationPattern = /\([A-ZÀ-Ý][A-ZÀ-Ý\s;,&.-]+,\s*(?:19|20)\d{2}[a-z]?\)|\b(?:19|20)\d{2}\b.*\b[A-ZÀ-Ý][A-ZÀ-Ý]{2,}\b|\bdoi\b/i;
+
+function normalizeSectionName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function getNodeText(node: Record<string, unknown>): string {
+  const text = typeof node.text === "string" ? node.text : "";
+  const content = Array.isArray(node.content) ? node.content : [];
+  const nested = content
+    .filter((child): child is Record<string, unknown> => Boolean(child) && typeof child === "object")
+    .map(getNodeText)
+    .join(" ");
+
+  return `${text} ${nested}`.replace(/\s+/g, " ").trim();
+}
+
+function extractDocumentText(content: ArticleContent | null) {
+  return (content?.content ?? [])
+    .map((node) => getNodeText(node))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 5000);
+}
+
+function getReferenceItems(content: ArticleContent | null): UsedReference[] {
+  const nodes = content?.content ?? [];
+  const referencesIndex = nodes.findIndex((node) => {
+    return (
+      node.type === "heading" &&
+      normalizeSectionName(getNodeText(node)) === "referencias"
+    );
+  });
+
+  if (referencesIndex === -1) {
+    return [];
+  }
+
+  const referenceNodes = nodes.slice(referencesIndex + 1);
+  const items: UsedReference[] = [];
+
+  for (const node of referenceNodes) {
+    if (node.type === "heading") {
+      break;
+    }
+
+    if (node.type === "bulletList" && Array.isArray(node.content)) {
+      node.content.forEach((item, index) => {
+        if (item && typeof item === "object") {
+          const text = getNodeText(item as Record<string, unknown>);
+          if (text) {
+            items.push({ id: `ref-${referencesIndex}-${index}`, text });
+          }
+        }
+      });
+      continue;
+    }
+
+    const text = getNodeText(node);
+    if (text.length > 24) {
+      items.push({ id: `ref-${referencesIndex}-${items.length}`, text });
+    }
+  }
+
+  return items;
+}
+
+function analyseManuscript(content: ArticleContent | null): ManuscriptAnalysis {
+  const nodes = content?.content ?? [];
+  const headings: ManuscriptHeading[] = [];
+  const citationGaps: CitationGap[] = [];
+  let currentSection = "Sem seção";
+
+  nodes.forEach((node, index) => {
+    const text = getNodeText(node);
+
+    if (node.type === "heading" && text) {
+      const level =
+        node.attrs && typeof node.attrs === "object" && "level" in node.attrs
+          ? Number((node.attrs as { level?: unknown }).level ?? 2)
+          : 2;
+      currentSection = text;
+      headings.push({
+        id: `heading-${index}`,
+        title: text,
+        level
+      });
+      return;
+    }
+
+    if ((node.type === "paragraph" || node.type === "blockquote") && text.length > 90) {
+      const sentences = text
+        .split(/(?<=[.!?])\s+/)
+        .map((sentence) => sentence.trim())
+        .filter((sentence) => sentence.length > 90);
+
+      sentences.forEach((sentence, sentenceIndex) => {
+        const lowerSentence = sentence.toLowerCase();
+        const looksLikeClaim = claimMarkers.some((marker) => lowerSentence.includes(marker));
+        const hasCitation = citationPattern.test(sentence);
+
+        if (looksLikeClaim && !hasCitation && citationGaps.length < 6) {
+          citationGaps.push({
+            id: `gap-${index}-${sentenceIndex}`,
+            text: sentence,
+            section: currentSection
+          });
+        }
+      });
+    }
+  });
+
+  const existingSections = new Set(headings.map((heading) => normalizeSectionName(heading.title)));
+  const missingSections = expectedScientificSections.filter(
+    (section) => !existingSections.has(normalizeSectionName(section))
+  );
+
+  return {
+    headings,
+    missingSections,
+    citationGaps,
+    usedReferences: getReferenceItems(content)
+  };
+}
+
+function buildReferenceList(citation: string) {
+  return {
+    type: "bulletList",
+    content: [
+      {
+        type: "listItem",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: citation }]
+          }
+        ]
+      }
+    ]
+  };
+}
+
+function appendReferenceToContent(content: ArticleContent | null, citation: string): ArticleContent {
+  const clonedContent = content?.content
+    ? (JSON.parse(JSON.stringify(content.content)) as Array<Record<string, unknown>>)
+    : [];
+
+  const alreadyExists = getReferenceItems({
+    type: "doc",
+    content: clonedContent
+  }).some((reference) => reference.text === citation);
+
+  if (alreadyExists) {
+    return {
+      type: "doc",
+      content: clonedContent
+    };
+  }
+
+  const referencesIndex = clonedContent.findIndex((node) => {
+    return (
+      node.type === "heading" &&
+      normalizeSectionName(getNodeText(node)) === "referencias"
+    );
+  });
+
+  if (referencesIndex === -1) {
+    return {
+      type: "doc",
+      content: [
+        ...clonedContent,
+        {
+          type: "heading",
+          attrs: { level: 2 },
+          content: [{ type: "text", text: "Referências" }]
+        },
+        buildReferenceList(citation) as Record<string, unknown>
+      ]
+    };
+  }
+
+  const nextNode = clonedContent[referencesIndex + 1];
+  if (nextNode?.type === "bulletList" && Array.isArray(nextNode.content)) {
+    nextNode.content.push({
+      type: "listItem",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: citation }]
+        }
+      ]
+    });
+  } else {
+    clonedContent.splice(referencesIndex + 1, 0, buildReferenceList(citation) as Record<string, unknown>);
+  }
+
+  return {
+    type: "doc",
+    content: clonedContent
+  };
+}
+
+function formatInTextCitation(work: ReferenceSuggestion) {
+  const firstAuthor = work.authorships?.[0]?.author?.display_name;
+  const year = work.publication_year ? String(work.publication_year) : "s.d.";
+
+  if (!firstAuthor) {
+    return `AUTORIA NÃO INFORMADA, ${year}`;
+  }
+
+  const lastName = firstAuthor.trim().split(/\s+/).at(-1)?.toUpperCase() ?? "AUTORIA";
+  return `${lastName}, ${year}`;
+}
 
 const sectionGroups: SectionGroup[] = [
   {
@@ -782,6 +1083,12 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
   const [abntMode, setAbntMode] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveMessage, setSaveMessage] = useState("Sem alterações pendentes.");
+  const [editorVersion, setEditorVersion] = useState(0);
+  const [cognitiveTab, setCognitiveTab] = useState<CognitiveTab>("referencias");
+  const [activeGapId, setActiveGapId] = useState<string | null>(null);
+  const [referenceSuggestions, setReferenceSuggestions] = useState<ReferenceSuggestion[]>([]);
+  const [referenceMessage, setReferenceMessage] = useState<string | null>(null);
+  const [isFetchingReferences, setIsFetchingReferences] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isExportingDocx, setIsExportingDocx] = useState(false);
@@ -884,6 +1191,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
       }
     },
     onUpdate({ editor: currentEditor }) {
+      setEditorVersion((current) => current + 1);
       scheduleSave(currentEditor.getJSON());
     }
   });
@@ -983,6 +1291,70 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
   const selectedSection =
     activeSectionGroup?.sections.find((section) => section.label === selectedSectionLabel) ??
     activeSectionGroup?.sections[0];
+  const currentContent = useMemo(() => {
+    if (!editor) {
+      return article.conteudo_json ?? EMPTY_DOC;
+    }
+
+    return editor.getJSON() as ArticleContent;
+  }, [article.conteudo_json, editor, editorVersion]);
+  const manuscriptAnalysis = useMemo(() => analyseManuscript(currentContent), [currentContent]);
+  const activeGap =
+    manuscriptAnalysis.citationGaps.find((gap) => gap.id === activeGapId) ??
+    manuscriptAnalysis.citationGaps[0] ??
+    null;
+
+  const loadReferenceSuggestions = async (gap: CitationGap) => {
+    setActiveGapId(gap.id);
+    setIsFetchingReferences(true);
+    setReferenceMessage(null);
+    setReferenceSuggestions([]);
+
+    try {
+      const response = await fetch("/api/referencias/sugerir", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          claim: gap.text,
+          context: extractDocumentText(currentContent)
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Não foi possível consultar referências agora.");
+      }
+
+      const payload = (await response.json()) as { works?: ReferenceSuggestion[] };
+      setReferenceSuggestions(payload.works ?? []);
+      setReferenceMessage(
+        payload.works?.length
+          ? "Sugestões carregadas a partir de fonte verificável."
+          : "Não encontrei sugestões fortes para esse trecho. Tente refinar o argumento ou buscar no Radar."
+      );
+    } catch (error) {
+      setReferenceMessage(error instanceof Error ? error.message : "Erro ao buscar referências.");
+    } finally {
+      setIsFetchingReferences(false);
+    }
+  };
+
+  const insertReferenceSuggestion = (work: ReferenceSuggestion) => {
+    if (!editor) {
+      return;
+    }
+
+    const inTextCitation = formatInTextCitation(work);
+    const citation = formatAbntCitation(work);
+    editor.chain().focus().insertContent(` (${inTextCitation})`).run();
+
+    const nextContent = appendReferenceToContent(editor.getJSON() as ArticleContent, citation);
+    editor.commands.setContent(nextContent);
+    setEditorVersion((current) => current + 1);
+    scheduleSave(nextContent);
+    setReferenceMessage("Citação inserida no texto e referência adicionada à seção Referências.");
+  };
 
   return (
     <main className="shell editor-workspace">
@@ -1104,6 +1476,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
             gap: "20px"
           }}
         >
+          <div className="editor-paper-column">
           <div
             className="editor-status-card"
             style={{
@@ -1419,6 +1792,190 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
               <EditorContent editor={editor} />
             </div>
           </div>
+          </div>
+
+          <aside className="editor-cognitive-sidebar" aria-label="Sidebar cognitiva do manuscrito">
+            <div className="editor-cognitive-header">
+              <span className="eyebrow">leitura cognitiva</span>
+              <strong>O que o texto ainda precisa sustentar?</strong>
+              <p>
+                O WebLab observa estrutura e citações sem inventar referência. As sugestões vêm de fontes verificáveis.
+              </p>
+            </div>
+
+            <div className="editor-cognitive-tabs" role="tablist" aria-label="Modo da sidebar">
+              <button
+                className={cognitiveTab === "referencias" ? "active" : ""}
+                onClick={() => setCognitiveTab("referencias")}
+                type="button"
+              >
+                Referências
+              </button>
+              <button
+                className={cognitiveTab === "estrutura" ? "active" : ""}
+                onClick={() => setCognitiveTab("estrutura")}
+                type="button"
+              >
+                Estrutura
+              </button>
+            </div>
+
+            {cognitiveTab === "referencias" ? (
+              <div className="editor-cognitive-panel">
+                <div className="editor-cognitive-stat-grid">
+                  <article>
+                    <strong>{manuscriptAnalysis.citationGaps.length}</strong>
+                    <span>afirmações sem citação</span>
+                  </article>
+                  <article>
+                    <strong>{manuscriptAnalysis.usedReferences.length}</strong>
+                    <span>referências no texto</span>
+                  </article>
+                </div>
+
+                <div className="editor-cognitive-block">
+                  <strong>Afirmações que pedem fonte</strong>
+                  {manuscriptAnalysis.citationGaps.length === 0 ? (
+                    <p className="muted">Nenhuma afirmação científica sem citação foi detectada agora.</p>
+                  ) : (
+                    <div className="editor-citation-gap-list">
+                      {manuscriptAnalysis.citationGaps.map((gap) => (
+                        <button
+                          className={activeGap?.id === gap.id ? "active" : ""}
+                          key={gap.id}
+                          onClick={() => void loadReferenceSuggestions(gap)}
+                          type="button"
+                        >
+                          <span>{gap.section}</span>
+                          {gap.text}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="editor-cognitive-block">
+                  <div className="editor-cognitive-block-title">
+                    <strong>Sugestões verificáveis</strong>
+                    {activeGap ? (
+                      <button
+                        className="button button-secondary"
+                        disabled={isFetchingReferences}
+                        onClick={() => void loadReferenceSuggestions(activeGap)}
+                        type="button"
+                      >
+                        {isFetchingReferences ? "Buscando..." : "Buscar papers"}
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {referenceMessage ? <p className="muted">{referenceMessage}</p> : null}
+
+                  {referenceSuggestions.length === 0 ? (
+                    <p className="muted">
+                      Selecione uma afirmação acima para carregar papers relacionados ao trecho.
+                    </p>
+                  ) : (
+                    <div className="editor-reference-suggestions">
+                      {referenceSuggestions.map((work) => (
+                        <article key={work.id}>
+                          <strong>{work.title ?? "Título não informado"}</strong>
+                          <span>
+                            {work.primary_location?.source?.display_name ?? "Fonte não informada"} ·{" "}
+                            {work.publication_year ?? "s.d."}
+                          </span>
+                          <div>
+                            <button
+                              className="button button-primary"
+                              onClick={() => insertReferenceSuggestion(work)}
+                              type="button"
+                            >
+                              Inserir citação
+                            </button>
+                            {work.primary_location?.landing_page_url ? (
+                              <a
+                                className="button button-secondary"
+                                href={work.primary_location.landing_page_url}
+                                rel="noreferrer"
+                                target="_blank"
+                              >
+                                Abrir fonte
+                              </a>
+                            ) : null}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="editor-cognitive-block">
+                  <strong>Referências usadas</strong>
+                  {manuscriptAnalysis.usedReferences.length === 0 ? (
+                    <p className="muted">A seção Referências ainda não tem itens detectáveis.</p>
+                  ) : (
+                    <ol className="editor-used-references">
+                      {manuscriptAnalysis.usedReferences.slice(0, 8).map((reference) => (
+                        <li key={reference.id}>{reference.text}</li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="editor-cognitive-panel">
+                <div className="editor-cognitive-stat-grid">
+                  <article>
+                    <strong>{manuscriptAnalysis.headings.length}</strong>
+                    <span>seções detectadas</span>
+                  </article>
+                  <article>
+                    <strong>{manuscriptAnalysis.missingSections.length}</strong>
+                    <span>lacunas estruturais</span>
+                  </article>
+                </div>
+
+                <div className="editor-cognitive-block">
+                  <strong>Mapa do manuscrito</strong>
+                  {manuscriptAnalysis.headings.length === 0 ? (
+                    <p className="muted">Use títulos H2/H3 para o WebLab mapear a estrutura.</p>
+                  ) : (
+                    <ol className="editor-manuscript-map">
+                      {manuscriptAnalysis.headings.map((heading) => (
+                        <li data-level={heading.level} key={heading.id}>
+                          {heading.title}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+
+                <div className="editor-cognitive-block">
+                  <strong>Seções esperadas</strong>
+                  {manuscriptAnalysis.missingSections.length === 0 ? (
+                    <p className="muted">A estrutura científica básica está presente.</p>
+                  ) : (
+                    <div className="editor-missing-section-list">
+                      {manuscriptAnalysis.missingSections.map((section) => (
+                        <button
+                          key={section}
+                          onClick={() => {
+                            const block = scientificSections.find((item) => item.label === section);
+                            if (block) {
+                              insertScientificSection(block.content);
+                            }
+                          }}
+                          type="button"
+                        >
+                          Adicionar {section}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </aside>
         </section>
       </div>
     </main>

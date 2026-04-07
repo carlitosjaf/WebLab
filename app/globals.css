@@ -2838,6 +2838,12 @@ textarea:focus,
   background: transparent;
   box-shadow: none;
   padding: 0 !important;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  align-items: start;
+}
+
+.editor-paper-column {
+  min-width: 0;
 }
 
 .editor-status-card,
@@ -2945,6 +2951,212 @@ textarea:focus,
   outline: none;
 }
 
+.editor-cognitive-sidebar {
+  position: sticky;
+  top: 92px;
+  display: grid;
+  gap: 14px;
+  max-height: calc(100vh - 116px);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid #dbe4ee;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18px 54px rgba(15, 23, 42, 0.12);
+}
+
+.editor-cognitive-header {
+  display: grid;
+  gap: 8px;
+}
+
+.editor-cognitive-header strong {
+  color: #0f172a;
+  font-size: 1.12rem;
+  line-height: 1.2;
+}
+
+.editor-cognitive-header p,
+.editor-cognitive-block p {
+  margin: 0;
+  color: #64748b;
+  line-height: 1.55;
+}
+
+.editor-cognitive-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 5px;
+  border-radius: 999px;
+  background: #eef3f8;
+}
+
+.editor-cognitive-tabs button,
+.editor-citation-gap-list button,
+.editor-missing-section-list button {
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.editor-cognitive-tabs button {
+  min-height: 36px;
+  border-radius: 999px;
+  background: transparent;
+  color: #64748b;
+  font-weight: 900;
+}
+
+.editor-cognitive-tabs button.active {
+  background: #ffffff;
+  color: #0f766e;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.editor-cognitive-panel,
+.editor-cognitive-block {
+  display: grid;
+  gap: 12px;
+}
+
+.editor-cognitive-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.editor-cognitive-stat-grid article {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #dbe4ee;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.editor-cognitive-stat-grid strong {
+  color: #0f766e;
+  font-size: 1.35rem;
+}
+
+.editor-cognitive-stat-grid span,
+.editor-reference-suggestions span {
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.editor-cognitive-block {
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  background: #ffffff;
+}
+
+.editor-cognitive-block > strong,
+.editor-cognitive-block-title strong {
+  color: #0f172a;
+}
+
+.editor-cognitive-block-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.editor-citation-gap-list,
+.editor-reference-suggestions,
+.editor-missing-section-list {
+  display: grid;
+  gap: 10px;
+}
+
+.editor-citation-gap-list button {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #f8fafc;
+  color: #334155;
+  line-height: 1.45;
+  text-align: left;
+}
+
+.editor-citation-gap-list button.active {
+  border-color: rgba(20, 184, 166, 0.42);
+  background: #f0fdfa;
+}
+
+.editor-citation-gap-list button span {
+  color: #0f766e;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.editor-reference-suggestions article {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.editor-reference-suggestions article strong {
+  color: #0f172a;
+  line-height: 1.35;
+}
+
+.editor-reference-suggestions article div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.editor-reference-suggestions .button,
+.editor-cognitive-block-title .button {
+  min-height: 30px;
+  padding: 0 10px !important;
+  font-size: 0.78rem;
+}
+
+.editor-used-references,
+.editor-manuscript-map {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.editor-used-references li,
+.editor-manuscript-map li {
+  font-size: 0.9rem;
+}
+
+.editor-manuscript-map li[data-level="3"] {
+  color: #64748b;
+  margin-left: 12px;
+}
+
+.editor-missing-section-list {
+  grid-template-columns: 1fr;
+}
+
+.editor-missing-section-list button {
+  min-height: 38px;
+  border-radius: 999px;
+  background: #eefcf8;
+  color: #0f766e;
+  font-weight: 900;
+}
+
 @media (max-width: 980px) {
   .lovable-header {
     height: auto;
@@ -2967,6 +3179,17 @@ textarea:focus,
 
   .lovable-nav a.active::after {
     bottom: 0;
+  }
+
+  .editor-document-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-cognitive-sidebar {
+    position: static;
+    max-height: none;
+    width: min(960px, 100%);
+    margin: 0 auto;
   }
 
   .lovable-hero,
