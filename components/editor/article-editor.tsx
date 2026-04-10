@@ -255,6 +255,15 @@ const expectedScientificSections = [
   "Referências"
 ];
 
+const scientificSectionAliases: Record<string, string[]> = {
+  Resumo: ["resumo", "abstract"],
+  Introdução: ["introducao", "introdução", "apresentacao", "apresentação", "contextualizacao", "contextualização"],
+  Metodologia: ["metodologia", "metodo", "método", "metodos", "métodos", "materiais e metodos", "materiais e métodos"],
+  Resultados: ["resultados", "achados", "analise dos resultados", "análise dos resultados"],
+  Discussão: ["discussao", "discussão", "resultados e discussao", "resultados e discussão"],
+  Referências: ["referencias", "referências", "bibliografia"]
+};
+
 const claimMarkers = [
   "evidencia",
   "evidências",
@@ -285,7 +294,52 @@ function normalizeSectionName(value: string) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
+    .replace(/[:\-–—]+$/g, "")
+    .replace(/\s+/g, " ")
     .trim();
+}
+
+function detectSectionLabels(text: string) {
+  const normalized = normalizeSectionName(text);
+
+  if (!normalized) {
+    return [] as string[];
+  }
+
+  return expectedScientificSections.filter((section) =>
+    scientificSectionAliases[section]?.some((alias) => {
+      const normalizedAlias = normalizeSectionName(alias);
+      return (
+        normalized === normalizedAlias ||
+        normalized.startsWith(`${normalizedAlias}:`) ||
+        normalized.startsWith(`${normalizedAlias} -`) ||
+        normalized.startsWith(`${normalizedAlias} –`) ||
+        normalized.startsWith(`${normalizedAlias} `)
+      );
+    })
+  );
+}
+
+function splitDetectedSection(text: string) {
+  const normalized = normalizeSectionName(text);
+  const labels = detectSectionLabels(text);
+
+  if (labels.length === 0) {
+    return { labels, remainder: text.trim() };
+  }
+
+  let remainder = text.trim();
+
+  labels.forEach((label) => {
+    scientificSectionAliases[label]?.forEach((alias) => {
+      const aliasPattern = new RegExp(`^${normalizeSectionName(alias)}\\s*[:\\-–—]?\\s*`, "i");
+      if (aliasPattern.test(normalized)) {
+        remainder = remainder.replace(new RegExp(`^${alias}\\s*[:\\-–—]?\\s*`, "i"), "").trim();
+      }
+    });
+  });
+
+  return { labels, remainder };
 }
 
 function includesAny(text: string, markers: string[]) {
@@ -381,10 +435,8 @@ function extractDocumentText(content: ArticleContent | null) {
 function getReferenceItems(content: ArticleContent | null): UsedReference[] {
   const nodes = content?.content ?? [];
   const referencesIndex = nodes.findIndex((node) => {
-    return (
-      node.type === "heading" &&
-      normalizeSectionName(getNodeText(node)) === "referencias"
-    );
+    const text = getNodeText(node);
+    return detectSectionLabels(text).includes("Referências");
   });
 
   if (referencesIndex === -1) {
@@ -551,8 +603,11 @@ function diagnoseSections(sectionTexts: Map<string, string>, usedReferences: Use
   };
 
   const getSectionText = (sectionName: string) => {
-    const normalized = normalizeSectionName(sectionName);
-    const entry = Array.from(sectionTexts.entries()).find(([section]) => normalizeSectionName(section).includes(normalized));
+    const aliases = scientificSectionAliases[sectionName] ?? [sectionName];
+    const entry = Array.from(sectionTexts.entries()).find(([section]) => {
+      const normalizedSection = normalizeSectionName(section);
+      return aliases.some((alias) => normalizedSection.includes(normalizeSectionName(alias)));
+    });
     return entry?.[1].toLowerCase() ?? "";
   };
 
@@ -655,7 +710,7 @@ function diagnoseSections(sectionTexts: Map<string, string>, usedReferences: Use
       pushDiagnostic(
         "Estrutura",
         "Ainda não reconheci seções científicas como Resumo, Introdução, Metodologia, Resultados, Discussão ou Referências.",
-        "Use títulos H2/H3 para marcar as seções. A leitura fica mais útil quando o manuscrito está dividido por função científica."
+        "Use títulos ou marcadores claros como “Resumo”, “Introdução” e “Metodologia”. H2/H3 ajudam, mas a leitura também reconhece rótulos em parágrafo simples."
       );
       return diagnostics.slice(0, 8);
     }
@@ -677,40 +732,55 @@ function analyseManuscript(content: ArticleContent | null): ManuscriptAnalysis {
   const citationGaps: CitationGap[] = [];
   const sectionTexts = new Map<string, string>();
   const paragraphs: Array<{ id: string; section: string; text: string }> = [];
-  let currentSection = "Sem seção";
+  let currentSections = ["Sem seção"];
 
   nodes.forEach((node, index) => {
     const text = getNodeText(node);
+    const detected = splitDetectedSection(text);
 
-    if (node.type === "heading" && text) {
+    if ((node.type === "heading" || (node.type === "paragraph" && detected.labels.length > 0)) && text) {
       const level =
         node.attrs && typeof node.attrs === "object" && "level" in node.attrs
           ? Number((node.attrs as { level?: unknown }).level ?? 2)
           : 2;
-      currentSection = text;
-      if (!sectionTexts.has(currentSection)) {
-        sectionTexts.set(currentSection, "");
-      }
-      headings.push({
-        id: `heading-${index}`,
-        title: text,
-        level
+      const sectionLabels = detected.labels.length > 0 ? detected.labels : [text];
+      currentSections = sectionLabels;
+      sectionLabels.forEach((sectionLabel, sectionIndex) => {
+        if (!sectionTexts.has(sectionLabel)) {
+          sectionTexts.set(sectionLabel, "");
+        }
+        if (!headings.some((heading) => heading.title === sectionLabel)) {
+          headings.push({
+            id: `heading-${index}-${sectionIndex}`,
+            title: sectionLabel,
+            level
+          });
+        }
       });
-      return;
+
+      if (!detected.remainder || normalizeSectionName(detected.remainder) === normalizeSectionName(text)) {
+        return;
+      }
     }
 
-    if (text && currentSection !== "Sem seção") {
-      sectionTexts.set(currentSection, `${sectionTexts.get(currentSection) ?? ""} ${text}`.trim());
+    const contentText =
+      detected.labels.length > 0 && detected.remainder && detected.remainder !== text ? detected.remainder : text;
+    const currentSectionLabel = currentSections.join(" / ");
+
+    if (contentText && currentSectionLabel !== "Sem seção") {
+      currentSections.forEach((sectionName) => {
+        sectionTexts.set(sectionName, `${sectionTexts.get(sectionName) ?? ""} ${contentText}`.trim());
+      });
     }
 
-    if ((node.type === "paragraph" || node.type === "blockquote") && text.length > 90) {
+    if ((node.type === "paragraph" || node.type === "blockquote") && contentText.length > 90) {
       paragraphs.push({
         id: `paragraph-${index}`,
-        section: currentSection,
-        text
+        section: currentSectionLabel,
+        text: contentText
       });
 
-      const sentences = text
+      const sentences = contentText
         .split(/(?<=[.!?])\s+/)
         .map((sentence) => sentence.trim())
         .filter((sentence) => sentence.length > 90);
@@ -724,14 +794,14 @@ function analyseManuscript(content: ArticleContent | null): ManuscriptAnalysis {
           citationGaps.push({
             id: `gap-${index}-${sentenceIndex}`,
             text: sentence,
-            section: currentSection
+            section: currentSectionLabel
           });
         }
       });
     }
   });
 
-  const existingSections = new Set(headings.map((heading) => normalizeSectionName(heading.title)));
+  const existingSections = new Set(Array.from(sectionTexts.keys()).map((section) => normalizeSectionName(section)));
   const missingSections = expectedScientificSections.filter(
     (section) => !existingSections.has(normalizeSectionName(section))
   );
@@ -2507,7 +2577,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                 <div className="editor-cognitive-block">
                   <strong>Mapa do manuscrito</strong>
                   {manuscriptAnalysis.headings.length === 0 ? (
-                    <p className="muted">Use títulos H2/H3 para o WebLab mapear a estrutura.</p>
+                    <p className="muted">Use títulos ou marcadores claros de seção para o WebLab mapear a estrutura.</p>
                   ) : (
                     <ol className="editor-manuscript-map">
                       {manuscriptAnalysis.headings.map((heading) => (

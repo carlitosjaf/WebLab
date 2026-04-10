@@ -33,10 +33,10 @@ const EXPECTED_SECTIONS = [
 
 const SECTION_ALIASES: Record<string, string[]> = {
   Resumo: ["resumo", "abstract"],
-  Introdução: ["introducao", "introdução", "apresentacao", "apresentação"],
-  Metodologia: ["metodologia", "metodo", "método", "metodos", "métodos", "procedimentos"],
-  Resultados: ["resultados", "achados"],
-  Discussão: ["discussao", "discussão", "debate"],
+  Introdução: ["introducao", "introdução", "apresentacao", "apresentação", "contextualizacao", "contextualização"],
+  Metodologia: ["metodologia", "metodo", "método", "metodos", "métodos", "procedimentos", "materiais e metodos", "materiais e métodos"],
+  Resultados: ["resultados", "achados", "analise dos resultados", "análise dos resultados"],
+  Discussão: ["discussao", "discussão", "debate", "resultados e discussao", "resultados e discussão"],
   Conclusão: ["conclusao", "conclusão", "consideracoes finais", "considerações finais"],
   Referências: ["referencias", "referências", "bibliografia"]
 };
@@ -46,6 +46,8 @@ function normalize(value: string) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
+    .replace(/[:\-–—]+$/g, "")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -78,25 +80,80 @@ function sectionMatches(title: string, expected: string) {
   return SECTION_ALIASES[expected].some((alias) => normalizedTitle.includes(normalize(alias)));
 }
 
+function detectSectionLabels(text: string) {
+  const normalized = normalize(text);
+
+  if (!normalized) {
+    return [] as string[];
+  }
+
+  return EXPECTED_SECTIONS.filter((section) =>
+    SECTION_ALIASES[section].some((alias) => {
+      const normalizedAlias = normalize(alias);
+      return (
+        normalized === normalizedAlias ||
+        normalized.startsWith(`${normalizedAlias}:`) ||
+        normalized.startsWith(`${normalizedAlias} -`) ||
+        normalized.startsWith(`${normalizedAlias} –`) ||
+        normalized.startsWith(`${normalizedAlias} `)
+      );
+    })
+  );
+}
+
+function splitDetectedSection(text: string) {
+  const labels = detectSectionLabels(text);
+
+  if (labels.length === 0) {
+    return { labels, remainder: text.trim() };
+  }
+
+  let remainder = text.trim();
+  const normalized = normalize(text);
+
+  labels.forEach((label) => {
+    SECTION_ALIASES[label].forEach((alias) => {
+      const aliasPattern = new RegExp(`^${normalize(alias)}\\s*[:\\-–—]?\\s*`, "i");
+      if (aliasPattern.test(normalized)) {
+        remainder = remainder.replace(new RegExp(`^${alias}\\s*[:\\-–—]?\\s*`, "i"), "").trim();
+      }
+    });
+  });
+
+  return { labels, remainder };
+}
+
 function extractSections(content: JsonNode | null) {
   const sections = new Map<string, string>();
   const headings: string[] = [];
-  let currentSection = "Texto sem seção";
+  let currentSections = ["Texto sem seção"];
 
   (content?.content ?? []).forEach((node) => {
     const text = getNodeText(node);
+    const detected = splitDetectedSection(text);
 
-    if (node.type === "heading" && text) {
-      currentSection = text;
-      headings.push(text);
-      if (!sections.has(currentSection)) {
-        sections.set(currentSection, "");
+    if ((node.type === "heading" || (node.type === "paragraph" && detected.labels.length > 0)) && text) {
+      const labels = detected.labels.length > 0 ? detected.labels : [text];
+      currentSections = labels;
+      labels.forEach((label) => {
+        headings.push(label);
+        if (!sections.has(label)) {
+          sections.set(label, "");
+        }
+      });
+
+      if (!detected.remainder || normalize(detected.remainder) === normalize(text)) {
+        return;
       }
-      return;
     }
 
-    if (text) {
-      sections.set(currentSection, `${sections.get(currentSection) ?? ""} ${text}`.trim());
+    const contentText =
+      detected.labels.length > 0 && detected.remainder && detected.remainder !== text ? detected.remainder : text;
+
+    if (contentText) {
+      currentSections.forEach((sectionName) => {
+        sections.set(sectionName, `${sections.get(sectionName) ?? ""} ${contentText}`.trim());
+      });
     }
   });
 
@@ -126,8 +183,8 @@ function reviewExpectedSection(expected: string, sections: Map<string, string>):
       status: "ausente",
       score: 0,
       diagnosis: `Não encontrei uma seção reconhecível de ${expected}.`,
-      why: ["A análise depende de títulos claros para separar as funções científicas do manuscrito."],
-      suggestions: [`Crie um título H2 chamado “${expected}” ou equivalente e escreva a função dessa seção.`]
+      why: ["A análise depende de títulos ou marcadores claros para separar as funções científicas do manuscrito."],
+      suggestions: [`Use um título como “${expected}”, mesmo em parágrafo simples, ou transforme o bloco em H2 para facilitar o reconhecimento.`]
     };
   }
 
