@@ -3108,6 +3108,40 @@ textarea:focus,
   font-size: 0.88rem;
 }
 
+.triagem-prisma-flow-card {
+  gap: 18px;
+}
+
+.triagem-prisma-flow-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.triagem-prisma-flow-grid article {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.triagem-prisma-flow-grid strong,
+.triagem-exclusion-summary strong {
+  color: #0f172a;
+}
+
+.triagem-prisma-flow-grid span {
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.triagem-exclusion-summary {
+  display: grid;
+  gap: 12px;
+}
+
 .triagem-results-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3246,6 +3280,10 @@ textarea:focus,
   .triagem-hero,
   .triagem-grid,
   .triagem-results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .triagem-prisma-flow-grid {
     grid-template-columns: 1fr;
   }
 

@@ -64,6 +64,23 @@ function countByDecision(studies: EvidenceStudyRow[]) {
   );
 }
 
+function countAggregateDecisions(
+  studies: EvidenceStudyRow[],
+  reviewsByStudy: Map<string, EvidenceStudyReviewRow[]>
+) {
+  return studies.reduce(
+    (summary, study) => {
+      const aggregateDecision = getAggregateDecision(study, getReviewMeta(reviewsByStudy.get(study.id) ?? []));
+
+      return {
+        ...summary,
+        [aggregateDecision]: summary[aggregateDecision] + 1
+      };
+    },
+    { pendente: 0, incluir: 0, excluir: 0, talvez: 0 } satisfies Record<EvidenceScreeningDecision, number>
+  );
+}
+
 function getReviewMeta(reviews: EvidenceStudyReviewRow[]) {
   const decisions = reviews
     .map((review) => review.decisao)
@@ -129,14 +146,110 @@ function getDuplicateKeys(studies: Array<Pick<EvidenceStudyRow | CaptureStudy, "
   return new Set(Array.from(counts.entries()).filter(([, count]) => count > 1).map(([key]) => key));
 }
 
+function summarizeExclusionReasons(
+  studies: EvidenceStudyRow[],
+  reviewsByStudy: Map<string, EvidenceStudyReviewRow[]>
+) {
+  const counts = new Map<string, number>();
+
+  studies.forEach((study) => {
+    const aggregateDecision = getAggregateDecision(study, getReviewMeta(reviewsByStudy.get(study.id) ?? []));
+
+    if (aggregateDecision !== "excluir") {
+      return;
+    }
+
+    const reason = study.motivo_exclusao || study.motivo_resolucao || "Sem motivo registrado";
+    counts.set(reason, (counts.get(reason) ?? 0) + 1);
+  });
+
+  return Array.from(counts.entries())
+    .map(([reason, total]) => ({ reason, total }))
+    .sort((left, right) => right.total - left.total);
+}
+
+function buildPrismaSnapshot(
+  studies: EvidenceStudyRow[],
+  reviewsByStudy: Map<string, EvidenceStudyReviewRow[]>,
+  duplicateStudyIds: Set<string>,
+  conflictStudyIds: Set<string>
+) {
+  const aggregate = countAggregateDecisions(studies, reviewsByStudy);
+  const resolved = studies.filter((study) => Boolean(study.decisao_final)).length;
+  const finalIncluded = studies.filter((study) => getAggregateDecision(study, getReviewMeta(reviewsByStudy.get(study.id) ?? [])) === "incluir").length;
+
+  return {
+    captados: studies.length,
+    duplicados: duplicateStudyIds.size,
+    triados: Math.max(studies.length - duplicateStudyIds.size, 0),
+    excluidos: aggregate.excluir,
+    talvez: aggregate.talvez,
+    pendentes: aggregate.pendente,
+    incluidos: aggregate.incluir,
+    conflitos: conflictStudyIds.size,
+    resolvidos: resolved,
+    finalIncluded
+  };
+}
+
+function buildScreeningCsv(
+  studies: EvidenceStudyRow[],
+  reviewsByStudy: Map<string, EvidenceStudyReviewRow[]>
+) {
+  const escapeCell = (value: string) => `"${value.replace(/"/g, '""')}"`;
+
+  const header = [
+    "titulo",
+    "ano",
+    "periodico",
+    "doi",
+    "decisao_atual",
+    "decisao_final",
+    "revisores",
+    "conflito",
+    "motivo_exclusao",
+    "motivo_resolucao",
+    "url"
+  ];
+
+  const rows = studies.map((study) => {
+    const reviewMeta = getReviewMeta(reviewsByStudy.get(study.id) ?? []);
+    const aggregateDecision = getAggregateDecision(study, reviewMeta);
+
+    return [
+      study.titulo,
+      String(study.ano ?? ""),
+      study.periodico ?? "",
+      study.doi ?? "",
+      decisionLabels[aggregateDecision],
+      study.decisao_final ? decisionLabels[study.decisao_final] : "",
+      String(reviewMeta.reviewersCount),
+      reviewMeta.hasConflict ? "sim" : "nao",
+      study.motivo_exclusao ?? "",
+      study.motivo_resolucao ?? "",
+      study.url ?? ""
+    ]
+      .map(escapeCell)
+      .join(",");
+  });
+
+  return [header.join(","), ...rows].join("\n");
+}
+
 function buildScreeningReport(
   set: EvidenceScreeningSetRow | null,
   studies: EvidenceStudyRow[],
   reviewsByStudy: Map<string, EvidenceStudyReviewRow[]>
 ) {
-  const counts = countByDecision(studies);
+  const counts = countAggregateDecisions(studies, reviewsByStudy);
   const duplicateKeys = getDuplicateKeys(studies);
   const conflictCount = studies.filter((study) => getReviewMeta(reviewsByStudy.get(study.id) ?? []).hasConflict).length;
+  const prismaSnapshot = buildPrismaSnapshot(studies, reviewsByStudy, getDuplicateKeys(studies).size ? new Set(
+    studies.filter((study) => duplicateKeys.has(getStudyDuplicateKey(study))).map((study) => study.id)
+  ) : new Set<string>(), new Set(
+    studies.filter((study) => getReviewMeta(reviewsByStudy.get(study.id) ?? []).hasConflict).map((study) => study.id)
+  ));
+  const exclusionSummary = summarizeExclusionReasons(studies, reviewsByStudy);
   const rows = studies
     .map((study, index) => {
       const reviewMeta = getReviewMeta(reviewsByStudy.get(study.id) ?? []);
@@ -177,10 +290,14 @@ function buildScreeningReport(
     `- Excluídos: ${counts.excluir}`,
     `- Possíveis duplicados: ${duplicateKeys.size}`,
     `- Conflitos entre revisores: ${conflictCount}`,
+    `- Incluídos finais: ${prismaSnapshot.finalIncluded}`,
     "",
     "## Critérios",
     `- Inclusão: ${set?.criterios_inclusao || "não informado"}`,
     `- Exclusão: ${set?.criterios_exclusao || "não informado"}`,
+    exclusionSummary.length ? "" : null,
+    exclusionSummary.length ? "## Motivos frequentes de exclusão" : null,
+    ...exclusionSummary.slice(0, 5).map((item) => `- ${item.reason}: ${item.total}`),
     "",
     "## Estudos",
     rows || "Nenhum estudo salvo ainda."
@@ -208,7 +325,6 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
 
   const selectedArticle = articles.find((article) => article.id === selectedArticleId) ?? null;
   const activeSet = sets.find((set) => set.id === activeSetId) ?? null;
-  const decisionSummary = useMemo(() => countByDecision(studies), [studies]);
   const reviewsByStudy = useMemo(() => {
     const grouped = new Map<string, EvidenceStudyReviewRow[]>();
 
@@ -243,6 +359,18 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
     () =>
       studies.filter((study) => conflictStudyIds.has(study.id) && !study.decisao_final),
     [conflictStudyIds, studies]
+  );
+  const decisionSummary = useMemo(
+    () => countAggregateDecisions(studies, reviewsByStudy),
+    [reviewsByStudy, studies]
+  );
+  const prismaSnapshot = useMemo(
+    () => buildPrismaSnapshot(studies, reviewsByStudy, duplicateStudyIds, conflictStudyIds),
+    [conflictStudyIds, duplicateStudyIds, reviewsByStudy, studies]
+  );
+  const exclusionSummary = useMemo(
+    () => summarizeExclusionReasons(studies, reviewsByStudy),
+    [reviewsByStudy, studies]
   );
 
   useEffect(() => {
@@ -639,6 +767,17 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
     URL.revokeObjectURL(url);
   };
 
+  const downloadCsv = () => {
+    const csv = buildScreeningCsv(studies, reviewsByStudy);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `triagem-${activeSet?.titulo ?? "weblab"}.csv`.replace(/[^\w.-]+/g, "-");
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <main className="lovable-home triagem-page">
       <section className="hero-panel triagem-hero">
@@ -652,23 +791,23 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
         </div>
         <div className="periodicos-hero-metrics">
           <article>
-            <strong>{studies.length}</strong>
+            <strong>{prismaSnapshot.captados}</strong>
             <span>captados</span>
           </article>
           <article>
-            <strong>{decisionSummary.incluir}</strong>
-            <span>incluídos</span>
+            <strong>{prismaSnapshot.triados}</strong>
+            <span>triados</span>
           </article>
           <article>
-            <strong>{decisionSummary.talvez}</strong>
-            <span>talvez</span>
+            <strong>{prismaSnapshot.finalIncluded}</strong>
+            <span>incluídos finais</span>
           </article>
           <article>
-            <strong>{decisionSummary.excluir}</strong>
-            <span>excluídos</span>
+            <strong>{prismaSnapshot.duplicados}</strong>
+            <span>duplicados</span>
           </article>
           <article>
-            <strong>{conflictStudyIds.size}</strong>
+            <strong>{prismaSnapshot.conflitos}</strong>
             <span>conflitos</span>
           </article>
         </div>
@@ -781,12 +920,14 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                   <p>{activeSet.pergunta || "Pergunta ainda não informada."}</p>
                 </div>
                 <div className="triagem-prisma-stats">
-                  <span>Captados {studies.length}</span>
-                  <span>Pendentes {decisionSummary.pendente}</span>
-                  <span>Incluídos {decisionSummary.incluir}</span>
-                  <span>Excluídos {decisionSummary.excluir}</span>
-                  <span>Duplicados prováveis {duplicateStudyIds.size}</span>
-                  <span>Conflitos {conflictStudyIds.size}</span>
+                  <span>Captados {prismaSnapshot.captados}</span>
+                  <span>Triados {prismaSnapshot.triados}</span>
+                  <span>Pendentes {prismaSnapshot.pendentes}</span>
+                  <span>Incluídos {prismaSnapshot.incluidos}</span>
+                  <span>Excluídos {prismaSnapshot.excluidos}</span>
+                  <span>Duplicados {prismaSnapshot.duplicados}</span>
+                  <span>Conflitos {prismaSnapshot.conflitos}</span>
+                  <span>Incluídos finais {prismaSnapshot.finalIncluded}</span>
                 </div>
                 <div className="triagem-actions">
                   <button className="button button-secondary" onClick={() => void copyReport()} type="button">
@@ -795,10 +936,61 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                   <button className="button button-secondary" onClick={downloadReport} type="button">
                     Baixar Markdown
                   </button>
+                  <button className="button button-secondary" onClick={downloadCsv} type="button">
+                    Baixar CSV
+                  </button>
                   <Link className="button button-secondary" href={`/editor/${activeSet.artigo_id}`}>
                     Abrir manuscrito
                   </Link>
                 </div>
+              </section>
+            ) : null}
+
+            {activeSet ? (
+              <section className="triagem-prisma-card triagem-prisma-flow-card">
+                <div>
+                  <span className="eyebrow">prisma</span>
+                  <h2>Fluxo da triagem</h2>
+                  <p>Um retrato rápido do funil atual do conjunto, com foco em decisão e rastreabilidade.</p>
+                </div>
+                <div className="triagem-prisma-flow-grid">
+                  <article>
+                    <strong>{prismaSnapshot.captados}</strong>
+                    <span>Registros captados</span>
+                  </article>
+                  <article>
+                    <strong>{prismaSnapshot.duplicados}</strong>
+                    <span>Duplicados prováveis</span>
+                  </article>
+                  <article>
+                    <strong>{prismaSnapshot.triados}</strong>
+                    <span>Registros triados</span>
+                  </article>
+                  <article>
+                    <strong>{prismaSnapshot.excluidos}</strong>
+                    <span>Excluídos</span>
+                  </article>
+                  <article>
+                    <strong>{prismaSnapshot.talvez}</strong>
+                    <span>Talvez</span>
+                  </article>
+                  <article>
+                    <strong>{prismaSnapshot.finalIncluded}</strong>
+                    <span>Incluídos finais</span>
+                  </article>
+                </div>
+                {exclusionSummary.length ? (
+                  <div className="triagem-exclusion-summary">
+                    <strong>Motivos mais frequentes de exclusão</strong>
+                    <div className="triagem-prisma-stats">
+                      {exclusionSummary.slice(0, 5).map((item) => (
+                        <span key={item.reason}>
+                          {item.reason} · {item.total}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </section>
             ) : null}
 
