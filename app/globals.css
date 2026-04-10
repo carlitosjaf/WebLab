@@ -3081,6 +3081,33 @@ textarea:focus,
   resize: vertical;
 }
 
+.triagem-conflicts-card {
+  gap: 18px;
+}
+
+.triagem-conflict-list {
+  display: grid;
+  gap: 12px;
+}
+
+.triagem-conflict-item {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: #fff7ed;
+  border: 1px solid rgba(245, 158, 11, 0.24);
+}
+
+.triagem-conflict-item strong {
+  color: #0f172a;
+}
+
+.triagem-conflict-item span {
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
 .triagem-results-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

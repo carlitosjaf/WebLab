@@ -40,6 +40,25 @@ create table if not exists public.triagem_estudos (
   )
 );
 
+alter table public.triagem_estudos
+  add column if not exists decisao_final text,
+  add column if not exists motivo_resolucao text not null default '',
+  add column if not exists resolvido_por uuid references public.perfis (id),
+  add column if not exists resolvido_em timestamptz;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'triagem_estudos_decisao_final_check'
+  ) then
+    alter table public.triagem_estudos
+      add constraint triagem_estudos_decisao_final_check
+      check (decisao_final is null or decisao_final in ('pendente', 'incluir', 'excluir', 'talvez'));
+  end if;
+end $$;
+
 create table if not exists public.triagem_avaliacoes (
   id uuid primary key default gen_random_uuid(),
   estudo_id uuid not null references public.triagem_estudos (id) on delete cascade,

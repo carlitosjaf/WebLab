@@ -420,9 +420,13 @@ export type Database = {
           resumo: string | null;
           url: string | null;
           decisao: EvidenceScreeningDecision;
+          decisao_final: EvidenceScreeningDecision | null;
           motivo_exclusao: string;
+          motivo_resolucao: string;
           notas: string;
           added_by: string;
+          resolvido_por: string | null;
+          resolvido_em: string | null;
           created_at: string | null;
           updated_at: string | null;
         };
@@ -439,16 +443,24 @@ export type Database = {
           resumo?: string | null;
           url?: string | null;
           decisao?: EvidenceScreeningDecision;
+          decisao_final?: EvidenceScreeningDecision | null;
           motivo_exclusao?: string;
+          motivo_resolucao?: string;
           notas?: string;
           added_by?: string;
+          resolvido_por?: string | null;
+          resolvido_em?: string | null;
           created_at?: string | null;
           updated_at?: string | null;
         };
         Update: {
           decisao?: EvidenceScreeningDecision;
+          decisao_final?: EvidenceScreeningDecision | null;
           motivo_exclusao?: string;
+          motivo_resolucao?: string;
           notas?: string;
+          resolvido_por?: string | null;
+          resolvido_em?: string | null;
           updated_at?: string | null;
         };
         Relationships: [

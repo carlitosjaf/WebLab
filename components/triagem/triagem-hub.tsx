@@ -77,6 +77,21 @@ function getReviewMeta(reviews: EvidenceStudyReviewRow[]) {
   };
 }
 
+function getAggregateDecision(
+  study: Pick<EvidenceStudyRow, "decisao" | "decisao_final">,
+  reviewMeta: ReturnType<typeof getReviewMeta>
+) {
+  if (study.decisao_final) {
+    return study.decisao_final;
+  }
+
+  if (reviewMeta.consensus) {
+    return reviewMeta.consensus;
+  }
+
+  return study.decisao;
+}
+
 function normalizeFingerprint(value: string) {
   return value
     .normalize("NFD")
@@ -125,10 +140,12 @@ function buildScreeningReport(
   const rows = studies
     .map((study, index) => {
       const reviewMeta = getReviewMeta(reviewsByStudy.get(study.id) ?? []);
+      const aggregateDecision = getAggregateDecision(study, reviewMeta);
 
       return [
         `${index + 1}. ${study.titulo}`,
-        `- Decisão: ${decisionLabels[study.decisao]}`,
+        `- Decisão atual: ${decisionLabels[aggregateDecision]}`,
+        study.decisao_final ? `- Decisão final da equipe: ${decisionLabels[study.decisao_final]}` : null,
         `- Revisores: ${reviewMeta.reviewersCount}`,
         reviewMeta.hasConflict
           ? "- Estado de revisão: conflito entre revisores"
@@ -221,6 +238,11 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
           .map((study) => study.id)
       ),
     [reviewsByStudy, studies]
+  );
+  const unresolvedConflicts = useMemo(
+    () =>
+      studies.filter((study) => conflictStudyIds.has(study.id) && !study.decisao_final),
+    [conflictStudyIds, studies]
   );
 
   useEffect(() => {
@@ -519,6 +541,7 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
   ) => {
     const supabase = getSupabaseClient();
     const now = new Date().toISOString();
+    const currentReviews = reviewsByStudy.get(study.id) ?? [];
 
     const { data: reviewData, error: reviewError } = await supabase
       .from("triagem_avaliacoes")
@@ -544,11 +567,15 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
       return;
     }
 
+    const nextReviews = [reviewData, ...currentReviews.filter((item) => item.id !== reviewData.id)];
+    const reviewMeta = getReviewMeta(nextReviews);
+    const aggregateDecision = study.decisao_final ?? reviewMeta.consensus ?? "pendente";
+
     const { data, error } = await supabase
       .from("triagem_estudos")
       .update({
-        decisao,
-        motivo_exclusao: decisao === "excluir" ? motivo_exclusao : "",
+        decisao: aggregateDecision,
+        motivo_exclusao: aggregateDecision === "excluir" && !study.decisao_final ? motivo_exclusao : "",
         updated_at: now
       })
       .eq("id", study.id)
@@ -562,6 +589,37 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
 
     setStudies((current) => current.map((item) => (item.id === data.id ? data : item)));
     setReviews((current) => [reviewData, ...current.filter((item) => item.id !== reviewData.id)]);
+  };
+
+  const resolveConflict = async (
+    study: EvidenceStudyRow,
+    decisaoFinal: EvidenceScreeningDecision,
+    motivoResolucao = "Conflito resolvido pela equipe."
+  ) => {
+    const supabase = getSupabaseClient();
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from("triagem_estudos")
+      .update({
+        decisao: decisaoFinal,
+        decisao_final: decisaoFinal,
+        motivo_exclusao: decisaoFinal === "excluir" ? motivoResolucao : "",
+        motivo_resolucao: motivoResolucao,
+        resolvido_por: profileId,
+        resolvido_em: now,
+        updated_at: now
+      })
+      .eq("id", study.id)
+      .select("*")
+      .single();
+
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+
+    setStudies((current) => current.map((item) => (item.id === data.id ? data : item)));
+    setMessage("Conflito consolidado no caderno de triagem.");
   };
 
   const copyReport = async () => {
@@ -744,6 +802,37 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
               </section>
             ) : null}
 
+            {unresolvedConflicts.length ? (
+              <section className="triagem-prisma-card triagem-conflicts-card">
+                <div>
+                  <span className="eyebrow">conflitos</span>
+                  <h2>Resolver divergências do conjunto</h2>
+                  <p>Consolide uma decisão final da equipe para os estudos em desacordo.</p>
+                </div>
+                <div className="triagem-conflict-list">
+                  {unresolvedConflicts.map((study) => (
+                    <article className="triagem-conflict-item" key={`conflict-${study.id}`}>
+                      <div>
+                        <strong>{study.titulo}</strong>
+                        <span>{study.periodico ?? "Periódico não informado"} · {study.ano ?? "s.d."}</span>
+                      </div>
+                      <div className="triagem-decision-row">
+                        <button onClick={() => void resolveConflict(study, "incluir")} type="button">
+                          Fechar em incluir
+                        </button>
+                        <button onClick={() => void resolveConflict(study, "talvez")} type="button">
+                          Fechar em talvez
+                        </button>
+                        <button onClick={() => void resolveConflict(study, "excluir", "Excluído após resolução de conflito.")} type="button">
+                          Fechar em excluir
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
             <section className="triagem-results-grid">
               <div className="triagem-column">
                 <h2>Resultados captados</h2>
@@ -781,6 +870,7 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                   const reviewMeta = getReviewMeta(reviewsByStudy.get(study.id) ?? []);
                   const ownReview = (reviewsByStudy.get(study.id) ?? []).find((review) => review.reviewer_id === profileId);
                   const hasConflict = conflictStudyIds.has(study.id);
+                  const aggregateDecision = getAggregateDecision(study, reviewMeta);
 
                   return (
                     <article
@@ -790,14 +880,16 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                       data-duplicate={possibleDuplicate}
                       key={study.id}
                     >
-                      <span>{decisionLabels[study.decisao]} · {study.ano ?? "s.d."}</span>
+                      <span>{decisionLabels[aggregateDecision]} · {study.ano ?? "s.d."}</span>
                       <h3>{study.titulo}</h3>
                       <p>{study.periodico ?? "Periódico não informado"}</p>
                       <small>{study.resumo?.slice(0, 420) ?? "Sem resumo disponível."}</small>
                       <div className="triagem-review-meta">
                         <strong>{ownReview ? `Sua avaliação: ${decisionLabels[ownReview.decisao]}` : "Sua avaliação: pendente"}</strong>
                         <span>
-                          {hasConflict
+                          {study.decisao_final
+                            ? `Decisão final da equipe: ${decisionLabels[study.decisao_final]}`
+                            : hasConflict
                             ? "Conflito entre revisores"
                             : reviewMeta.consensus
                               ? `Consenso atual: ${decisionLabels[reviewMeta.consensus]}`
@@ -809,6 +901,9 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                       ) : null}
                       {hasConflict ? (
                         <em className="triagem-conflict-flag">Há decisões divergentes para este estudo.</em>
+                      ) : null}
+                      {study.decisao_final && study.motivo_resolucao ? (
+                        <em>Resolução: {study.motivo_resolucao}</em>
                       ) : null}
                       {study.motivo_exclusao ? <em>Motivo: {study.motivo_exclusao}</em> : null}
                       <div className="triagem-decision-row">
