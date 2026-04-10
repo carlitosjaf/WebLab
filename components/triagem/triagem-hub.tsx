@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 
 import { getSupabaseClient } from "@/lib/supabaseClient";
+import { parseEvidenceImport } from "@/lib/triagem-import";
 import type {
   ArticleRow,
   EvidenceScreeningDecision,
@@ -152,9 +153,12 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
   const [question, setQuestion] = useState("");
   const [inclusionCriteria, setInclusionCriteria] = useState("");
   const [exclusionCriteria, setExclusionCriteria] = useState("");
+  const [importText, setImportText] = useState("");
+  const [importLabel, setImportLabel] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isLoadingSets, setIsLoadingSets] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   const selectedArticle = articles.find((article) => article.id === selectedArticleId) ?? null;
   const activeSet = sets.find((set) => set.id === activeSetId) ?? null;
@@ -314,12 +318,70 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
       }
 
       const payload = (await response.json()) as { studies?: CaptureStudy[] };
-      setCaptureResults(payload.studies ?? []);
+      mergeCaptureResults(payload.studies ?? []);
       setMessage(payload.studies?.length ? "Captação concluída com OpenAlex." : "Nenhum estudo encontrado.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Erro ao captar estudos.");
     } finally {
       setIsCapturing(false);
+    }
+  };
+
+  const mergeCaptureResults = (nextStudies: CaptureStudy[]) => {
+    setCaptureResults((current) => {
+      const merged = new Map<string, CaptureStudy>();
+
+      [...nextStudies, ...current].forEach((study, index) => {
+        const key = study.external_id || getStudyDuplicateKey(study) || `capture-${index}`;
+
+        if (!merged.has(key)) {
+          merged.set(key, study);
+        }
+      });
+
+      return Array.from(merged.values());
+    });
+  };
+
+  const importStudiesFromText = (content: string, label?: string) => {
+    if (!content.trim()) {
+      setMessage("Cole um arquivo RIS, BibTeX ou CSV para importar estudos.");
+      return;
+    }
+
+    setIsImporting(true);
+
+    try {
+      const payload = parseEvidenceImport(content, label ?? "");
+
+      if (!payload.studies.length) {
+        setMessage("Nenhum estudo legivel foi encontrado no arquivo importado.");
+        return;
+      }
+
+      mergeCaptureResults(payload.studies);
+      setImportLabel(label ?? `Texto colado (${payload.format.toUpperCase()})`);
+      setImportText("");
+      setMessage(`${payload.studies.length} estudo(s) importado(s) via ${payload.format.toUpperCase()}.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Nao foi possivel importar a base agora.");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const content = await file.text();
+      importStudiesFromText(content, file.name);
+    } finally {
+      event.target.value = "";
     }
   };
 
@@ -499,6 +561,37 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                 </button>
               </div>
               {message ? <p className="muted">{message}</p> : null}
+            </section>
+
+            <section className="triagem-search-card triagem-import-card">
+              <div>
+                <span className="eyebrow">importação</span>
+                <h2>Trazer resultados de outras bases</h2>
+                <p>Importe RIS, BibTeX ou CSV para continuar a triagem sem sair do WebLab.</p>
+              </div>
+              <div className="triagem-import-actions">
+                <label className="button button-secondary triagem-file-button">
+                  Selecionar arquivo
+                  <input accept=".csv,.ris,.bib,.bibtex,.txt" onChange={handleImportFile} type="file" />
+                </label>
+                {importLabel ? <span className="triagem-import-label">Ultima base: {importLabel}</span> : null}
+              </div>
+              <textarea
+                className="triagem-import-textarea"
+                onChange={(event) => setImportText(event.target.value)}
+                placeholder="Cole aqui o conteudo RIS, BibTeX ou CSV exportado da sua base."
+                value={importText}
+              />
+              <div className="triagem-import-actions">
+                <button
+                  className="button button-secondary"
+                  disabled={isImporting || !importText.trim()}
+                  onClick={() => importStudiesFromText(importText)}
+                  type="button"
+                >
+                  {isImporting ? "Importando..." : "Importar texto colado"}
+                </button>
+              </div>
             </section>
 
             {activeSet ? (

@@ -3041,6 +3041,7 @@ textarea:focus,
 }
 
 .triagem-search-row,
+.triagem-import-actions,
 .triagem-actions,
 .triagem-decision-row,
 .triagem-prisma-stats {
@@ -3051,6 +3052,33 @@ textarea:focus,
 
 .triagem-search-row input {
   flex: 1 1 260px;
+}
+
+.triagem-import-card {
+  gap: 16px;
+}
+
+.triagem-file-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.triagem-file-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.triagem-import-label {
+  color: #64748b;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.triagem-import-textarea {
+  min-height: 132px;
+  resize: vertical;
 }
 
 .triagem-results-grid {
