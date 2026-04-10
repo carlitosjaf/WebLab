@@ -468,6 +468,50 @@ export type Database = {
           }
         ];
       };
+      triagem_avaliacoes: {
+        Row: {
+          id: string;
+          estudo_id: string;
+          reviewer_id: string;
+          decisao: EvidenceScreeningDecision;
+          motivo_exclusao: string;
+          notas: string;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          estudo_id: string;
+          reviewer_id?: string;
+          decisao?: EvidenceScreeningDecision;
+          motivo_exclusao?: string;
+          notas?: string;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          decisao?: EvidenceScreeningDecision;
+          motivo_exclusao?: string;
+          notas?: string;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "triagem_avaliacoes_estudo_id_fkey";
+            columns: ["estudo_id"];
+            isOneToOne: false;
+            referencedRelation: "triagem_estudos";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "triagem_avaliacoes_reviewer_id_fkey";
+            columns: ["reviewer_id"];
+            isOneToOne: false;
+            referencedRelation: "perfis";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
   };
 };
@@ -476,3 +520,4 @@ export type ArticleRow = Database["public"]["Tables"]["artigos"]["Row"];
 export type TeamNoticeRow = Database["public"]["Tables"]["avisos_equipe"]["Row"];
 export type EvidenceScreeningSetRow = Database["public"]["Tables"]["triagem_conjuntos"]["Row"];
 export type EvidenceStudyRow = Database["public"]["Tables"]["triagem_estudos"]["Row"];
+export type EvidenceStudyReviewRow = Database["public"]["Tables"]["triagem_avaliacoes"]["Row"];

@@ -9,6 +9,7 @@ import type {
   ArticleRow,
   EvidenceScreeningDecision,
   EvidenceScreeningSetRow,
+  EvidenceStudyReviewRow,
   EvidenceStudyRow
 } from "@/lib/types";
 
@@ -63,6 +64,19 @@ function countByDecision(studies: EvidenceStudyRow[]) {
   );
 }
 
+function getReviewMeta(reviews: EvidenceStudyReviewRow[]) {
+  const decisions = reviews
+    .map((review) => review.decisao)
+    .filter((decision) => decision !== "pendente");
+  const uniqueDecisions = Array.from(new Set(decisions));
+
+  return {
+    reviewersCount: reviews.length,
+    hasConflict: uniqueDecisions.length > 1,
+    consensus: uniqueDecisions.length === 1 ? uniqueDecisions[0] : null
+  };
+}
+
 function normalizeFingerprint(value: string) {
   return value
     .normalize("NFD")
@@ -100,14 +114,27 @@ function getDuplicateKeys(studies: Array<Pick<EvidenceStudyRow | CaptureStudy, "
   return new Set(Array.from(counts.entries()).filter(([, count]) => count > 1).map(([key]) => key));
 }
 
-function buildScreeningReport(set: EvidenceScreeningSetRow | null, studies: EvidenceStudyRow[]) {
+function buildScreeningReport(
+  set: EvidenceScreeningSetRow | null,
+  studies: EvidenceStudyRow[],
+  reviewsByStudy: Map<string, EvidenceStudyReviewRow[]>
+) {
   const counts = countByDecision(studies);
   const duplicateKeys = getDuplicateKeys(studies);
+  const conflictCount = studies.filter((study) => getReviewMeta(reviewsByStudy.get(study.id) ?? []).hasConflict).length;
   const rows = studies
-    .map((study, index) =>
-      [
+    .map((study, index) => {
+      const reviewMeta = getReviewMeta(reviewsByStudy.get(study.id) ?? []);
+
+      return [
         `${index + 1}. ${study.titulo}`,
         `- Decisão: ${decisionLabels[study.decisao]}`,
+        `- Revisores: ${reviewMeta.reviewersCount}`,
+        reviewMeta.hasConflict
+          ? "- Estado de revisão: conflito entre revisores"
+          : reviewMeta.consensus
+            ? `- Estado de revisão: consenso em ${decisionLabels[reviewMeta.consensus]}`
+            : null,
         `- Ano: ${study.ano ?? "s.d."}`,
         `- Periódico: ${study.periodico ?? "não informado"}`,
         `- DOI: ${study.doi ?? "não informado"}`,
@@ -116,8 +143,8 @@ function buildScreeningReport(set: EvidenceScreeningSetRow | null, studies: Evid
         ""
       ]
         .filter(Boolean)
-        .join("\n")
-    )
+        .join("\n");
+    })
     .join("\n");
 
   return [
@@ -132,6 +159,7 @@ function buildScreeningReport(set: EvidenceScreeningSetRow | null, studies: Evid
     `- Talvez: ${counts.talvez}`,
     `- Excluídos: ${counts.excluir}`,
     `- Possíveis duplicados: ${duplicateKeys.size}`,
+    `- Conflitos entre revisores: ${conflictCount}`,
     "",
     "## Critérios",
     `- Inclusão: ${set?.criterios_inclusao || "não informado"}`,
@@ -147,6 +175,7 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
   const [sets, setSets] = useState<EvidenceScreeningSetRow[]>([]);
   const [activeSetId, setActiveSetId] = useState("");
   const [studies, setStudies] = useState<EvidenceStudyRow[]>([]);
+  const [reviews, setReviews] = useState<EvidenceStudyReviewRow[]>([]);
   const [captureResults, setCaptureResults] = useState<CaptureStudy[]>([]);
   const [searchQuery, setSearchQuery] = useState(buildSearchSeed(articles[0] ?? null));
   const [setTitle, setSetTitle] = useState("Triagem inicial");
@@ -163,6 +192,15 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
   const selectedArticle = articles.find((article) => article.id === selectedArticleId) ?? null;
   const activeSet = sets.find((set) => set.id === activeSetId) ?? null;
   const decisionSummary = useMemo(() => countByDecision(studies), [studies]);
+  const reviewsByStudy = useMemo(() => {
+    const grouped = new Map<string, EvidenceStudyReviewRow[]>();
+
+    reviews.forEach((review) => {
+      grouped.set(review.estudo_id, [...(grouped.get(review.estudo_id) ?? []), review]);
+    });
+
+    return grouped;
+  }, [reviews]);
   const savedExternalIds = useMemo(() => new Set(studies.map((study) => study.external_id)), [studies]);
   const savedDuplicateKeys = useMemo(() => new Set(studies.map(getStudyDuplicateKey).filter(Boolean)), [studies]);
   const duplicateKeys = useMemo(() => getDuplicateKeys(studies), [studies]);
@@ -174,6 +212,15 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
           .map((study) => study.id)
       ),
     [duplicateKeys, studies]
+  );
+  const conflictStudyIds = useMemo(
+    () =>
+      new Set(
+        studies
+          .filter((study) => getReviewMeta(reviewsByStudy.get(study.id) ?? []).hasConflict)
+          .map((study) => study.id)
+      ),
+    [reviewsByStudy, studies]
   );
 
   useEffect(() => {
@@ -236,6 +283,7 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
     const loadStudies = async () => {
       if (!activeSetId) {
         setStudies([]);
+        setReviews([]);
         return;
       }
 
@@ -264,6 +312,48 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
       isMounted = false;
     };
   }, [activeSetId]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadReviews = async () => {
+      if (!studies.length) {
+        setReviews([]);
+        return;
+      }
+
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase
+        .from("triagem_avaliacoes")
+        .select("*")
+        .in(
+          "estudo_id",
+          studies.map((study) => study.id)
+        )
+        .order("updated_at", { ascending: false });
+
+      if (!isMounted) {
+        return;
+      }
+
+      if (error) {
+        setMessage(
+          error.message.includes("triagem_avaliacoes")
+            ? "Rode o SQL atualizado da triagem no Supabase para habilitar duplo revisor."
+            : error.message
+        );
+        setReviews([]);
+      } else {
+        setReviews(data ?? []);
+      }
+    };
+
+    void loadReviews();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [studies]);
 
   const createScreeningSet = async () => {
     if (!selectedArticle) {
@@ -428,12 +518,38 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
     motivo_exclusao = ""
   ) => {
     const supabase = getSupabaseClient();
+    const now = new Date().toISOString();
+
+    const { data: reviewData, error: reviewError } = await supabase
+      .from("triagem_avaliacoes")
+      .upsert(
+        {
+          estudo_id: study.id,
+          reviewer_id: profileId,
+          decisao,
+          motivo_exclusao: decisao === "excluir" ? motivo_exclusao : "",
+          updated_at: now
+        },
+        { onConflict: "estudo_id,reviewer_id" }
+      )
+      .select("*")
+      .single();
+
+    if (reviewError) {
+      setMessage(
+        reviewError.message.includes("triagem_avaliacoes")
+          ? "Rode o SQL atualizado da triagem no Supabase para habilitar duplo revisor."
+          : reviewError.message
+      );
+      return;
+    }
+
     const { data, error } = await supabase
       .from("triagem_estudos")
       .update({
         decisao,
         motivo_exclusao: decisao === "excluir" ? motivo_exclusao : "",
-        updated_at: new Date().toISOString()
+        updated_at: now
       })
       .eq("id", study.id)
       .select("*")
@@ -445,16 +561,17 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
     }
 
     setStudies((current) => current.map((item) => (item.id === data.id ? data : item)));
+    setReviews((current) => [reviewData, ...current.filter((item) => item.id !== reviewData.id)]);
   };
 
   const copyReport = async () => {
-    const report = buildScreeningReport(activeSet, studies);
+    const report = buildScreeningReport(activeSet, studies, reviewsByStudy);
     await navigator.clipboard.writeText(report);
     setMessage("Relatório de triagem copiado.");
   };
 
   const downloadReport = () => {
-    const report = buildScreeningReport(activeSet, studies);
+    const report = buildScreeningReport(activeSet, studies, reviewsByStudy);
     const blob = new Blob([report], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -491,6 +608,10 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
           <article>
             <strong>{decisionSummary.excluir}</strong>
             <span>excluídos</span>
+          </article>
+          <article>
+            <strong>{conflictStudyIds.size}</strong>
+            <span>conflitos</span>
           </article>
         </div>
       </section>
@@ -607,6 +728,7 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                   <span>Incluídos {decisionSummary.incluir}</span>
                   <span>Excluídos {decisionSummary.excluir}</span>
                   <span>Duplicados prováveis {duplicateStudyIds.size}</span>
+                  <span>Conflitos {conflictStudyIds.size}</span>
                 </div>
                 <div className="triagem-actions">
                   <button className="button button-secondary" onClick={() => void copyReport()} type="button">
@@ -656,11 +778,15 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                 {studies.length === 0 ? <p className="muted">Salve estudos captados para iniciar as decisões.</p> : null}
                 {studies.map((study) => {
                   const possibleDuplicate = duplicateStudyIds.has(study.id);
+                  const reviewMeta = getReviewMeta(reviewsByStudy.get(study.id) ?? []);
+                  const ownReview = (reviewsByStudy.get(study.id) ?? []).find((review) => review.reviewer_id === profileId);
+                  const hasConflict = conflictStudyIds.has(study.id);
 
                   return (
                     <article
                       className="triagem-study-card"
                       data-decision={study.decisao}
+                      data-conflict={hasConflict}
                       data-duplicate={possibleDuplicate}
                       key={study.id}
                     >
@@ -668,8 +794,21 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                       <h3>{study.titulo}</h3>
                       <p>{study.periodico ?? "Periódico não informado"}</p>
                       <small>{study.resumo?.slice(0, 420) ?? "Sem resumo disponível."}</small>
+                      <div className="triagem-review-meta">
+                        <strong>{ownReview ? `Sua avaliação: ${decisionLabels[ownReview.decisao]}` : "Sua avaliação: pendente"}</strong>
+                        <span>
+                          {hasConflict
+                            ? "Conflito entre revisores"
+                            : reviewMeta.consensus
+                              ? `Consenso atual: ${decisionLabels[reviewMeta.consensus]}`
+                              : `${reviewMeta.reviewersCount} revisor(es)`}
+                        </span>
+                      </div>
                       {possibleDuplicate ? (
                         <em className="triagem-duplicate-flag">Possível duplicado por DOI ou título semelhante.</em>
+                      ) : null}
+                      {hasConflict ? (
+                        <em className="triagem-conflict-flag">Há decisões divergentes para este estudo.</em>
                       ) : null}
                       {study.motivo_exclusao ? <em>Motivo: {study.motivo_exclusao}</em> : null}
                       <div className="triagem-decision-row">

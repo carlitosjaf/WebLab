@@ -40,6 +40,21 @@ create table if not exists public.triagem_estudos (
   )
 );
 
+create table if not exists public.triagem_avaliacoes (
+  id uuid primary key default gen_random_uuid(),
+  estudo_id uuid not null references public.triagem_estudos (id) on delete cascade,
+  reviewer_id uuid not null references public.perfis (id),
+  decisao text not null default 'pendente',
+  motivo_exclusao text not null default '',
+  notas text not null default '',
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (estudo_id, reviewer_id),
+  constraint triagem_avaliacoes_decisao_check check (
+    decisao in ('pendente', 'incluir', 'excluir', 'talvez')
+  )
+);
+
 create index if not exists triagem_conjuntos_artigo_id_idx
 on public.triagem_conjuntos (artigo_id);
 
@@ -52,11 +67,19 @@ on public.triagem_estudos (conjunto_id);
 create index if not exists triagem_estudos_decisao_idx
 on public.triagem_estudos (decisao);
 
+create index if not exists triagem_avaliacoes_estudo_id_idx
+on public.triagem_avaliacoes (estudo_id);
+
+create index if not exists triagem_avaliacoes_reviewer_id_idx
+on public.triagem_avaliacoes (reviewer_id);
+
 alter table public.triagem_conjuntos enable row level security;
 alter table public.triagem_estudos enable row level security;
+alter table public.triagem_avaliacoes enable row level security;
 
 grant select, insert, update, delete on public.triagem_conjuntos to authenticated;
 grant select, insert, update, delete on public.triagem_estudos to authenticated;
+grant select, insert, update, delete on public.triagem_avaliacoes to authenticated;
 
 drop policy if exists "triagem_conjuntos_select_scope" on public.triagem_conjuntos;
 create policy "triagem_conjuntos_select_scope"
@@ -165,5 +188,78 @@ using (
         public.can_admin_team(triagem_conjuntos.equipe_id)
         or triagem_estudos.added_by = auth.uid()
       )
+  )
+);
+
+drop policy if exists "triagem_avaliacoes_select_scope" on public.triagem_avaliacoes;
+create policy "triagem_avaliacoes_select_scope"
+on public.triagem_avaliacoes
+for select
+to authenticated
+using (
+  exists (
+    select 1
+    from public.triagem_estudos
+    join public.triagem_conjuntos on triagem_conjuntos.id = triagem_estudos.conjunto_id
+    where triagem_estudos.id = triagem_avaliacoes.estudo_id
+      and public.can_access_team(triagem_conjuntos.equipe_id)
+  )
+);
+
+drop policy if exists "triagem_avaliacoes_insert_scope" on public.triagem_avaliacoes;
+create policy "triagem_avaliacoes_insert_scope"
+on public.triagem_avaliacoes
+for insert
+to authenticated
+with check (
+  reviewer_id = auth.uid()
+  and exists (
+    select 1
+    from public.triagem_estudos
+    join public.triagem_conjuntos on triagem_conjuntos.id = triagem_estudos.conjunto_id
+    where triagem_estudos.id = triagem_avaliacoes.estudo_id
+      and public.can_access_team(triagem_conjuntos.equipe_id)
+  )
+);
+
+drop policy if exists "triagem_avaliacoes_update_scope" on public.triagem_avaliacoes;
+create policy "triagem_avaliacoes_update_scope"
+on public.triagem_avaliacoes
+for update
+to authenticated
+using (
+  reviewer_id = auth.uid()
+  and exists (
+    select 1
+    from public.triagem_estudos
+    join public.triagem_conjuntos on triagem_conjuntos.id = triagem_estudos.conjunto_id
+    where triagem_estudos.id = triagem_avaliacoes.estudo_id
+      and public.can_access_team(triagem_conjuntos.equipe_id)
+  )
+)
+with check (
+  reviewer_id = auth.uid()
+  and exists (
+    select 1
+    from public.triagem_estudos
+    join public.triagem_conjuntos on triagem_conjuntos.id = triagem_estudos.conjunto_id
+    where triagem_estudos.id = triagem_avaliacoes.estudo_id
+      and public.can_access_team(triagem_conjuntos.equipe_id)
+  )
+);
+
+drop policy if exists "triagem_avaliacoes_delete_scope" on public.triagem_avaliacoes;
+create policy "triagem_avaliacoes_delete_scope"
+on public.triagem_avaliacoes
+for delete
+to authenticated
+using (
+  reviewer_id = auth.uid()
+  or exists (
+    select 1
+    from public.triagem_estudos
+    join public.triagem_conjuntos on triagem_conjuntos.id = triagem_estudos.conjunto_id
+    where triagem_estudos.id = triagem_avaliacoes.estudo_id
+      and public.can_admin_team(triagem_conjuntos.equipe_id)
   )
 );
