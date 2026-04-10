@@ -3741,6 +3741,12 @@ textarea:focus,
   text-transform: uppercase;
 }
 
+.editor-citation-gap-list button small {
+  color: #64748b;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
 .editor-reference-suggestions article {
   display: grid;
   gap: 8px;
@@ -3780,6 +3786,13 @@ textarea:focus,
   margin: 0;
   color: #334155;
   font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.editor-reference-hint {
+  margin: -2px 0 0;
+  color: #0f766e;
+  font-size: 0.78rem;
   line-height: 1.45;
 }
 
@@ -3828,6 +3841,11 @@ textarea:focus,
   color: #334155;
   font-size: 0.86rem;
   line-height: 1.35;
+}
+
+.editor-reference-search-context small {
+  color: #64748b;
+  font-size: 0.78rem;
 }
 
 .editor-reference-suggestions .button,

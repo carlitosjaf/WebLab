@@ -48,6 +48,8 @@ type CitationGap = {
   id: string;
   text: string;
   section: string;
+  context: string;
+  signal: string;
 };
 
 type UsedReference = {
@@ -83,6 +85,7 @@ type ManuscriptAnalysis = {
   missingSections: string[];
   citationGaps: CitationGap[];
   usedReferences: UsedReference[];
+  sectionContexts: Record<string, string>;
   sectionDiagnostics: SectionDiagnostic[];
   textDiagnostics: TextDiagnostic[];
   conceptSignals: ConceptSignal[];
@@ -118,6 +121,8 @@ type ReferenceSuggestion = {
   doi?: string;
   matched_terms?: string[];
   match_reason?: string;
+  section_signal?: string;
+  evidence_hint?: string;
   biblio?: {
     volume?: string;
     issue?: string;
@@ -289,6 +294,12 @@ const claimMarkers = [
 
 const citationPattern = /\([A-ZÀ-Ý][A-ZÀ-Ý\s;,&.-]+,\s*(?:19|20)\d{2}[a-z]?\)|\b(?:19|20)\d{2}\b.*\b[A-ZÀ-Ý][A-ZÀ-Ý]{2,}\b|\bdoi\b/i;
 
+const narrativeCitationPattern = /\b[A-ZÀ-Ý][a-zà-ÿ]+(?:\s(?:et al\.|e\scolaboradores|e\scols\.))?\s*\(?\s*(?:19|20)\d{2}[a-z]?\s*\)?/i;
+const quantitativeClaimPattern = /\b\d+(?:[.,]\d+)?\s*(?:%|por cento|vezes|anos|meses|dias|casos|participantes|mulheres|homens)\b/i;
+const evidenceVerbPattern = /\b(?:indica|indicam|mostra|mostram|revela|revelam|demonstra|demonstram|aponta|apontam|sugere|sugerem|associa|associam|corresponde|impacta|aumenta|reduz)\b/i;
+const contrastPattern = /\b(?:em comparacao|em comparação|diferentemente|por outro lado|em contraste|ao contrario|ao contrário)\b/i;
+const weakClaimOpeners = ["neste estudo", "este artigo", "a seguir", "por fim", "neste trabalho", "a tabela", "a figura"];
+
 function normalizeSectionName(value: string) {
   return value
     .normalize("NFD")
@@ -430,6 +441,45 @@ function extractDocumentText(content: ArticleContent | null) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 5000);
+}
+
+function buildSectionContext(text: string) {
+  return text.replace(/\s+/g, " ").trim().slice(0, 1200);
+}
+
+function hasCitationSignal(sentence: string) {
+  return citationPattern.test(sentence) || narrativeCitationPattern.test(sentence);
+}
+
+function detectClaimSignal(sentence: string, section: string) {
+  const normalizedSentence = sentence.trim().toLowerCase();
+  const normalizedSection = normalizeSectionName(section);
+
+  if (
+    normalizedSentence.length < 80 ||
+    weakClaimOpeners.some((marker) => normalizedSentence.startsWith(marker)) ||
+    normalizedSection === "referencias"
+  ) {
+    return null;
+  }
+
+  if (includesAny(normalizedSentence, claimMarkers)) {
+    return "O trecho usa linguagem de achado, evidência ou associação e tende a pedir fonte.";
+  }
+
+  if (quantitativeClaimPattern.test(normalizedSentence) && evidenceVerbPattern.test(normalizedSentence)) {
+    return "O trecho combina dado quantitativo com afirmação analítica e pede sustentação bibliográfica.";
+  }
+
+  if (contrastPattern.test(normalizedSentence) && normalizedSentence.length > 110) {
+    return "O trecho compara cenários ou resultados e pode precisar de referência para sustentar a comparação.";
+  }
+
+  if (normalizedSection.includes("introdu") && evidenceVerbPattern.test(normalizedSentence)) {
+    return "Na introdução, afirmações sobre estado da arte e lacuna costumam precisar de referência.";
+  }
+
+  return null;
 }
 
 function getReferenceItems(content: ArticleContent | null): UsedReference[] {
@@ -786,15 +836,19 @@ function analyseManuscript(content: ArticleContent | null): ManuscriptAnalysis {
         .filter((sentence) => sentence.length > 90);
 
       sentences.forEach((sentence, sentenceIndex) => {
-        const lowerSentence = sentence.toLowerCase();
-        const looksLikeClaim = claimMarkers.some((marker) => lowerSentence.includes(marker));
-        const hasCitation = citationPattern.test(sentence);
+        const currentSectionContext = buildSectionContext(
+          currentSections.map((sectionName) => sectionTexts.get(sectionName) ?? "").join(" ")
+        );
+        const claimSignal = detectClaimSignal(sentence, currentSectionLabel);
+        const hasCitation = hasCitationSignal(sentence);
 
-        if (looksLikeClaim && !hasCitation && citationGaps.length < 6) {
+        if (claimSignal && !hasCitation && citationGaps.length < 6) {
           citationGaps.push({
             id: `gap-${index}-${sentenceIndex}`,
             text: sentence,
-            section: currentSectionLabel
+            section: currentSectionLabel,
+            context: currentSectionContext,
+            signal: claimSignal
           });
         }
       });
@@ -813,6 +867,9 @@ function analyseManuscript(content: ArticleContent | null): ManuscriptAnalysis {
     missingSections,
     citationGaps,
     usedReferences,
+    sectionContexts: Object.fromEntries(
+      Array.from(sectionTexts.entries()).map(([section, text]) => [section, buildSectionContext(text)])
+    ),
     sectionDiagnostics: diagnoseSections(sectionTexts, usedReferences),
     textDiagnostics: diagnoseTextFlow(paragraphs, sectionTexts, conceptSignals),
     conceptSignals
@@ -1554,6 +1611,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
   const [referenceSearchContext, setReferenceSearchContext] = useState<{
     query?: string;
     keywords?: string[];
+    section?: string;
   } | null>(null);
   const [referenceTriage, setReferenceTriage] = useState<Record<string, ReferenceTriageStatus>>({});
   const [referenceMessage, setReferenceMessage] = useState<string | null>(null);
@@ -1828,7 +1886,9 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
         body: JSON.stringify({
           claim: gap.text,
           section: gap.section,
-          context: extractDocumentText(currentContent)
+          sectionContext: gap.context,
+          context: extractDocumentText(currentContent),
+          usedReferences: manuscriptAnalysis.usedReferences.map((reference) => reference.text)
         })
       });
 
@@ -1840,11 +1900,13 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
         works?: ReferenceSuggestion[];
         query?: string;
         keywords?: string[];
+        section?: string;
       };
       setReferenceSuggestions(payload.works ?? []);
       setReferenceSearchContext({
         query: payload.query,
-        keywords: payload.keywords
+        keywords: payload.keywords,
+        section: payload.section
       });
       /* Mensagem curta: as sugestões são triagem verificável, não citação automática. */
       setReferenceMessage(
@@ -2378,6 +2440,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                         >
                           <span>{gap.section}</span>
                           {gap.text}
+                          <small>{gap.signal}</small>
                         </button>
                       ))}
                     </div>
@@ -2404,6 +2467,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                     <div className="editor-reference-search-context">
                       <span>Busca contextual</span>
                       <strong>{referenceSearchContext.query ?? referenceSearchContext.keywords.join(" ")}</strong>
+                      {referenceSearchContext.section ? <small>Seção: {referenceSearchContext.section}</small> : null}
                     </div>
                   ) : null}
 
@@ -2427,6 +2491,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                             {work.match_reason ??
                               "Resultado verificável encontrado para a afirmação selecionada. Confira a aderência antes de inserir."}
                           </p>
+                          {work.evidence_hint ? <p className="editor-reference-hint">{work.evidence_hint}</p> : null}
                           {work.matched_terms?.length ? (
                             <div className="editor-reference-term-list">
                               {work.matched_terms.map((term) => (
