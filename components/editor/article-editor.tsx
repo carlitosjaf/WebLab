@@ -17,6 +17,8 @@ type SaveState = "idle" | "saving" | "saved" | "error";
 
 type ArticleEditorProps = {
   article: ArticleRow;
+  canEdit?: boolean;
+  readOnlyReason?: string | null;
 };
 
 type EditorTemplate = {
@@ -1592,7 +1594,7 @@ const editorTemplates: EditorTemplate[] = [
   }
 ];
 
-export function ArticleEditor({ article }: ArticleEditorProps) {
+export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }: ArticleEditorProps) {
   const router = useRouter();
   const [title, setTitle] = useState(article.titulo);
   const [status, setStatus] = useState<ArticleStatus>(article.status);
@@ -1636,6 +1638,10 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
   statusRef.current = status;
 
   const persistDraft = async (content: JSONContent) => {
+    if (!canEdit) {
+      return;
+    }
+
     const supabase = getSupabaseClient();
     const normalizedTitle = titleRef.current.trim() || "Sem título";
     const snapshot = JSON.stringify({
@@ -1697,6 +1703,10 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
   };
 
   const scheduleSave = (content: JSONContent) => {
+    if (!canEdit) {
+      return;
+    }
+
     if (debounceTimer.current) {
       clearTimeout(debounceTimer.current);
     }
@@ -1715,6 +1725,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
       })
     ],
     content: article.conteudo_json ?? EMPTY_DOC,
+    editable: canEdit,
     editorProps: {
       attributes: {
         class: "weblab-editor"
@@ -1727,12 +1738,12 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
   });
 
   useEffect(() => {
-    if (!editor) {
+    if (!editor || !canEdit) {
       return;
     }
 
     scheduleSave(editor.getJSON());
-  }, [editor, title, status]);
+  }, [canEdit, editor, title, status]);
 
   useEffect(() => {
     return () => {
@@ -1770,6 +1781,10 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
   };
 
   const handleStatusChange = async (nextStatus: ArticleStatus) => {
+    if (!canEdit) {
+      return;
+    }
+
     setStatus(nextStatus);
     statusRef.current = nextStatus;
 
@@ -1786,7 +1801,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
   };
 
   const insertScientificSection = (blocks: JSONContent[], placement: "cursor" | "end" = "cursor") => {
-    if (!editor) {
+    if (!editor || !canEdit) {
       return;
     }
 
@@ -1795,7 +1810,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
   };
 
   const applyCompleteTemplate = () => {
-    if (!editor) {
+    if (!editor || !canEdit) {
       return;
     }
 
@@ -1922,7 +1937,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
   };
 
   const insertReferenceSuggestion = (work: ReferenceSuggestion) => {
-    if (!editor) {
+    if (!editor || !canEdit) {
       return;
     }
 
@@ -1998,7 +2013,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
             </label>
             <select
               id="articleStatus"
-              disabled={isUpdatingStatus}
+              disabled={isUpdatingStatus || !canEdit}
               onChange={(event) => void handleStatusChange(event.target.value as ArticleStatus)}
               style={{
                 borderRadius: "999px",
@@ -2040,6 +2055,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
 
             <button
               className="button"
+              disabled={!canEdit}
               onClick={() => setAbntMode((current) => !current)}
               style={{
                 background: abntMode ? "rgba(214,255,247,0.18)" : "rgba(255,255,255,0.05)",
@@ -2078,6 +2094,11 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
               Use o editor para desenvolver o texto e altere o status conforme o artigo evolui entre
               rascunho, submissão interna e aprovação.
             </span>
+            {!canEdit ? (
+              <span className="danger" style={{ fontSize: "0.92rem" }}>
+                {readOnlyReason ?? "Leitura compartilhada: apenas a equipe autora pode editar este manuscrito."}
+              </span>
+            ) : null}
             <div style={{ display: "flex", gap: "14px", flexWrap: "wrap" }}>
               <span className="muted">
                 {editor
@@ -2091,6 +2112,7 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
 
           <input
             className="editor-title-input"
+            disabled={!canEdit}
             onChange={(event) => setTitle(event.target.value)}
             placeholder="Título do artigo"
             style={{
@@ -2146,61 +2168,61 @@ export function ArticleEditor({ article }: ArticleEditorProps) {
                 label: "Desfazer",
                 action: () => editor?.chain().focus().undo().run(),
                 active: false,
-                disabled: !editor?.can().chain().focus().undo().run()
+                disabled: !editor?.can().chain().focus().undo().run() || !canEdit
               },
               {
                 label: "Refazer",
                 action: () => editor?.chain().focus().redo().run(),
                 active: false,
-                disabled: !editor?.can().chain().focus().redo().run()
+                disabled: !editor?.can().chain().focus().redo().run() || !canEdit
               },
               {
                 label: "Negrito",
                 action: () => editor?.chain().focus().toggleBold().run(),
                 active: editor?.isActive("bold"),
-                disabled: false
+                disabled: !canEdit
               },
               {
                 label: "Italico",
                 action: () => editor?.chain().focus().toggleItalic().run(),
                 active: editor?.isActive("italic"),
-                disabled: false
+                disabled: !canEdit
               },
               {
                 label: "Texto",
                 action: () => editor?.chain().focus().setParagraph().run(),
                 active: editor?.isActive("paragraph"),
-                disabled: false
+                disabled: !canEdit
               },
               {
                 label: "H2",
                 action: () => editor?.chain().focus().toggleHeading({ level: 2 }).run(),
                 active: editor?.isActive("heading", { level: 2 }),
-                disabled: false
+                disabled: !canEdit
               },
               {
                 label: "H3",
                 action: () => editor?.chain().focus().toggleHeading({ level: 3 }).run(),
                 active: editor?.isActive("heading", { level: 3 }),
-                disabled: false
+                disabled: !canEdit
               },
               {
                 label: "Lista",
                 action: () => editor?.chain().focus().toggleBulletList().run(),
                 active: editor?.isActive("bulletList"),
-                disabled: false
+                disabled: !canEdit
               },
               {
                 label: "1.",
                 action: () => editor?.chain().focus().toggleOrderedList().run(),
                 active: editor?.isActive("orderedList"),
-                disabled: false
+                disabled: !canEdit
               },
               {
                 label: "Citar",
                 action: () => editor?.chain().focus().toggleBlockquote().run(),
                 active: editor?.isActive("blockquote"),
-                disabled: false
+                disabled: !canEdit
               }
             ].map((item) => (
               <button

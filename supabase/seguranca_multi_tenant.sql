@@ -64,6 +64,40 @@ as $$
     )
 $$;
 
+create or replace function public.can_view_article(target_team_id uuid, article_status text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    auth.uid() is not null
+    and (
+      public.current_profile_role() = 'coordenador_geral'
+      or public.current_profile_team_id() = target_team_id
+      or (
+        article_status in ('submetido', 'aprovado')
+        and public.current_profile_team_id() is not null
+      )
+    )
+$$;
+
+create or replace function public.can_edit_article(target_team_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select
+    auth.uid() is not null
+    and (
+      public.current_profile_role() = 'coordenador_geral'
+      or public.current_profile_team_id() = target_team_id
+    )
+$$;
+
 create or replace function public.claim_team_invite(invite_code_input text)
 returns uuid
 language plpgsql
@@ -126,6 +160,8 @@ grant execute on function public.current_profile_role() to authenticated;
 grant execute on function public.current_profile_team_id() to authenticated;
 grant execute on function public.can_access_team(uuid) to authenticated;
 grant execute on function public.can_admin_team(uuid) to authenticated;
+grant execute on function public.can_view_article(uuid, text) to authenticated;
+grant execute on function public.can_edit_article(uuid) to authenticated;
 grant execute on function public.claim_team_invite(text) to authenticated;
 
 grant usage on schema public to authenticated;
@@ -166,7 +202,7 @@ create policy "equipes_select_scope"
 on public.equipes
 for select
 to authenticated
-using (public.can_access_team(id));
+using (auth.uid() is not null);
 
 create policy "equipes_insert_authenticated"
 on public.equipes
@@ -224,7 +260,7 @@ create policy "artigos_select_scope"
 on public.artigos
 for select
 to authenticated
-using (public.can_access_team(equipe_id));
+using (public.can_view_article(equipe_id, status::text));
 
 create policy "artigos_insert_team_member"
 on public.artigos
@@ -241,9 +277,9 @@ create policy "artigos_update_scope"
 on public.artigos
 for update
 to authenticated
-using (public.can_access_team(equipe_id))
+using (public.can_edit_article(equipe_id))
 with check (
-  public.can_access_team(equipe_id)
+  public.can_edit_article(equipe_id)
   and (
     public.current_profile_role() = 'coordenador_geral'
     or last_editor_id = auth.uid()
@@ -255,7 +291,7 @@ on public.artigos
 for delete
 to authenticated
 using (
-  public.can_access_team(equipe_id)
+  public.can_edit_article(equipe_id)
   and (
     public.can_admin_team(equipe_id)
     or autor_id = auth.uid()
