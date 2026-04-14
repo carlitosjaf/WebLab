@@ -350,8 +350,9 @@ export default function ResearchPage() {
                           : "Artigo compartilhado para leitura entre as equipes do WebLab."}
                       </p>
                       <div className="project-public-actions">
-                        <Link href={`/editor/${article.id}`}>Abrir no editor â†’</Link>
-                        <Link href="/dashboard/periodicos">Radar editorial â†’</Link>
+                        <Link href={`/editor/${article.id}`}>Abrir no editor</Link>
+                        <Link href={`/dashboard/artigos/${article.id}` as Route}>Painel de submissao</Link>
+                        <Link href="/dashboard/periodicos">Radar editorial</Link>
                       </div>
                     </div>
                   </article>

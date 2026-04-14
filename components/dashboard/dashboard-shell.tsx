@@ -328,6 +328,13 @@ export function DashboardShell({
                       >
                         Abrir no editor
                       </button>
+                      <button
+                        className="lovable-small-button"
+                        onClick={() => router.push(`/dashboard/artigos/${article.id}` as Route)}
+                        type="button"
+                      >
+                        Painel de submissao
+                      </button>
                       {canDeleteArticle(article) ? (
                         <button
                           className="lovable-small-button dashboard-home-delete"
