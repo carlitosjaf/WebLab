@@ -10,7 +10,14 @@ import StarterKit from "@tiptap/starter-kit";
 
 import { exportArticleToDocx } from "@/lib/docx-export";
 import { getSupabaseClient } from "@/lib/supabaseClient";
-import type { ArticleContent, ArticleRow, ArticleStatus } from "@/lib/types";
+import type {
+  ArticleCommentRow,
+  ArticleContent,
+  ArticleRow,
+  ArticleStatus,
+  ArticleVersionRow,
+  UserRole
+} from "@/lib/types";
 import { countArticleWords, formatAbntCitation, formatRelativeUpdate } from "@/lib/weblab";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -38,7 +45,7 @@ type SectionGroup = {
   }>;
 };
 
-type CognitiveTab = "referencias" | "estrutura" | "texto";
+type CognitiveTab = "referencias" | "estrutura" | "texto" | "revisao";
 
 type ManuscriptHeading = {
   id: string;
@@ -145,6 +152,15 @@ type ReferenceSuggestion = {
 };
 
 type ReferenceTriageStatus = "usada" | "revisar" | "descartada";
+
+type CollaborationComment = ArticleCommentRow & {
+  authorName: string;
+  resolverName: string | null;
+};
+
+type VersionSnapshot = ArticleVersionRow & {
+  authorName: string;
+};
 
 const EMPTY_DOC: ArticleContent = {
   type: "doc",
@@ -1621,6 +1637,23 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
   const [deepAnalysis, setDeepAnalysis] = useState<DeepManuscriptAnalysis | null>(null);
   const [deepAnalysisMessage, setDeepAnalysisMessage] = useState<string | null>(null);
   const [isAnalyzingManuscript, setIsAnalyzingManuscript] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{
+    id: string;
+    nome: string | null;
+    equipeId: string | null;
+    role: UserRole;
+  } | null>(null);
+  const [comments, setComments] = useState<CollaborationComment[]>([]);
+  const [versions, setVersions] = useState<VersionSnapshot[]>([]);
+  const [selectedExcerpt, setSelectedExcerpt] = useState("");
+  const [commentDraft, setCommentDraft] = useState("");
+  const [commentMessage, setCommentMessage] = useState<string | null>(null);
+  const [versionNote, setVersionNote] = useState("");
+  const [versionMessage, setVersionMessage] = useState<string | null>(null);
+  const [isLoadingReviewData, setIsLoadingReviewData] = useState(true);
+  const [isSavingComment, setIsSavingComment] = useState(false);
+  const [isSavingVersion, setIsSavingVersion] = useState(false);
+  const [restoringVersionId, setRestoringVersionId] = useState<string | null>(null);
   const [isLeaving, setIsLeaving] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isExportingDocx, setIsExportingDocx] = useState(false);
@@ -1636,6 +1669,83 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   titleRef.current = title;
   statusRef.current = status;
+
+  const loadReviewData = async () => {
+    const supabase = getSupabaseClient();
+    setIsLoadingReviewData(true);
+
+    const {
+      data: { user },
+      error: userError
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      setIsLoadingReviewData(false);
+      return;
+    }
+
+    const [{ data: profile }, { data: rawComments, error: commentsError }, versionsResult] = await Promise.all([
+      supabase.from("perfis").select("id, nome_completo, equipe_id, role").eq("id", user.id).maybeSingle(),
+      supabase.from("artigo_comentarios").select("*").eq("artigo_id", article.id).order("created_at", { ascending: false }),
+      canEdit
+        ? supabase
+            .from("artigo_versoes")
+            .select("*")
+            .eq("artigo_id", article.id)
+            .order("created_at", { ascending: false })
+            .limit(12)
+        : Promise.resolve({ data: [] as ArticleVersionRow[], error: null })
+    ]);
+
+    if (profile) {
+      setCurrentUser({
+        id: user.id,
+        nome: profile.nome_completo,
+        equipeId: profile.equipe_id,
+        role: profile.role
+      });
+    }
+
+    if (commentsError || versionsResult.error) {
+      setCommentMessage(commentsError?.message ?? versionsResult.error?.message ?? "Erro ao carregar revisao.");
+      setIsLoadingReviewData(false);
+      return;
+    }
+
+    const commentRows = rawComments ?? [];
+    const versionRows = versionsResult.data ?? [];
+    const profileIds = Array.from(
+      new Set(
+        [user.id]
+          .concat(commentRows.map((entry) => entry.created_by))
+          .concat(commentRows.map((entry) => entry.resolvido_por ?? ""))
+          .concat(versionRows.map((entry) => entry.created_by))
+          .filter(Boolean)
+      )
+    );
+
+    const { data: people } = profileIds.length
+      ? await supabase.from("perfis").select("id, nome_completo").in("id", profileIds)
+      : { data: [] as Array<{ id: string; nome_completo: string | null }> };
+
+    const names = new Map((people ?? []).map((person) => [person.id, person.nome_completo ?? "Membro da equipe"]));
+    names.set(user.id, profile?.nome_completo ?? "Voce");
+
+    setComments(
+      commentRows.map((entry) => ({
+        ...entry,
+        authorName: names.get(entry.created_by) ?? "Membro da equipe",
+        resolverName: entry.resolvido_por ? (names.get(entry.resolvido_por) ?? "Membro da equipe") : null
+      }))
+    );
+    setVersions(
+      versionRows.map((entry) => ({
+        ...entry,
+        authorName: names.get(entry.created_by) ?? "Membro da equipe"
+      }))
+    );
+    setIsLoadingReviewData(false);
+  };
 
   const persistDraft = async (content: JSONContent) => {
     if (!canEdit) {
@@ -1753,6 +1863,11 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     };
   }, []);
 
+  useEffect(() => {
+    void loadReviewData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [article.id, canEdit]);
+
   const handleLeave = async () => {
     setIsLeaving(true);
 
@@ -1856,6 +1971,8 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     }),
     { usada: 0, revisar: 0, descartada: 0 } satisfies Record<ReferenceTriageStatus, number>
   );
+  const unresolvedComments = comments.filter((comment) => !comment.resolvido_em);
+  const resolvedComments = comments.length - unresolvedComments.length;
 
   const runDeepManuscriptAnalysis = async () => {
     setIsAnalyzingManuscript(true);
@@ -1956,6 +2073,179 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     setReferenceMessage("Citação inserida no texto e referência adicionada à seção Referências.");
   };
 
+  const captureSelectedExcerpt = () => {
+    if (!editor) {
+      setCommentMessage("Abra o manuscrito e selecione um trecho para comentar.");
+      return;
+    }
+
+    const { from, to, empty } = editor.state.selection;
+    if (empty) {
+      setCommentMessage("Selecione um trecho do manuscrito para comentar.");
+      setCognitiveTab("revisao");
+      return;
+    }
+
+    const excerpt = editor.state.doc.textBetween(from, to, " ").replace(/\s+/g, " ").trim();
+    if (!excerpt) {
+      setCommentMessage("Nao consegui capturar texto util nessa selecao.");
+      setCognitiveTab("revisao");
+      return;
+    }
+
+    setSelectedExcerpt(excerpt.slice(0, 420));
+    setCommentMessage("Trecho capturado. Agora escreva o comentario.");
+    setCognitiveTab("revisao");
+  };
+
+  const saveComment = async () => {
+    if (!currentUser) {
+      setCommentMessage("Nao consegui identificar seu usuario para salvar o comentario.");
+      return;
+    }
+
+    const trimmedComment = commentDraft.trim();
+    const excerpt = selectedExcerpt.trim();
+
+    if (!excerpt) {
+      setCommentMessage("Selecione um trecho do manuscrito antes de comentar.");
+      return;
+    }
+
+    if (!trimmedComment) {
+      setCommentMessage("Escreva o comentario antes de salvar.");
+      return;
+    }
+
+    setIsSavingComment(true);
+    setCommentMessage(null);
+
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.from("artigo_comentarios").insert({
+      artigo_id: article.id,
+      trecho: excerpt,
+      comentario: trimmedComment,
+      created_by: currentUser.id
+    });
+
+    if (error) {
+      setCommentMessage(error.message);
+      setIsSavingComment(false);
+      return;
+    }
+
+    setCommentDraft("");
+    setSelectedExcerpt("");
+    setCommentMessage("Comentario salvo na revisao do manuscrito.");
+    await loadReviewData();
+    setIsSavingComment(false);
+  };
+
+  const toggleCommentResolution = async (comment: CollaborationComment, resolve: boolean) => {
+    if (!currentUser) {
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from("artigo_comentarios")
+      .update({
+        resolvido_por: resolve ? currentUser.id : null,
+        resolvido_em: resolve ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", comment.id);
+
+    if (error) {
+      setCommentMessage(error.message);
+      return;
+    }
+
+    setCommentMessage(resolve ? "Comentario marcado como resolvido." : "Comentario reaberto.");
+    await loadReviewData();
+  };
+
+  const saveVersionSnapshot = async (note?: string) => {
+    if (!canEdit || !editor || !currentUser) {
+      return false;
+    }
+
+    setIsSavingVersion(true);
+    setVersionMessage(null);
+
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.from("artigo_versoes").insert({
+      artigo_id: article.id,
+      titulo_snapshot: titleRef.current.trim() || "Sem titulo",
+      conteudo_json: editor.getJSON() as ArticleContent,
+      status_snapshot: statusRef.current,
+      observacao: note?.trim() || "Snapshot manual do manuscrito.",
+      created_by: currentUser.id
+    });
+
+    if (error) {
+      setVersionMessage(error.message);
+      setIsSavingVersion(false);
+      return false;
+    }
+
+    setVersionMessage("Versao salva no historico do manuscrito.");
+    setVersionNote("");
+    await loadReviewData();
+    setIsSavingVersion(false);
+    return true;
+  };
+
+  const restoreVersion = async (version: VersionSnapshot) => {
+    if (!canEdit || !editor || !currentUser) {
+      return;
+    }
+
+    setRestoringVersionId(version.id);
+    setVersionMessage(null);
+
+    await saveVersionSnapshot(
+      `Backup automatico antes de restaurar a versao de ${formatRelativeUpdate(version.created_at)}.`
+    );
+
+    const nextTitle = version.titulo_snapshot.trim() || "Sem titulo";
+    const nextContent = version.conteudo_json ?? EMPTY_DOC;
+    const nextStatus = version.status_snapshot;
+    const supabase = getSupabaseClient();
+
+    const { error } = await supabase
+      .from("artigos")
+      .update({
+        titulo: nextTitle,
+        conteudo_json: nextContent,
+        status: nextStatus,
+        updated_at: new Date().toISOString(),
+        last_editor_id: currentUser.id
+      })
+      .eq("id", article.id);
+
+    if (error) {
+      setVersionMessage(error.message);
+      setRestoringVersionId(null);
+      return;
+    }
+
+    setTitle(nextTitle);
+    titleRef.current = nextTitle;
+    setStatus(nextStatus);
+    statusRef.current = nextStatus;
+    editor.commands.setContent(nextContent);
+    setEditorVersion((current) => current + 1);
+    lastSavedSnapshot.current = JSON.stringify({
+      titulo: nextTitle,
+      conteudo_json: nextContent,
+      status: nextStatus
+    });
+    setVersionMessage("Versao restaurada com sucesso.");
+    await loadReviewData();
+    setRestoringVersionId(null);
+  };
+
   return (
     <main className="shell editor-workspace">
       <div className="container editor-workspace-container" style={{ display: "grid", gap: "20px" }}>
@@ -2047,6 +2337,15 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               type="button"
             >
               {isExportingDocx ? "Gerando DOCX..." : "Exportar DOCX"}
+            </button>
+
+            <button
+              className="button button-secondary"
+              disabled={isSavingVersion || !canEdit}
+              onClick={() => void saveVersionSnapshot(versionNote)}
+              type="button"
+            >
+              {isSavingVersion ? "Salvando versao..." : "Salvar versao"}
             </button>
 
             <Link className="button editor-radar-link" href={"/dashboard/periodicos" as Route}>
@@ -2223,6 +2522,12 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                 action: () => editor?.chain().focus().toggleBlockquote().run(),
                 active: editor?.isActive("blockquote"),
                 disabled: !canEdit
+              },
+              {
+                label: "Comentar",
+                action: captureSelectedExcerpt,
+                active: false,
+                disabled: !editor
               }
             ].map((item) => (
               <button
@@ -2441,6 +2746,13 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                 type="button"
               >
                 Texto
+              </button>
+              <button
+                className={cognitiveTab === "revisao" ? "active" : ""}
+                onClick={() => setCognitiveTab("revisao")}
+                type="button"
+              >
+                Revisao
               </button>
             </div>
 
@@ -2725,6 +3037,166 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                         >
                           Adicionar {section}
                         </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : cognitiveTab === "revisao" ? (
+              <div className="editor-cognitive-panel">
+                <div className="editor-cognitive-stat-grid">
+                  <article>
+                    <strong>{unresolvedComments.length}</strong>
+                    <span>comentarios em aberto</span>
+                  </article>
+                  <article>
+                    <strong>{versions.length}</strong>
+                    <span>versoes salvas</span>
+                  </article>
+                </div>
+
+                <div className="editor-cognitive-block">
+                  <div className="editor-cognitive-block-title">
+                    <strong>Comentar trecho</strong>
+                    <button className="button button-secondary" onClick={captureSelectedExcerpt} type="button">
+                      Capturar selecao
+                    </button>
+                  </div>
+                  <p className="muted">
+                    Selecione um trecho do manuscrito, capture a selecao e deixe uma observacao objetiva para a equipe.
+                  </p>
+                  {selectedExcerpt ? (
+                    <div className="editor-review-excerpt">
+                      <span>Trecho selecionado</span>
+                      <strong>{selectedExcerpt}</strong>
+                    </div>
+                  ) : (
+                    <p className="muted">Nenhum trecho capturado ainda.</p>
+                  )}
+                  <textarea
+                    className="editor-inline-textarea"
+                    onChange={(event) => setCommentDraft(event.target.value)}
+                    placeholder="Ex.: justificar melhor este argumento, inserir fonte primaria, rever recorte metodologico..."
+                    rows={4}
+                    value={commentDraft}
+                  />
+                  <div className="editor-review-actions">
+                    <button
+                      className="button button-primary"
+                      disabled={isSavingComment}
+                      onClick={() => void saveComment()}
+                      type="button"
+                    >
+                      {isSavingComment ? "Salvando comentario..." : "Salvar comentario"}
+                    </button>
+                    {commentMessage ? <span className="muted">{commentMessage}</span> : null}
+                  </div>
+                </div>
+
+                <div className="editor-cognitive-block">
+                  <div className="editor-cognitive-block-title">
+                    <strong>Comentarios do manuscrito</strong>
+                    <span className="editor-reference-status">
+                      {unresolvedComments.length} abertos · {resolvedComments} resolvidos
+                    </span>
+                  </div>
+                  {isLoadingReviewData ? (
+                    <p className="muted">Carregando comentarios e versoes...</p>
+                  ) : comments.length === 0 ? (
+                    <p className="muted">Ainda nao ha comentarios nesse manuscrito.</p>
+                  ) : (
+                    <div className="editor-review-comment-list">
+                      {comments.map((comment) => {
+                        const canResolve =
+                          currentUser &&
+                          (canEdit || comment.created_by === currentUser.id || currentUser.role === "coordenador_geral");
+
+                        return (
+                          <article
+                            className="editor-review-comment-card"
+                            data-status={comment.resolvido_em ? "resolved" : "open"}
+                            key={comment.id}
+                          >
+                            <div className="editor-comment-meta">
+                              <strong>{comment.authorName}</strong>
+                              <span>{formatRelativeUpdate(comment.created_at)}</span>
+                            </div>
+                            <blockquote>{comment.trecho || "Trecho nao informado."}</blockquote>
+                            <p>{comment.comentario}</p>
+                            {comment.resolvido_em ? (
+                              <small>
+                                Resolvido por {comment.resolverName ?? "membro da equipe"} em{" "}
+                                {formatRelativeUpdate(comment.resolvido_em)}.
+                              </small>
+                            ) : (
+                              <small>Aberto para revisao da equipe.</small>
+                            )}
+                            {canResolve ? (
+                              <div className="editor-review-actions">
+                                <button
+                                  className="button button-secondary"
+                                  onClick={() => void toggleCommentResolution(comment, !comment.resolvido_em)}
+                                  type="button"
+                                >
+                                  {comment.resolvido_em ? "Reabrir" : "Marcar resolvido"}
+                                </button>
+                              </div>
+                            ) : null}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="editor-cognitive-block">
+                  <div className="editor-cognitive-block-title">
+                    <strong>Historico de versoes</strong>
+                    <button
+                      className="button button-secondary"
+                      disabled={isSavingVersion || !canEdit}
+                      onClick={() => void saveVersionSnapshot(versionNote)}
+                      type="button"
+                    >
+                      {isSavingVersion ? "Salvando..." : "Salvar versao atual"}
+                    </button>
+                  </div>
+                  <input
+                    className="editor-inline-input"
+                    disabled={!canEdit}
+                    onChange={(event) => setVersionNote(event.target.value)}
+                    placeholder="Observacao opcional da versao (ex.: revisao do resumo, ajuste metodologico...)"
+                    value={versionNote}
+                  />
+                  {versionMessage ? <p className="muted">{versionMessage}</p> : null}
+                  {!canEdit ? (
+                    <p className="muted">O historico detalhado de versoes fica disponivel apenas para a equipe autora.</p>
+                  ) : versions.length === 0 ? (
+                    <p className="muted">Ainda nao ha snapshots salvos deste manuscrito.</p>
+                  ) : (
+                    <div className="editor-version-list">
+                      {versions.map((version) => (
+                        <article className="editor-version-card" key={version.id}>
+                          <div className="editor-comment-meta">
+                            <strong>{version.observacao || "Versao sem observacao"}</strong>
+                            <span>{formatRelativeUpdate(version.created_at)}</span>
+                          </div>
+                          <p>
+                            {version.authorName} · {statusLabels[version.status_snapshot].toLowerCase()} ·{" "}
+                            {countArticleWords(version.conteudo_json)} palavras
+                          </p>
+                          <small>{version.titulo_snapshot}</small>
+                          <div className="editor-review-actions">
+                            <button
+                              className="button button-secondary"
+                              disabled={restoringVersionId === version.id}
+                              onClick={() => void restoreVersion(version)}
+                              type="button"
+                            >
+                              {restoringVersionId === version.id ? "Restaurando..." : "Restaurar versao"}
+                            </button>
+                          </div>
+                        </article>
                       ))}
                     </div>
                   )}

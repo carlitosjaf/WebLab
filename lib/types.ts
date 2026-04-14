@@ -379,6 +379,101 @@ export type Database = {
           }
         ];
       };
+      artigo_comentarios: {
+        Row: {
+          id: string;
+          artigo_id: string;
+          trecho: string;
+          comentario: string;
+          created_by: string;
+          resolvido_por: string | null;
+          resolvido_em: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          artigo_id: string;
+          trecho?: string;
+          comentario: string;
+          created_by?: string;
+          resolvido_por?: string | null;
+          resolvido_em?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          trecho?: string;
+          comentario?: string;
+          resolvido_por?: string | null;
+          resolvido_em?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "artigo_comentarios_artigo_id_fkey";
+            columns: ["artigo_id"];
+            isOneToOne: false;
+            referencedRelation: "artigos";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "artigo_comentarios_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "perfis";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "artigo_comentarios_resolvido_por_fkey";
+            columns: ["resolvido_por"];
+            isOneToOne: false;
+            referencedRelation: "perfis";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      artigo_versoes: {
+        Row: {
+          id: string;
+          artigo_id: string;
+          titulo_snapshot: string;
+          conteudo_json: ArticleContent | null;
+          status_snapshot: ArticleStatus;
+          observacao: string;
+          created_by: string;
+          created_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          artigo_id: string;
+          titulo_snapshot: string;
+          conteudo_json?: ArticleContent | null;
+          status_snapshot: ArticleStatus;
+          observacao?: string;
+          created_by?: string;
+          created_at?: string | null;
+        };
+        Update: {
+          observacao?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "artigo_versoes_artigo_id_fkey";
+            columns: ["artigo_id"];
+            isOneToOne: false;
+            referencedRelation: "artigos";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "artigo_versoes_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "perfis";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       triagem_conjuntos: {
         Row: {
           id: string;
@@ -559,6 +654,8 @@ export type Database = {
 
 export type ArticleRow = Database["public"]["Tables"]["artigos"]["Row"];
 export type TeamNoticeRow = Database["public"]["Tables"]["avisos_equipe"]["Row"];
+export type ArticleCommentRow = Database["public"]["Tables"]["artigo_comentarios"]["Row"];
+export type ArticleVersionRow = Database["public"]["Tables"]["artigo_versoes"]["Row"];
 export type EvidenceScreeningSetRow = Database["public"]["Tables"]["triagem_conjuntos"]["Row"];
 export type EvidenceStudyRow = Database["public"]["Tables"]["triagem_estudos"]["Row"];
 export type EvidenceStudyReviewRow = Database["public"]["Tables"]["triagem_avaliacoes"]["Row"];
