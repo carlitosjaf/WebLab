@@ -11,7 +11,7 @@ import {
 } from "@/lib/site-content";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { Database, TeamNoticeCategory, TeamNoticeRow, TeamSiteMember, UserRole } from "@/lib/types";
-import { formatRoleLabel } from "@/lib/weblab";
+import { formatRoleLabel, getTeamBadgeTone } from "@/lib/weblab";
 
 type TeamRow = Database["public"]["Tables"]["equipes"]["Row"];
 type NoticeDraft = {
@@ -67,6 +67,12 @@ export default function ConfiguracoesPage() {
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
+  const [managedTeams, setManagedTeams] = useState<TeamRow[]>([]);
+  const [teamEdits, setTeamEdits] = useState<Record<string, string>>({});
+  const [teamNameDraft, setTeamNameDraft] = useState("");
+  const [teamMessage, setTeamMessage] = useState<string | null>(null);
+  const [teamPendingId, setTeamPendingId] = useState<string | null>(null);
+  const [isManagingTeams, startManageTeamsTransition] = useTransition();
 
   useEffect(() => {
     let isMounted = true;
@@ -137,6 +143,8 @@ export default function ConfiguracoesPage() {
           return;
         }
 
+        const { data: teamCatalog, error: teamCatalogError } = await supabase.rpc("list_weblab_teams");
+
         const { data: loadedContent, error: contentError } = await supabase
           .from("conteudos_site_equipe")
           .select("id, equipe_id, titulo_publico, resumo_publico, integrantes, updated_at")
@@ -185,12 +193,20 @@ export default function ConfiguracoesPage() {
           .order("publicado_em", { ascending: false });
 
         if (isMounted) {
+          const availableTeams = (teamCatalog as TeamRow[] | null) ?? [];
           const siteContent = getTeamSiteContentFromRow(
             (loadedContent as TeamSiteContentRow | null) ?? null,
             loadedTeam.nome
           );
 
           setRegisteredMembers(registeredTeamMembers);
+          setManagedTeams(availableTeams);
+          setTeamEdits(
+            availableTeams.reduce<Record<string, string>>((accumulator, entry) => {
+              accumulator[entry.id] = entry.nome;
+              return accumulator;
+            }, {})
+          );
           setTeam(loadedTeam);
           setTeamContent({
             ...siteContent,
@@ -200,6 +216,11 @@ export default function ConfiguracoesPage() {
           setNoticeMessage(
             noticesError?.message.includes("avisos_equipe")
               ? "Rode a migração de configurações para publicar eventos e avisos."
+              : null
+          );
+          setTeamMessage(
+            teamCatalogError?.message?.includes("list_weblab_teams")
+              ? "Rode a nova migracao de equipes do WebLab para criar e editar os nucleos."
               : null
           );
           setErrorMessage(contentError ? contentError.message : null);
@@ -230,6 +251,108 @@ export default function ConfiguracoesPage() {
     await navigator.clipboard.writeText(team.codigo_convite);
     setCopyMessage("Código copiado.");
     setTimeout(() => setCopyMessage(null), 2000);
+  };
+
+  const handleTeamEditChange = (teamId: string) => (event: ChangeEvent<HTMLInputElement>) => {
+    setTeamEdits((current) => ({
+      ...current,
+      [teamId]: event.target.value
+    }));
+  };
+
+  const handleCreateTeam = () => {
+    const nextName = teamNameDraft.trim();
+
+    if (!nextName) {
+      setTeamMessage("Digite um nome antes de criar a equipe.");
+      return;
+    }
+
+    setTeamMessage(null);
+
+    startManageTeamsTransition(async () => {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase.rpc("create_weblab_team", {
+        team_name_input: nextName
+      });
+
+      if (error) {
+        setTeamMessage(
+          error.message.includes("create_weblab_team")
+            ? "Rode a migracao de equipes do WebLab no Supabase para criar novos nucleos."
+            : error.message
+        );
+        return;
+      }
+
+      const createdTeam = (data as TeamRow[] | null)?.[0];
+
+      if (!createdTeam) {
+        setTeamMessage("Nao consegui confirmar a criacao da equipe.");
+        return;
+      }
+
+      setManagedTeams((current) =>
+        [...current, createdTeam].sort((left, right) => left.nome.localeCompare(right.nome, "pt-BR"))
+      );
+      setTeamEdits((current) => ({
+        ...current,
+        [createdTeam.id]: createdTeam.nome
+      }));
+      setTeamNameDraft("");
+      setTeamMessage("Equipe criada.");
+    });
+  };
+
+  const handleRenameTeam = (targetTeam: TeamRow) => {
+    const nextName = (teamEdits[targetTeam.id] ?? "").trim();
+
+    if (!nextName) {
+      setTeamMessage("O nome da equipe nao pode ficar vazio.");
+      return;
+    }
+
+    if (nextName === targetTeam.nome) {
+      setTeamMessage("Esse nome ja esta salvo.");
+      return;
+    }
+
+    setTeamMessage(null);
+    setTeamPendingId(targetTeam.id);
+
+    startManageTeamsTransition(async () => {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase.rpc("rename_weblab_team", {
+        target_team_id: targetTeam.id,
+        team_name_input: nextName
+      });
+
+      setTeamPendingId(null);
+
+      if (error) {
+        setTeamMessage(
+          error.message.includes("rename_weblab_team")
+            ? "Rode a migracao de equipes do WebLab no Supabase para editar os nucleos."
+            : error.message
+        );
+        return;
+      }
+
+      const renamedTeam = (data as TeamRow[] | null)?.[0];
+      const finalName = renamedTeam?.nome ?? nextName;
+
+      setManagedTeams((current) =>
+        current
+          .map((entry) => (entry.id === targetTeam.id ? { ...entry, nome: finalName } : entry))
+          .sort((left, right) => left.nome.localeCompare(right.nome, "pt-BR"))
+      );
+      setTeamEdits((current) => ({
+        ...current,
+        [targetTeam.id]: finalName
+      }));
+      setTeam((current) => (current && current.id === targetTeam.id ? { ...current, nome: finalName } : current));
+      setTeamMessage("Nome da equipe atualizado.");
+    });
   };
 
   const handleTeamContentChange =
@@ -485,6 +608,161 @@ export default function ConfiguracoesPage() {
               {copyMessage ? <span className="muted">{copyMessage}</span> : null}
             </div>
           </article>
+        </section>
+
+        <section className="glass-card" style={{ padding: "28px", display: "grid", gap: "20px" }}>
+          <div style={{ display: "grid", gap: "8px" }}>
+            <span className="eyebrow">equipes do weblab</span>
+            <h2 style={{ margin: 0 }}>Nucleos ativos do laboratorio</h2>
+            <p className="muted" style={{ margin: 0, maxWidth: "70ch" }}>
+              Aqui a coordenacao pode criar equipes e ajustar o nome de cada nucleo. Os badges de cor
+              tambem seguem essa identidade no dashboard.
+            </p>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1.2fr) minmax(260px, 0.8fr)",
+              gap: "20px"
+            }}
+          >
+            <div style={{ display: "grid", gap: "14px" }}>
+              {managedTeams.length > 0 ? (
+                managedTeams.map((managedTeam) => {
+                  const tone = getTeamBadgeTone(managedTeam.nome);
+
+                  return (
+                    <article
+                      key={managedTeam.id}
+                      style={{
+                        border: "1px solid rgba(15, 23, 42, 0.08)",
+                        borderRadius: "20px",
+                        padding: "18px",
+                        display: "grid",
+                        gap: "14px",
+                        background: "rgba(255,255,255,0.75)"
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: "12px",
+                          alignItems: "center",
+                          flexWrap: "wrap"
+                        }}
+                      >
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            padding: "6px 12px",
+                            borderRadius: "999px",
+                            border: `1px solid ${tone.border}`,
+                            background: tone.background,
+                            color: tone.text,
+                            fontWeight: 700,
+                            fontSize: "0.88rem"
+                          }}
+                        >
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              width: "10px",
+                              height: "10px",
+                              borderRadius: "999px",
+                              background: tone.text
+                            }}
+                          />
+                          {managedTeam.nome}
+                        </span>
+                        <span className="muted" style={{ fontSize: "0.88rem" }}>
+                          Convite: {managedTeam.codigo_convite ?? "Nao configurado"}
+                        </span>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "12px",
+                          alignItems: "center",
+                          flexWrap: "wrap"
+                        }}
+                      >
+                        <input
+                          onChange={handleTeamEditChange(managedTeam.id)}
+                          placeholder="Nome da equipe"
+                          style={{ flex: "1 1 240px" }}
+                          value={teamEdits[managedTeam.id] ?? managedTeam.nome}
+                        />
+                        <button
+                          className="button button-secondary"
+                          disabled={isManagingTeams && teamPendingId === managedTeam.id}
+                          onClick={() => handleRenameTeam(managedTeam)}
+                          type="button"
+                        >
+                          {isManagingTeams && teamPendingId === managedTeam.id ? "Salvando..." : "Salvar nome"}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })
+              ) : (
+                <article
+                  style={{
+                    border: "1px dashed rgba(15, 23, 42, 0.14)",
+                    borderRadius: "20px",
+                    padding: "18px",
+                    background: "rgba(255,255,255,0.7)"
+                  }}
+                >
+                  <p className="muted" style={{ margin: 0 }}>
+                    Ainda nao encontrei o catalogo de equipes. Rode a migracao nova no Supabase para
+                    habilitar esta area.
+                  </p>
+                </article>
+              )}
+            </div>
+
+            <aside
+              style={{
+                border: "1px solid rgba(15, 23, 42, 0.08)",
+                borderRadius: "24px",
+                padding: "20px",
+                background: "rgba(255,255,255,0.78)",
+                display: "grid",
+                gap: "14px",
+                alignSelf: "start"
+              }}
+            >
+              <div style={{ display: "grid", gap: "6px" }}>
+                <strong style={{ fontSize: "1.05rem" }}>Criar nova equipe</strong>
+                <p className="muted" style={{ margin: 0 }}>
+                  Vamos deixar quatro nucleos iniciais prontos, mas voce pode criar outros quando precisar.
+                </p>
+              </div>
+              <input
+                onChange={(event) => setTeamNameDraft(event.target.value)}
+                placeholder="Ex.: Equipe de Terapias"
+                value={teamNameDraft}
+              />
+              <button
+                className="button button-primary"
+                disabled={isManagingTeams}
+                onClick={handleCreateTeam}
+                type="button"
+              >
+                {isManagingTeams && !teamPendingId ? "Criando..." : "Criar equipe"}
+              </button>
+              {teamMessage ? (
+                <p className="muted" style={{ margin: 0 }}>
+                  {teamMessage}
+                </p>
+              ) : null}
+            </aside>
+          </div>
         </section>
 
         <section className="glass-card config-site-panel">

@@ -2398,9 +2398,32 @@ textarea:focus,
 }
 
 .dashboard-home-editor-line {
+  display: grid;
+  gap: 6px;
   min-height: auto !important;
   color: #64748b;
   font-size: 0.84rem !important;
+}
+
+.dashboard-team-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin-top: 4px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.dashboard-team-badge-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
 }
 
 .dashboard-home-card-actions {

@@ -31,6 +31,35 @@ export type Database = {
         };
         Returns: string;
       };
+      list_weblab_teams: {
+        Args: Record<PropertyKey, never>;
+        Returns: Array<{
+          id: string;
+          nome: string;
+          codigo_convite: string | null;
+        }>;
+      };
+      create_weblab_team: {
+        Args: {
+          team_name_input: string;
+        };
+        Returns: Array<{
+          id: string;
+          nome: string;
+          codigo_convite: string | null;
+        }>;
+      };
+      rename_weblab_team: {
+        Args: {
+          target_team_id: string;
+          team_name_input: string;
+        };
+        Returns: Array<{
+          id: string;
+          nome: string;
+          codigo_convite: string | null;
+        }>;
+      };
       current_profile_role: {
         Args: Record<PropertyKey, never>;
         Returns: string | null;

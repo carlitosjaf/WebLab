@@ -10,7 +10,8 @@ import {
   countArticleWords,
   formatRelativeUpdate,
   formatRoleLabel,
-  formatStatusLabel
+  formatStatusLabel,
+  getTeamBadgeTone
 } from "@/lib/weblab";
 
 export type DashboardArticle = ArticleRow & {
@@ -92,6 +93,24 @@ function formatNoticeDate(notice: TeamNoticeRow) {
     day: "2-digit",
     month: "short"
   });
+}
+
+function TeamBadge({ teamName }: { teamName: string }) {
+  const tone = getTeamBadgeTone(teamName);
+
+  return (
+    <span
+      className="dashboard-team-badge"
+      style={{
+        background: tone.background,
+        borderColor: tone.border,
+        color: tone.text
+      }}
+    >
+      <span className="dashboard-team-badge-dot" aria-hidden="true" style={{ background: tone.text }} />
+      {teamName}
+    </span>
+  );
 }
 
 export function DashboardShell({
@@ -296,6 +315,7 @@ export function DashboardShell({
                       Último editor: {article.last_editor_name ?? "Ainda não identificado"}
                       {role === "coordenador_geral" && article.team_name ? ` · ${article.team_name}` : ""}
                     </p>
+                    {article.team_name ? <TeamBadge teamName={article.team_name} /> : null}
                     <div className="dashboard-home-card-actions">
                       <button
                         className="lovable-small-button"
@@ -397,6 +417,7 @@ export function DashboardShell({
             </span>
             <h2 id="new-manuscript-title">Explore nossa pesquisa</h2>
             <p>Crie um manuscrito, abra o editor e siga do texto à submissão no mesmo fluxo.</p>
+            {role !== "coordenador_geral" && teamName ? <TeamBadge teamName={teamName} /> : null}
             <form className="dashboard-home-create-form" onSubmit={handleCreateArticle}>
               <input
                 aria-label="Título do manuscrito"

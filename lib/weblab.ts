@@ -17,6 +17,27 @@ export function generateInviteCode(teamName: string) {
   return normalizeInviteCode(`${base || "WEBLAB"}-${suffix}`);
 }
 
+const TEAM_BADGE_PALETTE = [
+  { background: "rgba(18, 143, 119, 0.16)", border: "rgba(18, 143, 119, 0.28)", text: "#0f766e" },
+  { background: "rgba(59, 130, 246, 0.14)", border: "rgba(59, 130, 246, 0.24)", text: "#1d4ed8" },
+  { background: "rgba(234, 88, 12, 0.14)", border: "rgba(234, 88, 12, 0.24)", text: "#c2410c" },
+  { background: "rgba(168, 85, 247, 0.14)", border: "rgba(168, 85, 247, 0.24)", text: "#7c3aed" }
+] as const;
+
+export function getTeamBadgeTone(seed: string | null | undefined) {
+  const value = (seed ?? "").trim();
+
+  if (!value) {
+    return TEAM_BADGE_PALETTE[0];
+  }
+
+  const hash = Array.from(value).reduce((accumulator, character) => {
+    return accumulator + character.charCodeAt(0);
+  }, 0);
+
+  return TEAM_BADGE_PALETTE[hash % TEAM_BADGE_PALETTE.length];
+}
+
 export function formatRoleLabel(role: UserRole) {
   switch (role) {
     case "coordenador":
