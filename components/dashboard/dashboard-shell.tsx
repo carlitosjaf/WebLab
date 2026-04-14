@@ -24,6 +24,7 @@ type DashboardShellProps = {
   notices: TeamNoticeRow[];
   profileId: string;
   profileName: string;
+  profileTeamId?: string | null;
   teamName: string;
   role: UserRole;
 };
@@ -118,6 +119,7 @@ export function DashboardShell({
   notices,
   profileId,
   profileName,
+  profileTeamId = null,
   role,
   teamName
 }: DashboardShellProps) {
@@ -229,7 +231,9 @@ export function DashboardShell({
   };
 
   const canDeleteArticle = (article: DashboardArticle) =>
-    role === "coordenador_geral" || role === "coordenador" || article.autor_id === profileId;
+    role === "coordenador_geral" ||
+    article.autor_id === profileId ||
+    (role === "coordenador" && profileTeamId === article.equipe_id);
 
   const canManageSite = role === "coordenador" || role === "coordenador_geral";
   const recentNewsItems =

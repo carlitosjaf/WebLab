@@ -2312,12 +2312,18 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               </div>
 
               <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                <button className="button button-primary" onClick={applyCompleteTemplate} type="button">
+                <button
+                  className="button button-primary"
+                  disabled={!canEdit}
+                  onClick={applyCompleteTemplate}
+                  type="button"
+                >
                   Montar estrutura completa
                 </button>
 
                 <button
                   className="button button-secondary"
+                  disabled={!canEdit}
                   onClick={() => insertScientificSection(activeTemplate.content, "end")}
                   type="button"
                 >
@@ -2329,6 +2335,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               <button
                 className="button button-secondary"
+                disabled={!canEdit}
                 onClick={applyCompleteTemplate}
                 type="button"
               >
@@ -2336,6 +2343,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               </button>
 
               <select
+                disabled={!canEdit}
                 onChange={(event) => {
                   const nextGroup =
                     sectionGroups.find((group) => group.id === event.target.value) ?? sectionGroups[0];
@@ -2360,6 +2368,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               </select>
 
               <select
+                disabled={!canEdit}
                 onChange={(event) => setSelectedSectionLabel(event.target.value)}
                 style={{
                   borderRadius: "999px",
@@ -2380,6 +2389,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
 
               <button
                 className="button button-secondary"
+                disabled={!canEdit}
                 onClick={() => selectedSection && insertScientificSection(selectedSection.content)}
                 type="button"
               >

@@ -16,6 +16,7 @@ type DashboardData = {
   articles: DashboardArticle[];
   notices: TeamNoticeRow[];
   profile: ProfileRow;
+  profileTeamId: string | null;
   teamName: string;
 };
 
@@ -185,6 +186,7 @@ export default function DashboardPage() {
             articles,
             notices,
             profile,
+            profileTeamId: profile.equipe_id,
             teamName
           });
           setErrorMessage(null);
@@ -247,6 +249,7 @@ export default function DashboardPage() {
       notices={data.notices}
       profileId={data.profile.id}
       profileName={data.profile.nome_completo ?? "Pesquisador"}
+      profileTeamId={data.profileTeamId}
       role={data.profile.role}
       teamName={data.teamName}
     />
