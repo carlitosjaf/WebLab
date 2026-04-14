@@ -105,6 +105,23 @@ type RadarApiResponse = {
   sourceStatus: RadarSourceStatus[];
 };
 
+type JournalComparisonEntry = {
+  id: string;
+  title: string;
+  hostName: string | null;
+  recommendationLevel: RecommendationLevel;
+  editorialScore: number;
+  matchedIndexers: IndexerName[];
+  detectedIndexers: IndexerName[];
+  isOpenAccess: boolean;
+  matchCount: number;
+  hIndex?: number;
+  readinessPercent?: number;
+  readinessLabel?: string;
+  notes?: string | null;
+  sourceUrl: string | null;
+};
+
 type PeriodicosHubProps = {
   articles: ArticleRow[];
 };
@@ -427,6 +444,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
   const [articleSnapshots, setArticleSnapshots] = useState<ArticleRow[]>(articles);
   const [selectedArticleId, setSelectedArticleId] = useState(articles[0]?.id ?? "");
   const [selectedIndexers, setSelectedIndexers] = useState<IndexerName[]>([...DEFAULT_INDEXERS]);
+  const [comparedJournalIds, setComparedJournalIds] = useState<string[]>([]);
   const [searchInput, setSearchInput] = useState("");
   const [hostFilter, setHostFilter] = useState("");
   const [onlyOpenAccess, setOnlyOpenAccess] = useState(false);
@@ -538,11 +556,72 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
     (journal) => journal.recommendationLevel === "precisa_validar"
   ).length;
   const topRecommendations = filteredJournalResults.slice(0, 3);
+  const comparedJournals = useMemo(() => {
+    const shortlistMap = new Map<string, JournalComparisonEntry>(
+      savedShortlist.map((entry) => {
+        const readiness = getSubmissionReadiness(entry);
+        return [
+          entry.journal_id,
+          {
+            id: entry.journal_id,
+            title: entry.journal_title,
+            hostName: entry.host_name,
+            recommendationLevel: entry.recommendation_level,
+            editorialScore: entry.editorial_score,
+            matchedIndexers: entry.matched_indexers as IndexerName[],
+            detectedIndexers: entry.detected_indexers as IndexerName[],
+            isOpenAccess: Boolean(entry.acesso_aberto_conferido),
+            matchCount: 0,
+            hIndex: undefined,
+            readinessPercent: readiness.percent,
+            readinessLabel: readiness.label,
+            notes: entry.editorial_notes,
+            sourceUrl: entry.source_url
+          } satisfies JournalComparisonEntry
+        ];
+      })
+    );
+    const journalMap = new Map<string, JournalComparisonEntry>(
+      filteredJournalResults.map((journal) => [
+        journal.id,
+        {
+          id: journal.id,
+          title: journal.title,
+          hostName: journal.hostName,
+          recommendationLevel: journal.recommendationLevel,
+          editorialScore: journal.editorialScore,
+          matchedIndexers: journal.matchedSelectedIndexers,
+          detectedIndexers: journal.detectedIndexers,
+          isOpenAccess: journal.isOpenAccess,
+          matchCount: journal.matchCount,
+          hIndex: journal.hIndex,
+          readinessPercent: undefined,
+          readinessLabel: undefined,
+          notes: null,
+          sourceUrl: journal.landingPageUrl
+        } satisfies JournalComparisonEntry
+      ])
+    );
+
+    return comparedJournalIds
+      .map((id) => shortlistMap.get(id) ?? journalMap.get(id) ?? null)
+      .filter((entry): entry is JournalComparisonEntry => entry !== null);
+  }, [comparedJournalIds, filteredJournalResults, savedShortlist]);
 
   const toggleIndexer = (indexer: IndexerName) => {
     setSelectedIndexers((current) =>
       current.includes(indexer) ? current.filter((item) => item !== indexer) : [...current, indexer]
     );
+  };
+
+  const toggleJournalComparison = (journalId: string) => {
+    setComparedJournalIds((current) => {
+      if (current.includes(journalId)) {
+        return current.filter((id) => id !== journalId);
+      }
+
+      return [...current, journalId].slice(-3);
+    });
   };
 
   const searchJournals = async () => {
@@ -1324,6 +1403,14 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                     <button
                       className="button button-secondary"
                       type="button"
+                      onClick={() => toggleJournalComparison(entry.journal_id)}
+                    >
+                      {comparedJournalIds.includes(entry.journal_id) ? "Remover da comparação" : "Comparar"}
+                    </button>
+
+                    <button
+                      className="button button-secondary"
+                      type="button"
                       onClick={() => void removeShortlistEntry(entry.id)}
                     >
                       Remover da shortlist
@@ -1430,6 +1517,13 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                               ? "Atualizar shortlist"
                               : "Salvar na shortlist"}
                         </button>
+                        <button
+                          className="button button-secondary"
+                          onClick={() => toggleJournalComparison(journal.id)}
+                          type="button"
+                        >
+                          {comparedJournalIds.includes(journal.id) ? "Remover da comparação" : "Comparar"}
+                        </button>
                         {journal.landingPageUrl ? (
                           <a className="button button-secondary" href={journal.landingPageUrl} rel="noreferrer" target="_blank">
                             Abrir fonte
@@ -1439,6 +1533,63 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                     </article>
                   );
                 })}
+              </div>
+            </div>
+          ) : null}
+
+          {comparedJournals.length > 0 ? (
+            <div className="periodicos-comparison-board">
+              <div style={{ display: "grid", gap: "4px" }}>
+                <span className="eyebrow">comparação</span>
+                <strong>Comparar candidatas lado a lado</strong>
+                <span className="muted">Use esta mesa para decidir onde vale aprofundar validação editorial.</span>
+              </div>
+              <div className="periodicos-comparison-grid">
+                {comparedJournals.map((journal) => (
+                  <article key={`compare-${journal.id}`}>
+                    <div style={{ display: "grid", gap: "4px" }}>
+                      <strong>{journal.title}</strong>
+                      <span className="muted">{journal.hostName ?? "Host não informado"}</span>
+                    </div>
+                    <div className="periodicos-comparison-metrics">
+                      <span>Score {journal.editorialScore}</span>
+                      <span>{formatRecommendationLevel(journal.recommendationLevel)}</span>
+                      <span>OA {journal.isOpenAccess ? "sim" : "não"}</span>
+                      {journal.readinessPercent !== undefined ? <span>Prontidão {journal.readinessPercent}%</span> : null}
+                    </div>
+                    <div style={{ display: "grid", gap: "6px" }}>
+                      <strong>Indexadores aderentes</strong>
+                      <p>{journal.matchedIndexers.length ? journal.matchedIndexers.join(", ") : "Nenhum confirmado ainda"}</p>
+                    </div>
+                    <div style={{ display: "grid", gap: "6px" }}>
+                      <strong>Sinais adicionais</strong>
+                      <p>{journal.detectedIndexers.length ? journal.detectedIndexers.join(", ") : "Nenhum sinal adicional detectado"}</p>
+                    </div>
+                    <div style={{ display: "grid", gap: "6px" }}>
+                      <strong>Indicadores</strong>
+                      <p>
+                        {journal.hIndex ? `H-index ${journal.hIndex}` : "H-index não informado"}
+                        {journal.matchCount ? ` · ${journal.matchCount} ocorrência(s)` : ""}
+                      </p>
+                    </div>
+                    {journal.notes ? (
+                      <div style={{ display: "grid", gap: "6px" }}>
+                        <strong>Notas da equipe</strong>
+                        <p>{journal.notes}</p>
+                      </div>
+                    ) : null}
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      <button className="button button-secondary" onClick={() => toggleJournalComparison(journal.id)} type="button">
+                        Remover da comparação
+                      </button>
+                      {journal.sourceUrl ? (
+                        <a className="button button-secondary" href={journal.sourceUrl} rel="noreferrer" target="_blank">
+                          Abrir fonte
+                        </a>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
               </div>
             </div>
           ) : null}
@@ -1542,6 +1693,13 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                           : savedEntry
                             ? "Atualizar shortlist"
                             : "Salvar na shortlist"}
+                      </button>
+                      <button
+                        className="button button-secondary"
+                        type="button"
+                        onClick={() => toggleJournalComparison(journal.id)}
+                      >
+                        {comparedJournalIds.includes(journal.id) ? "Remover da comparação" : "Comparar"}
                       </button>
 
                       {journal.landingPageUrl ? (

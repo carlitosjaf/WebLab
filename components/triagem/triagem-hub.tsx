@@ -305,6 +305,10 @@ function buildScreeningReport(
 }
 
 export function TriagemHub({ articles, profileId }: TriagemHubProps) {
+  const [studyFilter, setStudyFilter] = useState<
+    "todos" | EvidenceScreeningDecision | "conflito" | "duplicado" | "incluidos_finais"
+  >("todos");
+  const [selectedStudyIds, setSelectedStudyIds] = useState<string[]>([]);
   const [selectedArticleId, setSelectedArticleId] = useState(articles[0]?.id ?? "");
   const [sets, setSets] = useState<EvidenceScreeningSetRow[]>([]);
   const [activeSetId, setActiveSetId] = useState("");
@@ -372,6 +376,27 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
     () => summarizeExclusionReasons(studies, reviewsByStudy),
     [reviewsByStudy, studies]
   );
+  const filteredStudies = useMemo(() => {
+    return studies.filter((study) => {
+      const reviewMeta = getReviewMeta(reviewsByStudy.get(study.id) ?? []);
+      const aggregateDecision = getAggregateDecision(study, reviewMeta);
+      const isDuplicate = duplicateStudyIds.has(study.id);
+      const isConflict = conflictStudyIds.has(study.id);
+
+      switch (studyFilter) {
+        case "conflito":
+          return isConflict;
+        case "duplicado":
+          return isDuplicate;
+        case "incluidos_finais":
+          return aggregateDecision === "incluir" && Boolean(study.decisao_final || reviewMeta.consensus);
+        case "todos":
+          return true;
+        default:
+          return aggregateDecision === studyFilter;
+      }
+    });
+  }, [conflictStudyIds, duplicateStudyIds, reviewsByStudy, studies, studyFilter]);
 
   useEffect(() => {
     if (!selectedArticleId) {
@@ -381,6 +406,10 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
     const nextArticle = articles.find((article) => article.id === selectedArticleId) ?? null;
     setSearchQuery(buildSearchSeed(nextArticle));
   }, [articles, selectedArticleId]);
+
+  useEffect(() => {
+    setSelectedStudyIds((current) => current.filter((id) => filteredStudies.some((study) => study.id === id)));
+  }, [filteredStudies]);
 
   useEffect(() => {
     let isMounted = true;
@@ -717,6 +746,7 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
 
     setStudies((current) => current.map((item) => (item.id === data.id ? data : item)));
     setReviews((current) => [reviewData, ...current.filter((item) => item.id !== reviewData.id)]);
+    return true;
   };
 
   const resolveConflict = async (
@@ -748,6 +778,46 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
 
     setStudies((current) => current.map((item) => (item.id === data.id ? data : item)));
     setMessage("Conflito consolidado no caderno de triagem.");
+  };
+
+  const toggleStudySelection = (studyId: string) => {
+    setSelectedStudyIds((current) =>
+      current.includes(studyId) ? current.filter((id) => id !== studyId) : [...current, studyId]
+    );
+  };
+
+  const toggleSelectAllFiltered = () => {
+    const filteredIds = filteredStudies.map((study) => study.id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every((id) => selectedStudyIds.includes(id));
+
+    setSelectedStudyIds((current) => {
+      if (allSelected) {
+        return current.filter((id) => !filteredIds.includes(id));
+      }
+
+      return Array.from(new Set([...current, ...filteredIds]));
+    });
+  };
+
+  const applyDecisionBatch = async (
+    decisao: EvidenceScreeningDecision,
+    motivoExclusao = decisao === "excluir" ? "Fora do escopo" : ""
+  ) => {
+    const targets = studies.filter((study) => selectedStudyIds.includes(study.id));
+
+    if (targets.length === 0) {
+      setMessage("Selecione pelo menos um estudo para aplicar decisão em lote.");
+      return;
+    }
+
+    setMessage(`Aplicando decisão em ${targets.length} estudo(s)...`);
+
+    for (const study of targets) {
+      await updateDecision(study, decisao, motivoExclusao);
+    }
+
+    setSelectedStudyIds([]);
+    setMessage(`Decisão em lote aplicada em ${targets.length} estudo(s).`);
   };
 
   const copyReport = async () => {
@@ -1056,8 +1126,52 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
 
               <div className="triagem-column">
                 <h2>Triagem do conjunto</h2>
+                <div className="triagem-filter-bar">
+                  {[
+                    ["todos", "Todos"],
+                    ["pendente", "Pendentes"],
+                    ["talvez", "Talvez"],
+                    ["incluir", "Incluir"],
+                    ["excluir", "Excluir"],
+                    ["conflito", "Conflitos"],
+                    ["duplicado", "Duplicados"]
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      className={studyFilter === value ? "active" : ""}
+                      onClick={() => setStudyFilter(value as typeof studyFilter)}
+                      type="button"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {studies.length > 0 ? (
+                  <div className="triagem-bulk-bar">
+                    <button className="button button-secondary" onClick={toggleSelectAllFiltered} type="button">
+                      {filteredStudies.length > 0 &&
+                      filteredStudies.every((study) => selectedStudyIds.includes(study.id))
+                        ? "Limpar seleção do filtro"
+                        : "Selecionar filtrados"}
+                    </button>
+                    <span>{selectedStudyIds.length} estudo(s) selecionado(s)</span>
+                    <button className="button button-secondary" onClick={() => void applyDecisionBatch("incluir")} type="button">
+                      Incluir em lote
+                    </button>
+                    <button className="button button-secondary" onClick={() => void applyDecisionBatch("talvez")} type="button">
+                      Talvez em lote
+                    </button>
+                    <button
+                      className="button button-secondary"
+                      onClick={() => void applyDecisionBatch("excluir", "Fora do escopo")}
+                      type="button"
+                    >
+                      Excluir em lote
+                    </button>
+                  </div>
+                ) : null}
                 {studies.length === 0 ? <p className="muted">Salve estudos captados para iniciar as decisões.</p> : null}
-                {studies.map((study) => {
+                {filteredStudies.map((study) => {
                   const possibleDuplicate = duplicateStudyIds.has(study.id);
                   const reviewMeta = getReviewMeta(reviewsByStudy.get(study.id) ?? []);
                   const ownReview = (reviewsByStudy.get(study.id) ?? []).find((review) => review.reviewer_id === profileId);
@@ -1072,6 +1186,14 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                       data-duplicate={possibleDuplicate}
                       key={study.id}
                     >
+                      <label className="triagem-study-select">
+                        <input
+                          checked={selectedStudyIds.includes(study.id)}
+                          onChange={() => toggleStudySelection(study.id)}
+                          type="checkbox"
+                        />
+                        <span>Selecionar estudo</span>
+                      </label>
                       <span>{decisionLabels[aggregateDecision]} · {study.ano ?? "s.d."}</span>
                       <h3>{study.titulo}</h3>
                       <p>{study.periodico ?? "Periódico não informado"}</p>

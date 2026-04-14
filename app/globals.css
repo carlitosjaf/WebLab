@@ -2753,6 +2753,51 @@ textarea:focus,
   gap: 14px;
 }
 
+.periodicos-comparison-board {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.periodicos-comparison-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.periodicos-comparison-grid article {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.periodicos-comparison-grid p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.periodicos-comparison-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.periodicos-comparison-metrics span {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--foreground);
+  font-size: 0.78rem;
+  font-weight: 800;
+  padding: 6px 10px;
+}
+
 .periodicos-recommendation-grid article {
   display: grid;
   gap: 12px;
@@ -3050,6 +3095,41 @@ textarea:focus,
   gap: 10px;
 }
 
+.triagem-filter-bar,
+.triagem-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.triagem-filter-bar button {
+  border: 1px solid #dbe4ee;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 850;
+  padding: 8px 12px;
+}
+
+.triagem-filter-bar button.active {
+  border-color: rgba(40, 148, 135, 0.38);
+  background: #eefcf8;
+  color: #0f766e;
+}
+
+.triagem-bulk-bar {
+  align-items: center;
+}
+
+.triagem-bulk-bar span {
+  color: #64748b;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 .triagem-search-row input {
   flex: 1 1 260px;
 }
@@ -3163,6 +3243,20 @@ textarea:focus,
   border: 1px solid #e2e8f0;
   border-radius: 18px;
   background: #f8fafc;
+}
+
+.triagem-study-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.triagem-study-select input {
+  accent-color: #289487;
 }
 
 .triagem-study-card[data-decision="incluir"] {
