@@ -220,7 +220,7 @@ export default function ConfiguracoesPage() {
           );
           setTeamMessage(
             teamCatalogError?.message?.includes("list_weblab_teams")
-              ? "Rode a nova migracao de equipes do WebLab para criar e editar os nucleos."
+              ? "Rode a nova migração de equipes do WebLab para criar e editar os núcleos."
               : null
           );
           setErrorMessage(contentError ? contentError.message : null);
@@ -279,7 +279,7 @@ export default function ConfiguracoesPage() {
       if (error) {
         setTeamMessage(
           error.message.includes("create_weblab_team")
-            ? "Rode a migracao de equipes do WebLab no Supabase para criar novos nucleos."
+            ? "Rode a migração de equipes do WebLab no Supabase para criar novos núcleos."
             : error.message
         );
         return;
@@ -288,7 +288,7 @@ export default function ConfiguracoesPage() {
       const createdTeam = (data as TeamRow[] | null)?.[0];
 
       if (!createdTeam) {
-        setTeamMessage("Nao consegui confirmar a criacao da equipe.");
+        setTeamMessage("N?o consegui confirmar a cria??o da equipe.");
         return;
       }
 
@@ -308,7 +308,7 @@ export default function ConfiguracoesPage() {
     const nextName = (teamEdits[targetTeam.id] ?? "").trim();
 
     if (!nextName) {
-      setTeamMessage("O nome da equipe nao pode ficar vazio.");
+      setTeamMessage("O nome da equipe n?o pode ficar vazio.");
       return;
     }
 
@@ -332,7 +332,7 @@ export default function ConfiguracoesPage() {
       if (error) {
         setTeamMessage(
           error.message.includes("rename_weblab_team")
-            ? "Rode a migracao de equipes do WebLab no Supabase para editar os nucleos."
+            ? "Rode a migração de equipes do WebLab no Supabase para editar os núcleos."
             : error.message
         );
         return;
@@ -679,7 +679,7 @@ export default function ConfiguracoesPage() {
                           {managedTeam.nome}
                         </span>
                         <span className="muted" style={{ fontSize: "0.88rem" }}>
-                          Convite: {managedTeam.codigo_convite ?? "Nao configurado"}
+                          Convite: {managedTeam.codigo_convite ?? "Não configurado"}
                         </span>
                       </div>
 
@@ -719,7 +719,7 @@ export default function ConfiguracoesPage() {
                   }}
                 >
                   <p className="muted" style={{ margin: 0 }}>
-                    Ainda nao encontrei o catalogo de equipes. Rode a migracao nova no Supabase para
+                    Ainda não encontrei o catálogo de equipes. Rode a migração nova no Supabase para
                     habilitar esta area.
                   </p>
                 </article>

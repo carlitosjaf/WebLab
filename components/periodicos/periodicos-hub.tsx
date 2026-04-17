@@ -111,6 +111,7 @@ type JournalComparisonEntry = {
   hostName: string | null;
   recommendationLevel: RecommendationLevel;
   editorialScore: number;
+  isChosen: boolean;
   matchedIndexers: IndexerName[];
   detectedIndexers: IndexerName[];
   isOpenAccess: boolean;
@@ -183,6 +184,20 @@ function getSubmissionReadiness(entry: SavedShortlist) {
   };
 }
 
+function sortShortlistEntries(entries: SavedShortlist[]) {
+  return [...entries].sort((left, right) => {
+    if (left.chosen_for_submission !== right.chosen_for_submission) {
+      return Number(right.chosen_for_submission) - Number(left.chosen_for_submission);
+    }
+
+    if (left.is_favorite !== right.is_favorite) {
+      return Number(right.is_favorite) - Number(left.is_favorite);
+    }
+
+    return right.editorial_score - left.editorial_score;
+  });
+}
+
 function formatAccessModel(accessModel: (typeof INDEXER_STRATEGY)[number]["accessModel"]) {
   switch (accessModel) {
     case "api_publica":
@@ -237,6 +252,7 @@ function buildShortlistReport(article: ArticleRow | null, entries: SavedShortlis
         `- Score editorial: ${entry.editorial_score}`,
         `- Host: ${entry.host_name ?? "Não informado"}`,
         `- Indexadores priorizados: ${indexers}`,
+        `- Revista-alvo: ${entry.chosen_for_submission ? "sim" : "não"}`,
         `- Favorita: ${entry.is_favorite ? "sim" : "não"}`,
         `- Checklist: ${progress.completed}/${progress.total}`,
         entry.source_url ? `- Fonte: ${entry.source_url}` : "- Fonte: não informada",
@@ -288,6 +304,7 @@ function buildSubmissionDossier(article: ArticleRow | null, entry: SavedShortlis
     `- Score editorial: ${entry.editorial_score}`,
     `- Prontidão: ${readiness.percent}% (${readiness.label})`,
     `- Checklist: ${progress.completed}/${progress.total}`,
+    `- Revista-alvo: ${entry.chosen_for_submission ? "sim" : "não"}`,
     `- Favorita: ${entry.is_favorite ? "sim" : "não"}`,
     "",
     "## Indexadores",
@@ -499,7 +516,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
         setSearchMessage(error.message);
         setSavedShortlist([]);
       } else {
-        setSavedShortlist(data ?? []);
+        setSavedShortlist(sortShortlistEntries(data ?? []));
       }
 
       setLoadingShortlist(false);
@@ -549,6 +566,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
   ]);
 
   const favoriteCount = savedShortlist.filter((entry) => entry.is_favorite).length;
+  const chosenCount = savedShortlist.filter((entry) => entry.chosen_for_submission).length;
   const strongCandidateCount = filteredJournalResults.filter(
     (journal) => journal.recommendationLevel === "candidata_forte"
   ).length;
@@ -568,6 +586,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
             hostName: entry.host_name,
             recommendationLevel: entry.recommendation_level,
             editorialScore: entry.editorial_score,
+            isChosen: entry.chosen_for_submission,
             matchedIndexers: entry.matched_indexers as IndexerName[],
             detectedIndexers: entry.detected_indexers as IndexerName[],
             isOpenAccess: Boolean(entry.acesso_aberto_conferido),
@@ -590,6 +609,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
           hostName: journal.hostName,
           recommendationLevel: journal.recommendationLevel,
           editorialScore: journal.editorialScore,
+          isChosen: false,
           matchedIndexers: journal.matchedSelectedIndexers,
           detectedIndexers: journal.detectedIndexers,
           isOpenAccess: journal.isOpenAccess,
@@ -808,6 +828,8 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
         detected_indexers: journal.detectedIndexers,
         editorial_score: journal.editorialScore,
         is_favorite: shortlistedByJournalId.get(journal.id)?.is_favorite ?? false,
+        chosen_for_submission: shortlistedByJournalId.get(journal.id)?.chosen_for_submission ?? false,
+        chosen_at: shortlistedByJournalId.get(journal.id)?.chosen_at ?? null,
         created_by: user.id
       };
 
@@ -823,7 +845,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
 
       setSavedShortlist((current) => {
         const next = current.filter((entry) => entry.id !== data.id && entry.journal_id !== data.journal_id);
-        return [data, ...next].sort((left, right) => right.editorial_score - left.editorial_score);
+        return sortShortlistEntries([data, ...next]);
       });
     } catch (error) {
       setSearchMessage(error instanceof Error ? error.message : "Erro ao salvar shortlist.");
@@ -852,9 +874,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
     }
 
     setSavedShortlist((current) =>
-      current
-        .map((entry) => (entry.id === entryId ? data : entry))
-        .sort((left, right) => right.editorial_score - left.editorial_score)
+      sortShortlistEntries(current.map((entry) => (entry.id === entryId ? data : entry)))
     );
   };
 
@@ -866,7 +886,35 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
       throw new Error(error.message);
     }
 
-    setSavedShortlist((current) => current.filter((entry) => entry.id !== entryId));
+    setSavedShortlist((current) => sortShortlistEntries(current.filter((entry) => entry.id !== entryId)));
+  };
+
+  const chooseSubmissionTarget = async (entry: SavedShortlist) => {
+    if (!selectedArticle) {
+      return;
+    }
+
+    const supabase = getSupabaseClient();
+    const chosenAt = new Date().toISOString();
+
+    const { error: clearError } = await supabase
+      .from("periodicos_shortlists")
+      .update({
+        chosen_for_submission: false,
+        updated_at: chosenAt
+      })
+      .eq("artigo_id", selectedArticle.id)
+      .neq("id", entry.id);
+
+    if (clearError) {
+      throw new Error(clearError.message);
+    }
+
+    await updateShortlistEntry(entry.id, {
+      chosen_for_submission: true,
+      chosen_at: chosenAt,
+      is_favorite: true
+    });
   };
 
   const handleCopyShortlistReport = async () => {
@@ -1015,6 +1063,10 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
             <article>
               <strong>{favoriteCount}</strong>
               <span>favoritas</span>
+            </article>
+            <article>
+              <strong>{chosenCount}</strong>
+              <span>revista-alvo</span>
             </article>
             <article>
               <strong>{needsValidationCount}</strong>
@@ -1236,6 +1288,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
               <span>{savedShortlist.filter((entry) => entry.recommendation_level === "candidata_moderada").length} moderadas</span>
               <span>{savedShortlist.filter((entry) => entry.recommendation_level === "precisa_validar").length} a validar</span>
               <span>{favoriteCount} favoritas</span>
+              <span>{chosenCount} revista-alvo</span>
             </div>
           ) : null}
 
@@ -1290,6 +1343,9 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                     <span className="muted">Score editorial: {entry.editorial_score}</span>
                     <span className="muted">Indexadores priorizados: {entry.matched_indexers.length}</span>
                     <span className="muted">{entry.is_favorite ? "Favorita" : "Ainda não favorita"}</span>
+                    <span className="muted">
+                      {entry.chosen_for_submission ? "Revista-alvo definida" : "Ainda não definida como alvo"}
+                    </span>
                     <span className="muted">
                       Checklist: {progress.completed}/{progress.total}
                     </span>
@@ -1398,6 +1454,14 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                       onClick={() => void updateShortlistEntry(entry.id, { is_favorite: !entry.is_favorite })}
                     >
                       {entry.is_favorite ? "Remover favorita" : "Marcar favorita"}
+                    </button>
+
+                    <button
+                      className={entry.chosen_for_submission ? "button button-primary" : "button button-secondary"}
+                      type="button"
+                      onClick={() => void chooseSubmissionTarget(entry)}
+                    >
+                      {entry.chosen_for_submission ? "Revista-alvo definida" : "Definir como revista-alvo"}
                     </button>
 
                     <button
@@ -1556,6 +1620,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                       <span>{formatRecommendationLevel(journal.recommendationLevel)}</span>
                       <span>OA {journal.isOpenAccess ? "sim" : "não"}</span>
                       {journal.readinessPercent !== undefined ? <span>Prontidão {journal.readinessPercent}%</span> : null}
+                      <span>{journal.isChosen ? "Revista-alvo" : "Comparação"}</span>
                     </div>
                     <div style={{ display: "grid", gap: "6px" }}>
                       <strong>Indexadores aderentes</strong>

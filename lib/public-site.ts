@@ -8,10 +8,10 @@ export const publicNavLinks = [
 ] as const;
 
 export const labStats = [
-  { icon: "01", value: "12", label: "Pesquisadores Ativos" },
+  { icon: "01", value: "12", label: "Pesquisadores ativos" },
   { icon: "02", value: "47", label: "Publicações" },
-  { icon: "03", value: "5", label: "Artigos em Projeto" },
-  { icon: "04", value: "$2.3M", label: "Active Funding" }
+  { icon: "03", value: "5", label: "Artigos em projeto" },
+  { icon: "04", value: "$2.3M", label: "Financiamento ativo" }
 ];
 
 export const weblabTools = [

@@ -1707,7 +1707,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     }
 
     if (commentsError || versionsResult.error) {
-      setCommentMessage(commentsError?.message ?? versionsResult.error?.message ?? "Erro ao carregar revisao.");
+      setCommentMessage(commentsError?.message ?? versionsResult.error?.message ?? "Erro ao carregar revisão.");
       setIsLoadingReviewData(false);
       return;
     }
@@ -2088,19 +2088,19 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
 
     const excerpt = editor.state.doc.textBetween(from, to, " ").replace(/\s+/g, " ").trim();
     if (!excerpt) {
-      setCommentMessage("Nao consegui capturar texto util nessa selecao.");
+      setCommentMessage("Não consegui capturar texto útil nessa seleção.");
       setCognitiveTab("revisao");
       return;
     }
 
     setSelectedExcerpt(excerpt.slice(0, 420));
-    setCommentMessage("Trecho capturado. Agora escreva o comentario.");
+    setCommentMessage("Trecho capturado. Agora escreva o comentário.");
     setCognitiveTab("revisao");
   };
 
   const saveComment = async () => {
     if (!currentUser) {
-      setCommentMessage("Nao consegui identificar seu usuario para salvar o comentario.");
+      setCommentMessage("Não consegui identificar seu usuário para salvar o comentário.");
       return;
     }
 
@@ -2113,7 +2113,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     }
 
     if (!trimmedComment) {
-      setCommentMessage("Escreva o comentario antes de salvar.");
+      setCommentMessage("Escreva o comentário antes de salvar.");
       return;
     }
 
@@ -2136,7 +2136,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
 
     setCommentDraft("");
     setSelectedExcerpt("");
-    setCommentMessage("Comentario salvo na revisao do manuscrito.");
+    setCommentMessage("Comentário salvo na revisão do manuscrito.");
     await loadReviewData();
     setIsSavingComment(false);
   };
@@ -2161,7 +2161,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
       return;
     }
 
-    setCommentMessage(resolve ? "Comentario marcado como resolvido." : "Comentario reaberto.");
+    setCommentMessage(resolve ? "Comentário marcado como resolvido." : "Comentário reaberto.");
     await loadReviewData();
   };
 
@@ -2189,7 +2189,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
       return false;
     }
 
-    setVersionMessage("Versao salva no historico do manuscrito.");
+    setVersionMessage("Versão salva no histórico do manuscrito.");
     setVersionNote("");
     await loadReviewData();
     setIsSavingVersion(false);
@@ -2205,7 +2205,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     setVersionMessage(null);
 
     await saveVersionSnapshot(
-      `Backup automatico antes de restaurar a versao de ${formatRelativeUpdate(version.created_at)}.`
+      `Backup automático antes de restaurar a versão de ${formatRelativeUpdate(version.created_at)}.`
     );
 
     const nextTitle = version.titulo_snapshot.trim() || "Sem titulo";
@@ -2241,7 +2241,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
       conteudo_json: nextContent,
       status: nextStatus
     });
-    setVersionMessage("Versao restaurada com sucesso.");
+    setVersionMessage("Versão restaurada com sucesso.");
     await loadReviewData();
     setRestoringVersionId(null);
   };
@@ -2752,7 +2752,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                 onClick={() => setCognitiveTab("revisao")}
                 type="button"
               >
-                Revisao
+                Revisão
               </button>
             </div>
 
@@ -3047,11 +3047,11 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                 <div className="editor-cognitive-stat-grid">
                   <article>
                     <strong>{unresolvedComments.length}</strong>
-                    <span>comentarios em aberto</span>
+                    <span>comentários em aberto</span>
                   </article>
                   <article>
                     <strong>{versions.length}</strong>
-                    <span>versoes salvas</span>
+                    <span>versões salvas</span>
                   </article>
                 </div>
 
@@ -3076,7 +3076,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                   <textarea
                     className="editor-inline-textarea"
                     onChange={(event) => setCommentDraft(event.target.value)}
-                    placeholder="Ex.: justificar melhor este argumento, inserir fonte primaria, rever recorte metodologico..."
+                    placeholder="Ex.: justificar melhor este argumento, inserir fonte primária, rever recorte metodológico..."
                     rows={4}
                     value={commentDraft}
                   />
@@ -3087,7 +3087,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                       onClick={() => void saveComment()}
                       type="button"
                     >
-                      {isSavingComment ? "Salvando comentario..." : "Salvar comentario"}
+                      {isSavingComment ? "Salvando comentário..." : "Salvar comentário"}
                     </button>
                     {commentMessage ? <span className="muted">{commentMessage}</span> : null}
                   </div>
@@ -3095,15 +3095,15 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
 
                 <div className="editor-cognitive-block">
                   <div className="editor-cognitive-block-title">
-                    <strong>Comentarios do manuscrito</strong>
+                    <strong>Comentários do manuscrito</strong>
                     <span className="editor-reference-status">
                       {unresolvedComments.length} abertos · {resolvedComments} resolvidos
                     </span>
                   </div>
                   {isLoadingReviewData ? (
-                    <p className="muted">Carregando comentarios e versoes...</p>
+                    <p className="muted">Carregando comentários e versões...</p>
                   ) : comments.length === 0 ? (
-                    <p className="muted">Ainda nao ha comentarios nesse manuscrito.</p>
+                    <p className="muted">Ainda não há comentários nesse manuscrito.</p>
                   ) : (
                     <div className="editor-review-comment-list">
                       {comments.map((comment) => {
@@ -3121,7 +3121,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                               <strong>{comment.authorName}</strong>
                               <span>{formatRelativeUpdate(comment.created_at)}</span>
                             </div>
-                            <blockquote>{comment.trecho || "Trecho nao informado."}</blockquote>
+                            <blockquote>{comment.trecho || "Trecho não informado."}</blockquote>
                             <p>{comment.comentario}</p>
                             {comment.resolvido_em ? (
                               <small>
@@ -3129,7 +3129,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                                 {formatRelativeUpdate(comment.resolvido_em)}.
                               </small>
                             ) : (
-                              <small>Aberto para revisao da equipe.</small>
+                              <small>Aberto para revisão da equipe.</small>
                             )}
                             {canResolve ? (
                               <div className="editor-review-actions">
@@ -3151,7 +3151,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
 
                 <div className="editor-cognitive-block">
                   <div className="editor-cognitive-block-title">
-                    <strong>Historico de versoes</strong>
+                    <strong>Histórico de versões</strong>
                     <button
                       className="button button-secondary"
                       disabled={isSavingVersion || !canEdit}
@@ -3165,20 +3165,20 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                     className="editor-inline-input"
                     disabled={!canEdit}
                     onChange={(event) => setVersionNote(event.target.value)}
-                    placeholder="Observacao opcional da versao (ex.: revisao do resumo, ajuste metodologico...)"
+                    placeholder="Observação opcional da versão (ex.: revisão do resumo, ajuste metodológico...)"
                     value={versionNote}
                   />
                   {versionMessage ? <p className="muted">{versionMessage}</p> : null}
                   {!canEdit ? (
-                    <p className="muted">O historico detalhado de versoes fica disponivel apenas para a equipe autora.</p>
+                    <p className="muted">O histórico detalhado de versões fica disponível apenas para a equipe autora.</p>
                   ) : versions.length === 0 ? (
-                    <p className="muted">Ainda nao ha snapshots salvos deste manuscrito.</p>
+                    <p className="muted">Ainda não há snapshots salvos deste manuscrito.</p>
                   ) : (
                     <div className="editor-version-list">
                       {versions.map((version) => (
                         <article className="editor-version-card" key={version.id}>
                           <div className="editor-comment-meta">
-                            <strong>{version.observacao || "Versao sem observacao"}</strong>
+                            <strong>{version.observacao || "Versão sem observação"}</strong>
                             <span>{formatRelativeUpdate(version.created_at)}</span>
                           </div>
                           <p>

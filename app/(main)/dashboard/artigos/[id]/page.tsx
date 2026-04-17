@@ -59,7 +59,7 @@ function getSubmissionReadiness(entry: SavedShortlist) {
   }
 
   if (percent >= 50) {
-    return { percent, label: "em validacao" };
+    return { percent, label: "em validação" };
   }
 
   return { percent, label: "triagem inicial" };
@@ -109,7 +109,7 @@ export default function ArticleSubmissionPage() {
 
       if (!articleResult.data || articleResult.error) {
         if (isMounted) {
-          setErrorMessage(articleResult.error?.message ?? "Nao foi possivel carregar o manuscrito.");
+          setErrorMessage(articleResult.error?.message ?? "Não foi possível carregar o manuscrito.");
           setIsLoading(false);
         }
         return;
@@ -207,6 +207,10 @@ export default function ArticleSubmissionPage() {
     }
 
     return [...shortlist].sort((left, right) => {
+      if (left.chosen_for_submission !== right.chosen_for_submission) {
+        return Number(right.chosen_for_submission) - Number(left.chosen_for_submission);
+      }
+
       if (left.is_favorite !== right.is_favorite) {
         return Number(right.is_favorite) - Number(left.is_favorite);
       }
@@ -231,14 +235,14 @@ export default function ArticleSubmissionPage() {
       detail: article ? `${formatStatusLabel(article.status)} · ${wordCount} palavras` : "Sem manuscrito carregado"
     },
     {
-      label: "Revista priorizada",
+      label: "Revista-alvo",
       done: Boolean(prioritizedJournal),
-      detail: prioritizedJournal ? prioritizedJournal.journal_title : "Ainda sem candidata principal"
+      detail: prioritizedJournal ? prioritizedJournal.journal_title : "Ainda sem revista-alvo definida"
     },
     {
       label: "Checklist editorial",
       done: Boolean(editorialProgress && editorialProgress.percent >= 84),
-      detail: editorialProgress ? `${editorialProgress.percent}% · ${editorialProgress.label}` : "Ainda nao iniciado"
+      detail: editorialProgress ? `${editorialProgress.percent}% · ${editorialProgress.label}` : "Ainda não iniciado"
     },
     {
       label: "Triagem vinculada",
@@ -246,9 +250,9 @@ export default function ArticleSubmissionPage() {
       detail: screeningSets.length > 0 ? `${screeningSets.length} conjunto(s) conectado(s)` : "Nenhuma triagem ligada ao artigo"
     },
     {
-      label: "Comentarios pendentes",
+      label: "Comentários pendentes",
       done: unresolvedComments.length === 0,
-      detail: unresolvedComments.length === 0 ? "Sem pontos abertos" : `${unresolvedComments.length} comentario(s) em aberto`
+      detail: unresolvedComments.length === 0 ? "Sem pontos abertos" : `${unresolvedComments.length} comentário(s) em aberto`
     },
     {
       label: "Plataforma Brasil",
@@ -259,13 +263,13 @@ export default function ArticleSubmissionPage() {
         ? [
             checklist.tcle_gerado ? "TCLE" : null,
             checklist.cronograma_pronto ? "Cronograma" : null,
-            checklist.orcamento_detalhado ? "Orcamento" : null
+            checklist.orcamento_detalhado ? "Orçamento" : null
           ]
             .filter(Boolean)
-            .join(" · ") || "Checklist ainda nao preenchido"
+            .join(" · ") || "Checklist ainda não preenchido"
         : canEdit
-          ? "Checklist ainda nao preenchido"
-          : "Visivel apenas para a equipe autora"
+          ? "Checklist ainda não preenchido"
+          : "Visível apenas para a equipe autora"
     }
   ];
 
@@ -276,8 +280,8 @@ export default function ArticleSubmissionPage() {
           <div className="lovable-container">
             <article className="project-public-card">
               <div className="project-public-body">
-                <h3>Carregando painel de submissao...</h3>
-                <p>Organizando revista-alvo, revisao, triagem e prontidao do manuscrito.</p>
+                <h3>Carregando painel de submissão...</h3>
+                <p>Organizando revista-alvo, revisão, triagem e prontidão do manuscrito.</p>
               </div>
             </article>
           </div>
@@ -293,7 +297,7 @@ export default function ArticleSubmissionPage() {
           <div className="lovable-container">
             <article className="project-public-card">
               <div className="project-public-body">
-                <h3>Nao foi possivel abrir o painel</h3>
+                <h3>Não foi possível abrir o painel</h3>
                 <p>{errorMessage ?? "Erro inesperado ao carregar o manuscrito."}</p>
                 <div className="project-public-actions">
                   <Link href="/dashboard/artigos">Voltar para artigos →</Link>
@@ -312,12 +316,12 @@ export default function ArticleSubmissionPage() {
         <div className="lovable-container" style={{ display: "grid", gap: "18px" }}>
           <div className="public-section-head-row">
             <div>
-              <span className="eyebrow">painel de submissao</span>
+              <span className="eyebrow">painel de submissão</span>
               <h1 className="public-section-title" style={{ marginTop: "8px" }}>
                 {article.titulo}
               </h1>
               <p className="public-section-kicker">
-                Um lugar para decidir revista-alvo, acompanhar triagem, fechar revisao e reduzir atrito antes da submissao.
+                Um lugar para decidir revista-alvo, acompanhar triagem, fechar revisão e reduzir atrito antes da submissão.
               </p>
             </div>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
@@ -372,7 +376,7 @@ export default function ArticleSubmissionPage() {
             </article>
             <article className="lovable-stat-card">
               <strong>{unresolvedComments.length}</strong>
-              <span>comentarios em aberto</span>
+              <span>comentários em aberto</span>
             </article>
           </div>
         </div>
@@ -386,8 +390,8 @@ export default function ArticleSubmissionPage() {
               <h2>{prioritizedJournal ? prioritizedJournal.journal_title : "Defina uma candidata principal"}</h2>
               <p>
                 {prioritizedJournal
-                  ? `Hoje o WebLab colocaria essa revista na frente da fila por favoritação, score e prontidao editorial.`
-                  : "Ainda nao existe uma revista priorizada. O proximo melhor passo e salvar candidatas na shortlist do radar."}
+                  ? `Hoje o WebLab colocaria essa revista na frente da fila por escolha explícita, favoritação, score e prontidão editorial.`
+                  : "Ainda não existe uma revista-alvo. O próximo melhor passo é salvar candidatas na shortlist do radar."}
               </p>
               {prioritizedJournal ? (
                 <div style={{ display: "grid", gap: "10px" }}>
@@ -403,7 +407,7 @@ export default function ArticleSubmissionPage() {
                   <p style={{ margin: 0 }}>
                     {prioritizedJournal.editorial_notes?.trim()
                       ? prioritizedJournal.editorial_notes
-                      : "Ainda nao ha notas da equipe sobre essa candidata."}
+                      : "Ainda não há notas da equipe sobre essa candidata."}
                   </p>
                   <div className="project-public-actions">
                     <Link href="/dashboard/periodicos">Abrir shortlist →</Link>
@@ -418,7 +422,7 @@ export default function ArticleSubmissionPage() {
             </article>
 
             <article className="publication-feature-card">
-              <span className="eyebrow">cadeia de prontidao</span>
+              <span className="eyebrow">cadeia de prontidão</span>
               <h2>O que ainda falta fechar</h2>
               <div className="knowledge-connection-list">
                 {summarySteps.map((step) => (
@@ -437,8 +441,8 @@ export default function ArticleSubmissionPage() {
         <div className="lovable-container">
           <div className="public-section-head-row">
             <div>
-              <h2 className="public-section-title">Evidencias e revisao</h2>
-              <p className="public-section-kicker">O que ja foi triado e o que ainda esta aberto no manuscrito.</p>
+              <h2 className="public-section-title">Evidências e revisão</h2>
+              <p className="public-section-kicker">O que já foi triado e o que ainda está aberto no manuscrito.</p>
             </div>
           </div>
 
@@ -447,7 +451,7 @@ export default function ArticleSubmissionPage() {
               <span className="eyebrow">triagem</span>
               <h3>Conjuntos vinculados</h3>
               {screeningSets.length === 0 ? (
-                <p className="muted">Nenhuma triagem vinculada ainda. Vale capturar evidencias para sustentar introducao e discussao.</p>
+                <p className="muted">Nenhuma triagem vinculada ainda. Vale capturar evidências para sustentar introdução e discussão.</p>
               ) : (
                 <div className="knowledge-connection-list">
                   {screeningSets.map((set) => (
@@ -461,10 +465,10 @@ export default function ArticleSubmissionPage() {
             </article>
 
             <article className="knowledge-panel">
-              <span className="eyebrow">revisao</span>
-              <h3>Comentarios em aberto</h3>
+              <span className="eyebrow">revisão</span>
+              <h3>Comentários em aberto</h3>
               {comments.length === 0 ? (
-                <p className="muted">Ainda nao ha comentarios nesse manuscrito.</p>
+                <p className="muted">Ainda não há comentários nesse manuscrito.</p>
               ) : (
                 <div className="knowledge-connection-list">
                   {comments.slice(0, 5).map((comment) => (
@@ -486,21 +490,21 @@ export default function ArticleSubmissionPage() {
         <div className="lovable-container">
           <div className="public-section-head-row">
             <div>
-              <h2 className="public-section-title">Historico e submissao</h2>
-              <p className="public-section-kicker">Versoes salvas, checklist institucional e proximos movimentos.</p>
+              <h2 className="public-section-title">Histórico e submissão</h2>
+              <p className="public-section-kicker">Versões salvas, checklist institucional e próximos movimentos.</p>
             </div>
           </div>
 
           <div className="lab-memory-grid">
             <article className="lab-memory-card">
-              <span className="eyebrow">versoes</span>
+              <span className="eyebrow">versões</span>
               <strong>{versions.length}</strong>
-              <p>Snapshots salvos do manuscrito. Esse historico detalhado aparece apenas para a equipe autora.</p>
+              <p>Snapshots salvos do manuscrito. Esse histórico detalhado aparece apenas para a equipe autora.</p>
               {versions.length > 0 ? (
                 <div className="lab-memory-list">
                   {versions.slice(0, 4).map((version) => (
                     <span key={version.id}>
-                      {version.observacao || "Versao manual"} · {formatRelativeUpdate(version.created_at)}
+                      {version.observacao || "Versão manual"} · {formatRelativeUpdate(version.created_at)}
                     </span>
                   ))}
                 </div>
@@ -517,13 +521,13 @@ export default function ArticleSubmissionPage() {
               </strong>
               <p>
                 {canEdit
-                  ? "TCLE, cronograma e orcamento ajudam a fechar o lado burocratico antes de submeter."
+                  ? "TCLE, cronograma e orçamento ajudam a fechar o lado burocrático antes de submeter."
                   : "Esse checklist institucional fica reservado para a equipe autora."}
               </p>
               <div className="lab-memory-list">
                 <span>TCLE {checklist?.tcle_gerado ? "ok" : "pendente"}</span>
                 <span>Cronograma {checklist?.cronograma_pronto ? "ok" : "pendente"}</span>
-                <span>Orcamento {checklist?.orcamento_detalhado ? "ok" : "pendente"}</span>
+                <span>Orçamento {checklist?.orcamento_detalhado ? "ok" : "pendente"}</span>
               </div>
             </article>
 
@@ -532,16 +536,16 @@ export default function ArticleSubmissionPage() {
               <strong>
                 {prioritizedJournal
                   ? editorialProgress && editorialProgress.percent >= 84
-                    ? "Decidir submissao"
+                    ? "Decidir submissão"
                     : "Fechar checklist editorial"
                   : "Escolher revista"}
               </strong>
               <p>
                 {prioritizedJournal
                   ? editorialProgress && editorialProgress.percent >= 84
-                    ? "A candidata principal ja esta quase pronta. Vale revisar comentarios finais e fechar a decisao."
-                    : "A revista-alvo ja existe, mas ainda faltam validacoes antes da decisao final."
-                  : "O artigo ja tem base suficiente para rodar uma busca mais seria no radar de periodicos."}
+                    ? "A candidata principal já está quase pronta. Vale revisar comentários finais e fechar a decisão."
+                    : "A revista-alvo já existe, mas ainda faltam validações antes da decisão final."
+                  : "O artigo já tem base suficiente para rodar uma busca mais séria no radar de periódicos."}
               </p>
               <div className="project-public-actions">
                 <Link href="/dashboard/periodicos">Abrir radar editorial →</Link>

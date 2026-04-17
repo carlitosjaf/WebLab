@@ -333,7 +333,7 @@ export function DashboardShell({
                         onClick={() => router.push(`/dashboard/artigos/${article.id}` as Route)}
                         type="button"
                       >
-                        Painel de submissao
+                        Painel de submiss?o
                       </button>
                       {canDeleteArticle(article) ? (
                         <button

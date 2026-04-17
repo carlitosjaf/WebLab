@@ -83,6 +83,8 @@ create table if not exists public.periodicos_shortlists (
 
 alter table public.periodicos_shortlists
   add column if not exists editorial_notes text not null default '',
+  add column if not exists chosen_for_submission boolean not null default false,
+  add column if not exists chosen_at timestamptz,
   add column if not exists escopo_conferido boolean not null default false,
   add column if not exists indexadores_confirmados boolean not null default false,
   add column if not exists taxas_conferidas boolean not null default false,

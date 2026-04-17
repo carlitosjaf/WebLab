@@ -227,6 +227,8 @@ export type Database = {
           detected_indexers: string[];
           editorial_score: number;
           is_favorite: boolean;
+          chosen_for_submission: boolean;
+          chosen_at: string | null;
           editorial_notes: string;
           escopo_conferido: boolean;
           indexadores_confirmados: boolean;
@@ -250,6 +252,8 @@ export type Database = {
           detected_indexers?: string[];
           editorial_score?: number;
           is_favorite?: boolean;
+          chosen_for_submission?: boolean;
+          chosen_at?: string | null;
           editorial_notes?: string;
           escopo_conferido?: boolean;
           indexadores_confirmados?: boolean;
@@ -270,6 +274,8 @@ export type Database = {
           detected_indexers?: string[];
           editorial_score?: number;
           is_favorite?: boolean;
+          chosen_for_submission?: boolean;
+          chosen_at?: string | null;
           editorial_notes?: string;
           escopo_conferido?: boolean;
           indexadores_confirmados?: boolean;

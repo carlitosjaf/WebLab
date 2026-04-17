@@ -121,7 +121,7 @@ export default function ResearchPage() {
   return (
     <main className="lovable-home">
       <PublicPageHero
-        description="Ferramentas para escrever, organizar, validar periÃ³dicos e preparar a submissÃ£o cientÃ­fica."
+        description="Ferramentas para escrever, organizar, validar periódicos e preparar a submissão científica."
         title="Ferramentas do WebLab"
         variant="research"
       />
@@ -154,31 +154,31 @@ export default function ResearchPage() {
             <div>
               <h2 className="public-section-title">Rede de conhecimento</h2>
               <p className="public-section-kicker">
-                Conceitos e pontes detectados nos manuscritos visÃ­veis para a equipe.
+                Conceitos e pontes detectados nos manuscritos visíveis para a equipe.
               </p>
             </div>
           </div>
 
           {articles.length < 2 ? (
             <article className="knowledge-empty-card">
-              <strong>Rede em formaÃ§Ã£o</strong>
+              <strong>Rede em formação</strong>
               <p>
-                Quando houver pelo menos dois manuscritos acessÃ­veis, o WebLab comeÃ§arÃ¡ a sugerir
-                relaÃ§Ãµes entre temas, conceitos e projetos.
+                Quando houver pelo menos dois manuscritos acessíveis, o WebLab começará a sugerir
+                relações entre temas, conceitos e projetos.
               </p>
             </article>
           ) : (
             <div className="knowledge-network-grid">
               <article className="knowledge-panel">
                 <span className="eyebrow">temas recorrentes</span>
-                <h3>O que atravessa os manuscritos visÃ­veis</h3>
+                <h3>O que atravessa os manuscritos visíveis</h3>
                 {knowledgeMap.concepts.length === 0 ? (
-                  <p className="muted">Ainda nÃ£o hÃ¡ termos recorrentes fortes entre os manuscritos.</p>
+                  <p className="muted">Ainda não há termos recorrentes fortes entre os manuscritos.</p>
                 ) : (
                   <div className="knowledge-chip-list">
                     {knowledgeMap.concepts.map((concept) => (
                       <span key={concept.term} title={concept.articleTitles.join(", ")}>
-                        {concept.term} Â· {concept.articleIds.length} texto(s)
+                        {concept.term} · {concept.articleIds.length} texto(s)
                       </span>
                     ))}
                   </div>
@@ -189,13 +189,13 @@ export default function ResearchPage() {
                 <span className="eyebrow">pontes entre artigos</span>
                 <h3>Manuscritos que podem conversar</h3>
                 {knowledgeMap.connections.length === 0 ? (
-                  <p className="muted">NÃ£o encontrei conexÃµes fortes entre os artigos atuais.</p>
+                  <p className="muted">Não encontrei conexões fortes entre os artigos atuais.</p>
                 ) : (
                   <div className="knowledge-connection-list">
                     {knowledgeMap.connections.map((connection) => (
                       <div key={connection.id}>
                         <strong>
-                          {connection.leftArticle.titulo} â†” {connection.rightArticle.titulo}
+                          {connection.leftArticle.titulo} ↔ {connection.rightArticle.titulo}
                         </strong>
                         <small>{connection.sharedTerms.join(", ")}</small>
                         <div>
@@ -216,9 +216,9 @@ export default function ResearchPage() {
         <div className="lovable-container">
           <div className="public-section-head-row">
             <div>
-              <h2 className="public-section-title">MemÃ³ria do laboratÃ³rio</h2>
+              <h2 className="public-section-title">Memória do laboratório</h2>
               <p className="public-section-kicker">
-                Um resumo vivo do que a equipe jÃ¡ escreveu, avaliou e comeÃ§ou a triar.
+                Um resumo vivo do que a equipe já escreveu, avaliou e começou a triar.
               </p>
             </div>
             <Link className="lovable-small-button" href="/dashboard/triagem">
@@ -230,7 +230,7 @@ export default function ResearchPage() {
             <article className="lab-memory-card">
               <span className="eyebrow">temas recorrentes</span>
               <strong>{labMemory.recurringConcepts.length}</strong>
-              <p>Conceitos detectados nos manuscritos acessÃ­veis.</p>
+              <p>Conceitos detectados nos manuscritos acessíveis.</p>
               {labMemory.recurringConcepts.length > 0 ? (
                 <div className="knowledge-chip-list">
                   {labMemory.recurringConcepts.map((concept) => (
@@ -244,8 +244,8 @@ export default function ResearchPage() {
               <span className="eyebrow">radar editorial</span>
               <strong>{labMemory.uniqueJournals.length}</strong>
               <p>
-                Revistas jÃ¡ passaram pela shortlist. {labMemory.strongCandidates} aparecem como candidatas fortes e{" "}
-                {labMemory.favoriteJournals} estÃ£o favoritas.
+                Revistas já passaram pela shortlist. {labMemory.strongCandidates} aparecem como candidatas fortes e{" "}
+                {labMemory.favoriteJournals} estão favoritas.
               </p>
               {labMemory.uniqueJournals.length > 0 ? (
                 <div className="lab-memory-list">
@@ -254,12 +254,12 @@ export default function ResearchPage() {
                   ))}
                 </div>
               ) : (
-                <Link href="/dashboard/periodicos">Abrir radar editorial â†’</Link>
+                <Link href="/dashboard/periodicos">Abrir radar editorial →</Link>
               )}
             </article>
 
             <article className="lab-memory-card">
-              <span className="eyebrow">evidÃªncias</span>
+              <span className="eyebrow">evidências</span>
               <strong>{labMemory.screeningSetsCount}</strong>
               <p>Conjuntos de triagem vinculados aos manuscritos da equipe.</p>
               {screeningSets.length > 0 ? (
@@ -269,7 +269,7 @@ export default function ResearchPage() {
                   ))}
                 </div>
               ) : (
-                <Link href="/dashboard/triagem">Criar conjunto de triagem â†’</Link>
+                <Link href="/dashboard/triagem">Criar conjunto de triagem →</Link>
               )}
             </article>
           </div>
@@ -291,7 +291,7 @@ export default function ResearchPage() {
             <article className="project-public-card">
               <div className="project-public-body">
                 <h3>Carregando artigos...</h3>
-                <p>Sincronizando os manuscritos visÃ­veis para a equipe.</p>
+                <p>Sincronizando os manuscritos visíveis para a equipe.</p>
               </div>
             </article>
           ) : null}
@@ -299,10 +299,10 @@ export default function ResearchPage() {
           {!isLoading && articles.length === 0 ? (
             <article className="project-public-card">
               <div className="project-public-body">
-                <h3>Nenhum artigo acessÃ­vel</h3>
+                <h3>Nenhum artigo acessível</h3>
                 <p>Crie o primeiro manuscrito pela Home ou acompanhe artigos compartilhados por outras equipes.</p>
                 <div className="project-public-actions">
-                  <Link href="/dashboard">Criar manuscrito â†’</Link>
+                  <Link href="/dashboard">Criar manuscrito →</Link>
                 </div>
               </div>
             </article>
@@ -324,7 +324,7 @@ export default function ResearchPage() {
                       </div>
                       <div className="project-public-meta">
                         <span>{countArticleWords(article.conteudo_json)} palavra(s)</span>
-                        <span>â€¢</span>
+                        <span>•</span>
                         <span>{formatRelativeUpdate(article.updated_at)}</span>
                       </div>
                       {teamName ? (
@@ -351,7 +351,7 @@ export default function ResearchPage() {
                       </p>
                       <div className="project-public-actions">
                         <Link href={`/editor/${article.id}`}>Abrir no editor</Link>
-                        <Link href={`/dashboard/artigos/${article.id}` as Route}>Painel de submissao</Link>
+                        <Link href={`/dashboard/artigos/${article.id}` as Route}>Painel de submissão</Link>
                         <Link href="/dashboard/periodicos">Radar editorial</Link>
                       </div>
                     </div>

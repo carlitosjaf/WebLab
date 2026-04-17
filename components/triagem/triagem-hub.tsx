@@ -633,7 +633,7 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
       setImportText("");
       setMessage(`${payload.studies.length} estudo(s) importado(s) via ${payload.format.toUpperCase()}.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Nao foi possivel importar a base agora.");
+      setMessage(error instanceof Error ? error.message : "N?o foi poss?vel importar a base agora.");
     } finally {
       setIsImporting(false);
     }
