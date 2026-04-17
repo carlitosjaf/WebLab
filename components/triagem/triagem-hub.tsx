@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
+import type { Route } from "next";
 
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { parseEvidenceImport } from "@/lib/triagem-import";
@@ -398,6 +399,13 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
     });
   }, [conflictStudyIds, duplicateStudyIds, reviewsByStudy, studies, studyFilter]);
 
+  const captureDuplicateCount = useMemo(
+    () => captureResults.filter((study) => savedDuplicateKeys.has(getStudyDuplicateKey(study))).length,
+    [captureResults, savedDuplicateKeys]
+  );
+  const reviewedCount = studies.length - decisionSummary.pendente;
+  const includedForReadingCount = decisionSummary.incluir + decisionSummary.talvez;
+
   useEffect(() => {
     if (!selectedArticleId) {
       return;
@@ -624,7 +632,7 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
       const payload = parseEvidenceImport(content, label ?? "");
 
       if (!payload.studies.length) {
-        setMessage("Nenhum estudo legivel foi encontrado no arquivo importado.");
+        setMessage("Nenhum estudo legível foi encontrado no arquivo importado.");
         return;
       }
 
@@ -633,7 +641,7 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
       setImportText("");
       setMessage(`${payload.studies.length} estudo(s) importado(s) via ${payload.format.toUpperCase()}.`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "N?o foi poss?vel importar a base agora.");
+      setMessage(error instanceof Error ? error.message : "Não foi possível importar a base agora.");
     } finally {
       setIsImporting(false);
     }
@@ -849,28 +857,28 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
   };
 
   return (
-    <main className="lovable-home triagem-page">
-      <section className="hero-panel triagem-hero">
+    <main className="lovable-home triagem-page triagem-page-v2">
+      <section className="hero-panel triagem-hero triagem-hero-v2">
         <div className="hero-panel-content">
           <span className="eyebrow">triagem de evidências</span>
-          <h1>Capture, deduplique e decida sem sair do WebLab.</h1>
+          <h1>Uma mesa de leitura para captar, filtrar e decidir com método.</h1>
           <p>
-            Um primeiro fluxo interno para revisões: buscar estudos, salvar candidatos, registrar decisões
-            e preparar números iniciais do PRISMA.
+            A triagem agora funciona em sequência: preparar o conjunto, trazer estudos, decidir o que
+            segue e fechar conflitos com rastreabilidade.
           </p>
         </div>
-        <div className="periodicos-hero-metrics">
+        <div className="periodicos-hero-metrics triagem-hero-metrics-v2">
           <article>
             <strong>{prismaSnapshot.captados}</strong>
             <span>captados</span>
           </article>
           <article>
-            <strong>{prismaSnapshot.triados}</strong>
-            <span>triados</span>
+            <strong>{reviewedCount}</strong>
+            <span>já revisados</span>
           </article>
           <article>
-            <strong>{prismaSnapshot.finalIncluded}</strong>
-            <span>incluídos finais</span>
+            <strong>{includedForReadingCount}</strong>
+            <span>seguem para leitura</span>
           </article>
           <article>
             <strong>{prismaSnapshot.duplicados}</strong>
@@ -884,39 +892,63 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
       </section>
 
       <section className="public-content-section">
-        <div className="lovable-container triagem-grid">
-          <aside className="triagem-control-panel">
-            <label>
-              Manuscrito
-              <select value={selectedArticleId} onChange={(event) => setSelectedArticleId(event.target.value)}>
-                {articles.map((article) => (
-                  <option key={article.id} value={article.id}>
-                    {article.titulo}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <div className="triagem-set-list">
-              <div>
-                <strong>Conjuntos</strong>
-                <span>{isLoadingSets ? "carregando..." : `${sets.length} conjunto(s)`}</span>
+        <div className="lovable-container triagem-workbench">
+          <aside className="triagem-sidebar">
+            <section className="triagem-sidebar-panel">
+              <span className="eyebrow">manuscrito</span>
+              <label className="triagem-field">
+                <span>Base de trabalho</span>
+                <select value={selectedArticleId} onChange={(event) => setSelectedArticleId(event.target.value)}>
+                  {articles.map((article) => (
+                    <option key={article.id} value={article.id}>
+                      {article.titulo}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="triagem-mini-stats">
+                <div>
+                  <strong>{sets.length}</strong>
+                  <span>conjuntos</span>
+                </div>
+                <div>
+                  <strong>{studies.length}</strong>
+                  <span>estudos salvos</span>
+                </div>
               </div>
-              {sets.length === 0 ? <p className="muted">Crie um conjunto para iniciar a triagem.</p> : null}
-              {sets.map((set) => (
-                <button
-                  className={set.id === activeSetId ? "active" : ""}
-                  key={set.id}
-                  onClick={() => setActiveSetId(set.id)}
-                  type="button"
-                >
-                  {set.titulo}
-                </button>
-              ))}
-            </div>
+            </section>
 
-            <div className="triagem-create-card">
-              <strong>Novo conjunto</strong>
+            <section className="triagem-sidebar-panel">
+              <div className="triagem-sidebar-head">
+                <div>
+                  <span className="eyebrow">conjuntos</span>
+                  <h2>Cadernos da revisão</h2>
+                </div>
+                <span>{isLoadingSets ? "carregando..." : sets.length + " ativo(s)"}</span>
+              </div>
+              {sets.length === 0 ? <p className="muted">Crie o primeiro conjunto para organizar critérios e decisões.</p> : null}
+              <div className="triagem-set-stack">
+                {sets.map((set) => (
+                  <button
+                    className={set.id === activeSetId ? "active" : ""}
+                    key={set.id}
+                    onClick={() => setActiveSetId(set.id)}
+                    type="button"
+                  >
+                    <strong>{set.titulo}</strong>
+                    <span>{set.pergunta || "Sem pergunta registrada"}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="triagem-sidebar-panel triagem-create-panel">
+              <div className="triagem-sidebar-head">
+                <div>
+                  <span className="eyebrow">novo conjunto</span>
+                  <h2>Preparar protocolo</h2>
+                </div>
+              </div>
               <input value={setTitle} onChange={(event) => setSetTitle(event.target.value)} placeholder="Nome do conjunto" />
               <textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Pergunta de revisão" />
               <textarea
@@ -932,200 +964,279 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
               <button className="button button-primary" disabled={!selectedArticle} onClick={createScreeningSet} type="button">
                 Criar conjunto
               </button>
-            </div>
+            </section>
           </aside>
 
-          <div className="triagem-workspace">
-            <section className="triagem-search-card">
-              <div>
-                <span className="eyebrow">captação</span>
-                <h2>Buscar estudos candidatos</h2>
-                <p>Hoje a captação usa OpenAlex. Dimensions, Scopus e WoS entram depois como fontes premium.</p>
-              </div>
-              <div className="triagem-search-row">
-                <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Tema, descritores ou pergunta" />
-                <button className="button button-primary" disabled={isCapturing} onClick={() => void captureStudies()} type="button">
-                  {isCapturing ? "Captando..." : "Captar estudos"}
-                </button>
-              </div>
-              {message ? <p className="muted">{message}</p> : null}
+          <div className="triagem-main">
+            <section className="triagem-stage-rail">
+              <article className="triagem-stage-card">
+                <span>01</span>
+                <strong>Preparar</strong>
+                <p>Escolha o manuscrito, registre a pergunta e fixe os critérios antes da captação.</p>
+              </article>
+              <article className="triagem-stage-card">
+                <span>02</span>
+                <strong>Captar</strong>
+                <p>Busque no OpenAlex ou importe RIS, BibTeX e CSV sem sair do WebLab.</p>
+              </article>
+              <article className="triagem-stage-card">
+                <span>03</span>
+                <strong>Decidir</strong>
+                <p>Classifique os estudos, remova duplicados e aplique ações em lote quando fizer sentido.</p>
+              </article>
+              <article className="triagem-stage-card">
+                <span>04</span>
+                <strong>Consolidar</strong>
+                <p>Feche conflitos, veja o funil PRISMA e exporte um relatório limpo para a equipe.</p>
+              </article>
             </section>
 
-            <section className="triagem-search-card triagem-import-card">
-              <div>
-                <span className="eyebrow">importação</span>
-                <h2>Trazer resultados de outras bases</h2>
-                <p>Importe RIS, BibTeX ou CSV para continuar a triagem sem sair do WebLab.</p>
-              </div>
-              <div className="triagem-import-actions">
-                <label className="button button-secondary triagem-file-button">
-                  Selecionar arquivo
-                  <input accept=".csv,.ris,.bib,.bibtex,.txt" onChange={handleImportFile} type="file" />
-                </label>
-                {importLabel ? <span className="triagem-import-label">Ultima base: {importLabel}</span> : null}
-              </div>
-              <textarea
-                className="triagem-import-textarea"
-                onChange={(event) => setImportText(event.target.value)}
-                placeholder="Cole aqui o conteudo RIS, BibTeX ou CSV exportado da sua base."
-                value={importText}
-              />
-              <div className="triagem-import-actions">
-                <button
-                  className="button button-secondary"
-                  disabled={isImporting || !importText.trim()}
-                  onClick={() => importStudiesFromText(importText)}
-                  type="button"
-                >
-                  {isImporting ? "Importando..." : "Importar texto colado"}
-                </button>
-              </div>
-            </section>
-
-            {activeSet ? (
-              <section className="triagem-prisma-card">
-                <div>
-                  <span className="eyebrow">caderno da revisão</span>
-                  <h2>{activeSet.titulo}</h2>
-                  <p>{activeSet.pergunta || "Pergunta ainda não informada."}</p>
-                </div>
-                <div className="triagem-prisma-stats">
-                  <span>Captados {prismaSnapshot.captados}</span>
-                  <span>Triados {prismaSnapshot.triados}</span>
-                  <span>Pendentes {prismaSnapshot.pendentes}</span>
-                  <span>Incluídos {prismaSnapshot.incluidos}</span>
-                  <span>Excluídos {prismaSnapshot.excluidos}</span>
-                  <span>Duplicados {prismaSnapshot.duplicados}</span>
-                  <span>Conflitos {prismaSnapshot.conflitos}</span>
-                  <span>Incluídos finais {prismaSnapshot.finalIncluded}</span>
-                </div>
-                <div className="triagem-actions">
-                  <button className="button button-secondary" onClick={() => void copyReport()} type="button">
-                    Copiar relatório
-                  </button>
-                  <button className="button button-secondary" onClick={downloadReport} type="button">
-                    Baixar Markdown
-                  </button>
-                  <button className="button button-secondary" onClick={downloadCsv} type="button">
-                    Baixar CSV
-                  </button>
-                  <Link className="button button-secondary" href={`/editor/${activeSet.artigo_id}`}>
-                    Abrir manuscrito
-                  </Link>
-                </div>
+            {message ? (
+              <section className="triagem-feedback-banner">
+                <strong>Atualização</strong>
+                <p>{message}</p>
               </section>
             ) : null}
 
+            <section className="triagem-intake-grid">
+              <article className="triagem-surface">
+                <div className="triagem-surface-head">
+                  <div>
+                    <span className="eyebrow">captação</span>
+                    <h2>Buscar estudos candidatos</h2>
+                  </div>
+                  <span>OpenAlex ligado</span>
+                </div>
+                <p className="triagem-support-copy">
+                  Use tema, descritores ou a pergunta da revisão. O resultado j? chega pronto para entrar no conjunto.
+                </p>
+                <div className="triagem-search-row">
+                  <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Tema, descritores ou pergunta" />
+                  <button className="button button-primary" disabled={isCapturing} onClick={() => void captureStudies()} type="button">
+                    {isCapturing ? "Captando..." : "Captar estudos"}
+                  </button>
+                </div>
+                <div className="triagem-inline-meta">
+                  <span>{captureResults.length} resultado(s) em tela</span>
+                  <span>{captureDuplicateCount} parecido(s) com estudos já salvos</span>
+                </div>
+              </article>
+
+              <article className="triagem-surface">
+                <div className="triagem-surface-head">
+                  <div>
+                    <span className="eyebrow">importação</span>
+                    <h2>Trazer resultados externos</h2>
+                  </div>
+                  {importLabel ? <span>Última base: {importLabel}</span> : <span>RIS, BibTeX ou CSV</span>}
+                </div>
+                <p className="triagem-support-copy">
+                  Continue uma revisão vinda de outra base sem sair do WebLab nem quebrar o fluxo.
+                </p>
+                <div className="triagem-import-actions">
+                  <label className="button button-secondary triagem-file-button">
+                    Selecionar arquivo
+                    <input accept=".csv,.ris,.bib,.bibtex,.txt" onChange={handleImportFile} type="file" />
+                  </label>
+                  <button
+                    className="button button-secondary"
+                    disabled={isImporting || !importText.trim()}
+                    onClick={() => importStudiesFromText(importText)}
+                    type="button"
+                  >
+                    {isImporting ? "Importando..." : "Importar texto colado"}
+                  </button>
+                </div>
+                <textarea
+                  className="triagem-import-textarea"
+                  onChange={(event) => setImportText(event.target.value)}
+                  placeholder="Cole aqui o conteúdo RIS, BibTeX ou CSV exportado da sua base."
+                  value={importText}
+                />
+              </article>
+            </section>
+
             {activeSet ? (
-              <section className="triagem-prisma-card triagem-prisma-flow-card">
-                <div>
-                  <span className="eyebrow">prisma</span>
-                  <h2>Fluxo da triagem</h2>
-                  <p>Um retrato rápido do funil atual do conjunto, com foco em decisão e rastreabilidade.</p>
-                </div>
-                <div className="triagem-prisma-flow-grid">
-                  <article>
-                    <strong>{prismaSnapshot.captados}</strong>
-                    <span>Registros captados</span>
-                  </article>
-                  <article>
-                    <strong>{prismaSnapshot.duplicados}</strong>
-                    <span>Duplicados prováveis</span>
-                  </article>
-                  <article>
-                    <strong>{prismaSnapshot.triados}</strong>
-                    <span>Registros triados</span>
-                  </article>
-                  <article>
-                    <strong>{prismaSnapshot.excluidos}</strong>
-                    <span>Excluídos</span>
-                  </article>
-                  <article>
-                    <strong>{prismaSnapshot.talvez}</strong>
-                    <span>Talvez</span>
-                  </article>
-                  <article>
-                    <strong>{prismaSnapshot.finalIncluded}</strong>
-                    <span>Incluídos finais</span>
-                  </article>
-                </div>
-                {exclusionSummary.length ? (
-                  <div className="triagem-exclusion-summary">
-                    <strong>Motivos mais frequentes de exclusão</strong>
+              <>
+                <section className="triagem-summary-grid">
+                  <article className="triagem-surface triagem-summary-card">
+                    <div className="triagem-surface-head">
+                      <div>
+                        <span className="eyebrow">caderno da revisão</span>
+                        <h2>{activeSet.titulo}</h2>
+                      </div>
+                      <span>{selectedArticle?.titulo ?? "Sem manuscrito"}</span>
+                    </div>
+                    <p className="triagem-support-copy">{activeSet.pergunta || "Pergunta ainda não informada."}</p>
                     <div className="triagem-prisma-stats">
-                      {exclusionSummary.slice(0, 5).map((item) => (
-                        <span key={item.reason}>
-                          {item.reason} · {item.total}
-                        </span>
+                      <span>Captados {prismaSnapshot.captados}</span>
+                      <span>Triados {prismaSnapshot.triados}</span>
+                      <span>Pendentes {prismaSnapshot.pendentes}</span>
+                      <span>Incluídos {prismaSnapshot.incluidos}</span>
+                      <span>Excluídos {prismaSnapshot.excluidos}</span>
+                      <span>Conflitos {prismaSnapshot.conflitos}</span>
+                      <span>Incluídos finais {prismaSnapshot.finalIncluded}</span>
+                    </div>
+                    <div className="triagem-actions">
+                      <button className="button button-secondary" onClick={() => void copyReport()} type="button">
+                        Copiar relatório
+                      </button>
+                      <button className="button button-secondary" onClick={downloadReport} type="button">
+                        Baixar Markdown
+                      </button>
+                      <button className="button button-secondary" onClick={downloadCsv} type="button">
+                        Baixar CSV
+                      </button>
+                      <Link className="button button-secondary" href={`/editor/${activeSet.artigo_id}` as Route}>
+                        Abrir manuscrito
+                      </Link>
+                    </div>
+                  </article>
+
+                  <article className="triagem-surface triagem-summary-card">
+                    <div className="triagem-surface-head">
+                      <div>
+                        <span className="eyebrow">prisma</span>
+                        <h2>Fluxo atual</h2>
+                      </div>
+                      <span>{unresolvedConflicts.length} conflito(s) aberto(s)</span>
+                    </div>
+                    <div className="triagem-prisma-flow-grid">
+                      <article>
+                        <strong>{prismaSnapshot.captados}</strong>
+                        <span>registros captados</span>
+                      </article>
+                      <article>
+                        <strong>{prismaSnapshot.duplicados}</strong>
+                        <span>duplicados prováveis</span>
+                      </article>
+                      <article>
+                        <strong>{prismaSnapshot.triados}</strong>
+                        <span>registros triados</span>
+                      </article>
+                      <article>
+                        <strong>{prismaSnapshot.excluidos}</strong>
+                        <span>excluídos</span>
+                      </article>
+                      <article>
+                        <strong>{prismaSnapshot.talvez}</strong>
+                        <span>talvez</span>
+                      </article>
+                      <article>
+                        <strong>{prismaSnapshot.finalIncluded}</strong>
+                        <span>incluídos finais</span>
+                      </article>
+                    </div>
+                    {exclusionSummary.length ? (
+                      <div className="triagem-exclusion-summary">
+                        <strong>Motivos mais frequentes de exclusão</strong>
+                        <div className="triagem-prisma-stats">
+                          {exclusionSummary.slice(0, 5).map((item) => (
+                            <span key={item.reason}>
+                              {item.reason} ? {item.total}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </article>
+                </section>
+
+                {unresolvedConflicts.length ? (
+                  <section className="triagem-surface triagem-conflicts-panel">
+                    <div className="triagem-surface-head">
+                      <div>
+                        <span className="eyebrow">conflitos</span>
+                        <h2>Resolver divergências</h2>
+                      </div>
+                      <span>{unresolvedConflicts.length} estudo(s) esperando decisão final</span>
+                    </div>
+                    <div className="triagem-conflict-list">
+                      {unresolvedConflicts.map((study) => (
+                        <article className="triagem-conflict-item" key={"conflict-" + study.id}>
+                          <div>
+                            <strong>{study.titulo}</strong>
+                            <span>{study.periodico ?? "Periódico não informado"} ? {study.ano ?? "s.d."}</span>
+                          </div>
+                          <div className="triagem-decision-row">
+                            <button onClick={() => void resolveConflict(study, "incluir")} type="button">
+                              Fechar em incluir
+                            </button>
+                            <button onClick={() => void resolveConflict(study, "talvez")} type="button">
+                              Fechar em talvez
+                            </button>
+                            <button onClick={() => void resolveConflict(study, "excluir", "Excluído após resolução de conflito.")} type="button">
+                              Fechar em excluir
+                            </button>
+                          </div>
+                        </article>
                       ))}
                     </div>
-                  </div>
+                  </section>
                 ) : null}
+              </>
+            ) : (
+              <section className="triagem-feedback-banner">
+                <strong>Começo recomendado</strong>
+                <p>Crie um conjunto antes de buscar estudos. Isso evita resultado solto e mantém a triagem ligada ao manuscrito certo.</p>
               </section>
-            ) : null}
+            )}
 
-            {unresolvedConflicts.length ? (
-              <section className="triagem-prisma-card triagem-conflicts-card">
-                <div>
-                  <span className="eyebrow">conflitos</span>
-                  <h2>Resolver divergências do conjunto</h2>
-                  <p>Consolide uma decisão final da equipe para os estudos em desacordo.</p>
+            <section className="triagem-decision-desk">
+              <article className="triagem-surface triagem-pane">
+                <div className="triagem-surface-head">
+                  <div>
+                    <span className="eyebrow">entrada</span>
+                    <h2>Resultados captados</h2>
+                  </div>
+                  <span>{captureResults.length} item(ns)</span>
                 </div>
-                <div className="triagem-conflict-list">
-                  {unresolvedConflicts.map((study) => (
-                    <article className="triagem-conflict-item" key={`conflict-${study.id}`}>
-                      <div>
-                        <strong>{study.titulo}</strong>
-                        <span>{study.periodico ?? "Periódico não informado"} · {study.ano ?? "s.d."}</span>
-                      </div>
-                      <div className="triagem-decision-row">
-                        <button onClick={() => void resolveConflict(study, "incluir")} type="button">
-                          Fechar em incluir
-                        </button>
-                        <button onClick={() => void resolveConflict(study, "talvez")} type="button">
-                          Fechar em talvez
-                        </button>
-                        <button onClick={() => void resolveConflict(study, "excluir", "Excluído após resolução de conflito.")} type="button">
-                          Fechar em excluir
-                        </button>
-                      </div>
-                    </article>
-                  ))}
+                {captureResults.length === 0 ? <p className="muted">A busca aparece aqui assim que você captar ou importar estudos.</p> : null}
+                <div className="triagem-study-stack">
+                  {captureResults.map((study) => {
+                    const possibleDuplicate = savedDuplicateKeys.has(getStudyDuplicateKey(study));
+
+                    return (
+                      <article className="triagem-study-card triagem-study-card-capture" data-duplicate={possibleDuplicate} key={study.external_id}>
+                        <div className="triagem-study-topline">
+                          <span>{study.source}</span>
+                          <span>{study.ano ?? "s.d."}</span>
+                        </div>
+                        <h3>{study.titulo}</h3>
+                        <p>{study.periodico ?? "Periódico não informado"}</p>
+                        <small>{study.resumo?.slice(0, 320) ?? "Sem resumo disponível."}</small>
+                        {possibleDuplicate ? (
+                          <em className="triagem-duplicate-flag">Possível duplicado de estudo já salvo.</em>
+                        ) : null}
+                        <div className="triagem-card-actions">
+                          <button
+                            className="button button-secondary"
+                            disabled={savedExternalIds.has(study.external_id)}
+                            onClick={() => void saveStudy(study)}
+                            type="button"
+                          >
+                            {savedExternalIds.has(study.external_id) ? "Já salvo" : "Salvar no conjunto"}
+                          </button>
+                          {study.url ? (
+                            <a href={study.url} rel="noreferrer" target="_blank">
+                              Abrir fonte
+                            </a>
+                          ) : null}
+                        </div>
+                      </article>
+                    );
+                  })}
                 </div>
-              </section>
-            ) : null}
+              </article>
 
-            <section className="triagem-results-grid">
-              <div className="triagem-column">
-                <h2>Resultados captados</h2>
-                {captureResults.length === 0 ? <p className="muted">A busca aparecerá aqui.</p> : null}
-                {captureResults.map((study) => {
-                  const possibleDuplicate = savedDuplicateKeys.has(getStudyDuplicateKey(study));
-
-                  return (
-                    <article className="triagem-study-card" data-duplicate={possibleDuplicate} key={study.external_id}>
-                      <span>{study.source} · {study.ano ?? "s.d."}</span>
-                      <h3>{study.titulo}</h3>
-                      <p>{study.periodico ?? "Periódico não informado"}</p>
-                      <small>{study.resumo?.slice(0, 360) ?? "Sem resumo disponível."}</small>
-                      {possibleDuplicate ? (
-                        <em className="triagem-duplicate-flag">Possível duplicado de estudo já salvo.</em>
-                      ) : null}
-                      <button
-                        className="button button-secondary"
-                        disabled={savedExternalIds.has(study.external_id)}
-                        onClick={() => void saveStudy(study)}
-                        type="button"
-                      >
-                        {savedExternalIds.has(study.external_id) ? "Salvo" : "Salvar no conjunto"}
-                      </button>
-                    </article>
-                  );
-                })}
-              </div>
-
-              <div className="triagem-column">
-                <h2>Triagem do conjunto</h2>
+              <article className="triagem-surface triagem-pane">
+                <div className="triagem-surface-head">
+                  <div>
+                    <span className="eyebrow">decisão</span>
+                    <h2>Triagem do conjunto</h2>
+                  </div>
+                  <span>{filteredStudies.length} item(ns) no filtro atual</span>
+                </div>
                 <div className="triagem-filter-bar">
                   {[
                     ["todos", "Todos"],
@@ -1170,83 +1281,82 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                     </button>
                   </div>
                 ) : null}
-                {studies.length === 0 ? <p className="muted">Salve estudos captados para iniciar as decisões.</p> : null}
-                {filteredStudies.map((study) => {
-                  const possibleDuplicate = duplicateStudyIds.has(study.id);
-                  const reviewMeta = getReviewMeta(reviewsByStudy.get(study.id) ?? []);
-                  const ownReview = (reviewsByStudy.get(study.id) ?? []).find((review) => review.reviewer_id === profileId);
-                  const hasConflict = conflictStudyIds.has(study.id);
-                  const aggregateDecision = getAggregateDecision(study, reviewMeta);
+                {studies.length === 0 ? <p className="muted">Salve estudos captados para começar a decidir o conjunto.</p> : null}
+                <div className="triagem-study-stack">
+                  {filteredStudies.map((study) => {
+                    const possibleDuplicate = duplicateStudyIds.has(study.id);
+                    const reviewMeta = getReviewMeta(reviewsByStudy.get(study.id) ?? []);
+                    const ownReview = (reviewsByStudy.get(study.id) ?? []).find((review) => review.reviewer_id === profileId);
+                    const hasConflict = conflictStudyIds.has(study.id);
+                    const aggregateDecision = getAggregateDecision(study, reviewMeta);
 
-                  return (
-                    <article
-                      className="triagem-study-card"
-                      data-decision={study.decisao}
-                      data-conflict={hasConflict}
-                      data-duplicate={possibleDuplicate}
-                      key={study.id}
-                    >
-                      <label className="triagem-study-select">
-                        <input
-                          checked={selectedStudyIds.includes(study.id)}
-                          onChange={() => toggleStudySelection(study.id)}
-                          type="checkbox"
-                        />
-                        <span>Selecionar estudo</span>
-                      </label>
-                      <span>{decisionLabels[aggregateDecision]} · {study.ano ?? "s.d."}</span>
-                      <h3>{study.titulo}</h3>
-                      <p>{study.periodico ?? "Periódico não informado"}</p>
-                      <small>{study.resumo?.slice(0, 420) ?? "Sem resumo disponível."}</small>
-                      <div className="triagem-review-meta">
-                        <strong>{ownReview ? `Sua avaliação: ${decisionLabels[ownReview.decisao]}` : "Sua avaliação: pendente"}</strong>
-                        <span>
-                          {study.decisao_final
-                            ? `Decisão final da equipe: ${decisionLabels[study.decisao_final]}`
-                            : hasConflict
-                            ? "Conflito entre revisores"
-                            : reviewMeta.consensus
-                              ? `Consenso atual: ${decisionLabels[reviewMeta.consensus]}`
-                              : `${reviewMeta.reviewersCount} revisor(es)`}
-                        </span>
-                      </div>
-                      {possibleDuplicate ? (
-                        <em className="triagem-duplicate-flag">Possível duplicado por DOI ou título semelhante.</em>
-                      ) : null}
-                      {hasConflict ? (
-                        <em className="triagem-conflict-flag">Há decisões divergentes para este estudo.</em>
-                      ) : null}
-                      {study.decisao_final && study.motivo_resolucao ? (
-                        <em>Resolução: {study.motivo_resolucao}</em>
-                      ) : null}
-                      {study.motivo_exclusao ? <em>Motivo: {study.motivo_exclusao}</em> : null}
-                      <div className="triagem-decision-row">
-                        <button onClick={() => void updateDecision(study, "incluir")} type="button">
-                          Incluir
-                        </button>
-                        <button onClick={() => void updateDecision(study, "talvez")} type="button">
-                          Talvez
-                        </button>
-                        {exclusionReasons.slice(0, 3).map((reason) => (
-                          <button key={reason} onClick={() => void updateDecision(study, "excluir", reason)} type="button">
-                            {reason}
+                    return (
+                      <article
+                        className="triagem-study-card triagem-study-card-review"
+                        data-decision={aggregateDecision}
+                        data-conflict={hasConflict}
+                        data-duplicate={possibleDuplicate}
+                        key={study.id}
+                      >
+                        <div className="triagem-study-head">
+                          <label className="triagem-study-select">
+                            <input
+                              checked={selectedStudyIds.includes(study.id)}
+                              onChange={() => toggleStudySelection(study.id)}
+                              type="checkbox"
+                            />
+                            <span>Selecionar</span>
+                          </label>
+                          <span className="triagem-study-status">{decisionLabels[aggregateDecision]}</span>
+                        </div>
+                        <h3>{study.titulo}</h3>
+                        <p>{study.periodico ?? "Periódico não informado"}</p>
+                        <small>{study.resumo?.slice(0, 360) ?? "Sem resumo disponível."}</small>
+                        <div className="triagem-review-meta">
+                          <strong>{ownReview ? "Sua avaliação: " + decisionLabels[ownReview.decisao] : "Sua avaliação: pendente"}</strong>
+                          <span>
+                            {study.decisao_final
+                              ? "Decisão final da equipe: " + decisionLabels[study.decisao_final]
+                              : hasConflict
+                                ? "Conflito entre revisores"
+                                : reviewMeta.consensus
+                                  ? "Consenso atual: " + decisionLabels[reviewMeta.consensus]
+                                  : reviewMeta.reviewersCount + " revisor(es)"}
+                          </span>
+                        </div>
+                        <div className="triagem-signal-row">
+                          <span>{study.ano ?? "s.d."}</span>
+                          {possibleDuplicate ? <span>duplicado provável</span> : null}
+                          {hasConflict ? <span>conflito</span> : null}
+                        </div>
+                        {study.decisao_final && study.motivo_resolucao ? <em>Resolução: {study.motivo_resolucao}</em> : null}
+                        {study.motivo_exclusao ? <em>Motivo: {study.motivo_exclusao}</em> : null}
+                        <div className="triagem-decision-row">
+                          <button onClick={() => void updateDecision(study, "incluir")} type="button">
+                            Incluir
                           </button>
-                        ))}
-                        {possibleDuplicate ? (
-                          <button onClick={() => void updateDecision(study, "excluir", "Duplicado conceitual")} type="button">
-                            Marcar duplicado
+                          <button onClick={() => void updateDecision(study, "talvez")} type="button">
+                            Talvez
                           </button>
+                          <button onClick={() => void updateDecision(study, "excluir", "Fora do escopo")} type="button">
+                            Excluir
+                          </button>
+                          {possibleDuplicate ? (
+                            <button onClick={() => void updateDecision(study, "excluir", "Duplicado conceitual")} type="button">
+                              Marcar duplicado
+                            </button>
+                          ) : null}
+                        </div>
+                        {study.url ? (
+                          <a href={study.url} rel="noreferrer" target="_blank">
+                            Abrir fonte
+                          </a>
                         ) : null}
-                      </div>
-                      {study.url ? (
-                        <a href={study.url} rel="noreferrer" target="_blank">
-                          Abrir fonte
-                        </a>
-                      ) : null}
-                    </article>
-                  );
-                })}
-              </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              </article>
             </section>
           </div>
         </div>
