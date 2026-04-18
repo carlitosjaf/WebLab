@@ -40,12 +40,28 @@ const decisionLabels: Record<EvidenceScreeningDecision, string> = {
 
 const exclusionReasons = [
   "Fora do escopo",
-  "População inadequada",
+  "Populacao inadequada",
   "Tipo de estudo inadequado",
   "Sem resumo suficiente",
   "Duplicado conceitual",
   "Outro motivo"
 ];
+
+function formatCaptureAuthors(authors: string[]) {
+  if (!authors.length) {
+    return "Autores nao informados";
+  }
+
+  if (authors.length === 1) {
+    return authors[0];
+  }
+
+  if (authors.length === 2) {
+    return `${authors[0]} e ${authors[1]}`;
+  }
+
+  return `${authors[0]} et al.`;
+}
 
 function buildSearchSeed(article: ArticleRow | null) {
   if (!article) {
@@ -1008,7 +1024,7 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                   <span>OpenAlex ligado</span>
                 </div>
                 <p className="triagem-support-copy">
-                  Use tema, descritores ou a pergunta da revisão. O resultado j? chega pronto para entrar no conjunto.
+                  Use tema, descritores ou a pergunta da revisão. O resultado já chega pronto para entrar no conjunto.
                 </p>
                 <div className="triagem-search-row">
                   <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Tema, descritores ou pergunta" />
@@ -1133,7 +1149,7 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                         <div className="triagem-prisma-stats">
                           {exclusionSummary.slice(0, 5).map((item) => (
                             <span key={item.reason}>
-                              {item.reason} ? {item.total}
+                              {item.reason} · {item.total}
                             </span>
                           ))}
                         </div>
@@ -1156,7 +1172,7 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                         <article className="triagem-conflict-item" key={"conflict-" + study.id}>
                           <div>
                             <strong>{study.titulo}</strong>
-                            <span>{study.periodico ?? "Periódico não informado"} ? {study.ano ?? "s.d."}</span>
+                            <span>{study.periodico ?? "Periódico não informado"} · {study.ano ?? "s.d."}</span>
                           </div>
                           <div className="triagem-decision-row">
                             <button onClick={() => void resolveConflict(study, "incluir")} type="button">
@@ -1182,6 +1198,25 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
               </section>
             )}
 
+            <section className="triagem-workspace-rail">
+              <article className="triagem-workspace-chip">
+                <span>Fila atual</span>
+                <strong>{filteredStudies.length} estudo(s)</strong>
+              </article>
+              <article className="triagem-workspace-chip">
+                <span>Selecionados</span>
+                <strong>{selectedStudyIds.length}</strong>
+              </article>
+              <article className="triagem-workspace-chip">
+                <span>Conjunto ativo</span>
+                <strong>{activeSet?.titulo ?? "Nenhum conjunto"}</strong>
+              </article>
+              <article className="triagem-workspace-chip">
+                <span>Manuscrito</span>
+                <strong>{selectedArticle?.titulo ?? "Não selecionado"}</strong>
+              </article>
+            </section>
+
             <section className="triagem-decision-desk">
               <article className="triagem-surface triagem-pane">
                 <div className="triagem-surface-head">
@@ -1191,6 +1226,9 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                   </div>
                   <span>{captureResults.length} item(ns)</span>
                 </div>
+                <p className="triagem-support-copy">
+                  Revise o que acabou de chegar e salve apenas os candidatos que merecem entrar no caderno.
+                </p>
                 {captureResults.length === 0 ? <p className="muted">A busca aparece aqui assim que você captar ou importar estudos.</p> : null}
                 <div className="triagem-study-stack">
                   {captureResults.map((study) => {
@@ -1199,16 +1237,22 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                     return (
                       <article className="triagem-study-card triagem-study-card-capture" data-duplicate={possibleDuplicate} key={study.external_id}>
                         <div className="triagem-study-topline">
-                          <span>{study.source}</span>
-                          <span>{study.ano ?? "s.d."}</span>
+                          <span className="triagem-study-kicker">{study.source}</span>
+                          <div className="triagem-study-badges">
+                            <span>{study.ano ?? "s.d."}</span>
+                            {study.doi ? <span>DOI</span> : null}
+                            {possibleDuplicate ? <span>Possível duplicado</span> : null}
+                          </div>
                         </div>
                         <h3>{study.titulo}</h3>
-                        <p>{study.periodico ?? "Periódico não informado"}</p>
-                        <small>{study.resumo?.slice(0, 320) ?? "Sem resumo disponível."}</small>
-                        {possibleDuplicate ? (
-                          <em className="triagem-duplicate-flag">Possível duplicado de estudo já salvo.</em>
-                        ) : null}
-                        <div className="triagem-card-actions">
+                        <div className="triagem-study-meta-line">
+                          <span>{study.periodico ?? "Periódico não informado"}</span>
+                          <span>{formatCaptureAuthors(study.autores)}</span>
+                        </div>
+                        <p className="triagem-study-abstract">
+                          {study.resumo?.slice(0, 320) ?? "Sem resumo disponível."}
+                        </p>
+                        <div className="triagem-card-actions triagem-card-actions-compact">
                           <button
                             className="button button-secondary"
                             disabled={savedExternalIds.has(study.external_id)}
@@ -1237,6 +1281,9 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                   </div>
                   <span>{filteredStudies.length} item(ns) no filtro atual</span>
                 </div>
+                <p className="triagem-support-copy">
+                  Esta é a mesa de decisão da equipe: ler rápido, ver conflito cedo e fechar o destino do estudo sem ruído.
+                </p>
                 <div className="triagem-filter-bar">
                   {[
                     ["todos", "Todos"],
@@ -1310,8 +1357,10 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                           <span className="triagem-study-status">{decisionLabels[aggregateDecision]}</span>
                         </div>
                         <h3>{study.titulo}</h3>
-                        <p>{study.periodico ?? "Periódico não informado"}</p>
-                        <small>{study.resumo?.slice(0, 360) ?? "Sem resumo disponível."}</small>
+                        <div className="triagem-study-meta-line">
+                          <span>{study.periodico ?? "Periódico não informado"}</span>
+                          <span>{study.doi ? `DOI ${study.doi}` : "Sem DOI"}</span>
+                        </div>
                         <div className="triagem-review-meta">
                           <strong>{ownReview ? "Sua avaliação: " + decisionLabels[ownReview.decisao] : "Sua avaliação: pendente"}</strong>
                           <span>
@@ -1324,6 +1373,9 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                                   : reviewMeta.reviewersCount + " revisor(es)"}
                           </span>
                         </div>
+                        <p className="triagem-study-abstract">
+                          {study.resumo?.slice(0, 360) ?? "Sem resumo disponível."}
+                        </p>
                         <div className="triagem-signal-row">
                           <span>{study.ano ?? "s.d."}</span>
                           {possibleDuplicate ? <span>duplicado provável</span> : null}
@@ -1331,7 +1383,7 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                         </div>
                         {study.decisao_final && study.motivo_resolucao ? <em>Resolução: {study.motivo_resolucao}</em> : null}
                         {study.motivo_exclusao ? <em>Motivo: {study.motivo_exclusao}</em> : null}
-                        <div className="triagem-decision-row">
+                        <div className="triagem-decision-row triagem-decision-row-compact">
                           <button onClick={() => void updateDecision(study, "incluir")} type="button">
                             Incluir
                           </button>

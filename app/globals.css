@@ -3606,6 +3606,32 @@ textarea:focus,
   gap: 20px;
 }
 
+.triagem-workspace-rail {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.triagem-workspace-chip {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.triagem-workspace-chip span {
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.triagem-workspace-chip strong {
+  color: #0f172a;
+  font-size: 0.98rem;
+}
+
 .triagem-support-copy {
   margin: 0;
 }
@@ -3687,11 +3713,11 @@ textarea:focus,
 
 .triagem-study-card {
   display: grid;
-  gap: 12px;
-  padding: 18px;
+  gap: 14px;
+  padding: 18px 18px 16px;
   border: 1px solid #e2e8f0;
   border-radius: 20px;
-  background: #f8fbfd;
+  background: linear-gradient(180deg, #fbfdff 0%, #f5f9fc 100%);
 }
 
 .triagem-study-card h3,
@@ -3725,6 +3751,48 @@ textarea:focus,
   gap: 12px;
 }
 
+.triagem-study-kicker {
+  color: #0f766e !important;
+  font-size: 0.78rem !important;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.triagem-study-badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.triagem-study-badges span,
+.triagem-signal-row span {
+  width: fit-content;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.05);
+  color: #475569;
+  font-size: 0.76rem;
+  font-weight: 800;
+  padding: 5px 9px;
+}
+
+.triagem-study-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.triagem-study-abstract {
+  margin: 0;
+  color: #334155;
+  line-height: 1.7;
+  font-size: 0.95rem;
+}
+
 .triagem-study-select {
   display: inline-flex;
   align-items: center;
@@ -3739,23 +3807,24 @@ textarea:focus,
 }
 
 .triagem-study-status {
-  background: #e2e8f0;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #ffffff;
   color: #334155;
 }
 
 .triagem-study-card[data-decision="incluir"] {
   border-color: rgba(20, 184, 166, 0.28);
-  background: #f0fdfa;
+  background: linear-gradient(180deg, #f6fffd 0%, #effcf8 100%);
 }
 
 .triagem-study-card[data-decision="talvez"] {
   border-color: rgba(245, 158, 11, 0.28);
-  background: #fffbeb;
+  background: linear-gradient(180deg, #fffdf3 0%, #fff8e1 100%);
 }
 
 .triagem-study-card[data-decision="excluir"] {
   border-color: rgba(239, 68, 68, 0.22);
-  background: #fef2f2;
+  background: linear-gradient(180deg, #fff8f8 0%, #fef1f1 100%);
 }
 
 .triagem-study-card[data-conflict="true"] {
@@ -3837,6 +3906,12 @@ textarea:focus,
   font-weight: 700;
 }
 
+.triagem-card-actions-compact,
+.triagem-decision-row-compact {
+  padding-top: 4px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
 @media (max-width: 780px) {
   .periodicos-hero-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3870,6 +3945,7 @@ textarea:focus,
   }
 
   .triagem-stage-rail,
+  .triagem-workspace-rail,
   .triagem-hero-metrics-v2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -3881,6 +3957,7 @@ textarea:focus,
 
 @media (max-width: 720px) {
   .triagem-stage-rail,
+  .triagem-workspace-rail,
   .triagem-hero-metrics-v2,
   .triagem-mini-stats,
   .triagem-prisma-flow-grid {
@@ -3898,10 +3975,15 @@ textarea:focus,
   .triagem-inline-meta,
   .triagem-study-head,
   .triagem-study-topline,
+  .triagem-study-meta-line,
   .triagem-sidebar-head,
   .triagem-surface-head {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .triagem-study-badges {
+    justify-content: flex-start;
   }
 }
 
