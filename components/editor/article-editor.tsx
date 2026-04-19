@@ -1628,7 +1628,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
   const [referenceSuggestions, setReferenceSuggestions] = useState<ReferenceSuggestion[]>([]);
   const [referenceSearchContext, setReferenceSearchContext] = useState<{
     query?: string;
-    keywords?: string[];
+    keywords: string[];
     section?: string;
   } | null>(null);
   const [referenceTriage, setReferenceTriage] = useState<Record<string, ReferenceTriageStatus>>({});
@@ -1964,6 +1964,18 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     manuscriptAnalysis.citationGaps.find((gap) => gap.id === activeGapId) ??
     manuscriptAnalysis.citationGaps[0] ??
     null;
+  const recognizedScientificSectionsCount =
+    expectedScientificSections.length - manuscriptAnalysis.missingSections.length;
+  const sectionCoveragePercent = Math.round(
+    (recognizedScientificSectionsCount / expectedScientificSections.length) * 100
+  );
+  const structureWarningCount = manuscriptAnalysis.sectionDiagnostics.filter(
+    (item) => item.severity === "warning"
+  ).length;
+  const textWarningCount = manuscriptAnalysis.textDiagnostics.filter(
+    (item) => item.severity === "warning"
+  ).length;
+  const structureAlertCount = manuscriptAnalysis.missingSections.length + structureWarningCount;
   const triageSummary = Object.values(referenceTriage).reduce(
     (summary, status) => ({
       ...summary,
@@ -1973,6 +1985,76 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
   );
   const unresolvedComments = comments.filter((comment) => !comment.resolvido_em);
   const resolvedComments = comments.length - unresolvedComments.length;
+  const cognitiveSnapshot = useMemo(() => {
+    if (deepAnalysis) {
+      if (deepAnalysis.overallScore >= 78) {
+        return {
+          tone: "stable" as const,
+          label: "Base consistente",
+          title: "O manuscrito já sustenta a espinha científica principal.",
+          description:
+            "Agora vale refinar precisão argumentativa, aderência ao periódico e densidade das referências."
+        };
+      }
+
+      if (deepAnalysis.overallScore >= 45) {
+        return {
+          tone: "warning" as const,
+          label: "Em desenvolvimento",
+          title: "O manuscrito já tem forma, mas ainda pede reforço em pontos centrais.",
+          description:
+            "Use as prioridades abaixo para fortalecer seções frágeis antes de avançar para a submissão."
+        };
+      }
+
+      return {
+        tone: "critical" as const,
+        label: "Estrutura frágil",
+        title: "O texto ainda precisa montar a base científica antes de ganhar acabamento.",
+        description:
+          "Priorize seções ausentes, objetivo, método e sustentação bibliográfica antes de revisar estilo."
+      };
+    }
+
+    if (recognizedScientificSectionsCount <= 1) {
+      return {
+        tone: "critical" as const,
+        label: "Leitura inicial",
+        title: "Ainda não encontrei uma arquitetura científica clara no manuscrito.",
+        description:
+          "Comece nomeando seções essenciais ou rode a análise completa para receber uma leitura mais profunda."
+      };
+    }
+
+    if (structureAlertCount > 0 || manuscriptAnalysis.citationGaps.length > 0) {
+      return {
+        tone: "warning" as const,
+        label: "Em revisão",
+        title: "O manuscrito já tem direção, mas ainda há lacunas de estrutura e sustentação.",
+        description:
+          "Ajuste as prioridades de estrutura e as afirmações sem fonte para o WebLab começar a trabalhar a seu favor."
+      };
+    }
+
+    return {
+      tone: "stable" as const,
+      label: "Leitura estável",
+      title: "A leitura automática encontrou um manuscrito relativamente coerente.",
+      description:
+        "Agora o ganho está em aprofundar argumento, reduzir repetições e afinar a submissão."
+    };
+  }, [
+    deepAnalysis,
+    manuscriptAnalysis.citationGaps.length,
+    recognizedScientificSectionsCount,
+    structureAlertCount
+  ]);
+  const tabCounts: Record<CognitiveTab, number> = {
+    referencias: manuscriptAnalysis.citationGaps.length,
+    estrutura: structureAlertCount,
+    texto: textWarningCount,
+    revisao: unresolvedComments.length
+  };
 
   const runDeepManuscriptAnalysis = async () => {
     setIsAnalyzingManuscript(true);
@@ -2029,9 +2111,9 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
       }
 
       const payload = (await response.json()) as {
-        works?: ReferenceSuggestion[];
+        works: ReferenceSuggestion[];
         query?: string;
-        keywords?: string[];
+        keywords: string[];
         section?: string;
       };
       setReferenceSuggestions(payload.works ?? []);
@@ -2042,7 +2124,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
       });
       /* Mensagem curta: as sugestões são triagem verificável, não citação automática. */
       setReferenceMessage(
-        payload.works?.length
+        payload.works.length
           ? "Sugestões carregadas a partir de fonte verificável."
           : "Não encontrei sugestões fortes para esse trecho. Tente refinar o argumento ou buscar no Radar."
       );
@@ -2719,10 +2801,33 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
           <aside className="editor-cognitive-sidebar" aria-label="Sidebar cognitiva do manuscrito">
             <div className="editor-cognitive-header">
               <span className="eyebrow">leitura cognitiva</span>
-              <strong>O que o texto ainda precisa sustentar?</strong>
+              <strong>Co-orientador do manuscrito</strong>
               <p>
-                O WebLab observa estrutura e citações sem inventar referência. As sugestões vêm de fontes verificáveis.
+                O WebLab observa estrutura, referencias e clareza para mostrar o que ainda falta sustentar.
               </p>
+            </div>
+
+            <div className={`editor-cognitive-snapshot editor-cognitive-snapshot-${cognitiveSnapshot.tone}`}>
+              <div className="editor-cognitive-snapshot-head">
+                <span>{cognitiveSnapshot.label}</span>
+                <strong>{deepAnalysis ? `${deepAnalysis.overallScore}%` : `${sectionCoveragePercent}%`}</strong>
+              </div>
+              <strong>{cognitiveSnapshot.title}</strong>
+              <p>{cognitiveSnapshot.description}</p>
+              <div className="editor-cognitive-summary-grid">
+                <article>
+                  <strong>{recognizedScientificSectionsCount}/6</strong>
+                  <span>secoes-base</span>
+                </article>
+                <article>
+                  <strong>{manuscriptAnalysis.citationGaps.length}</strong>
+                  <span>lacunas de citacao</span>
+                </article>
+                <article>
+                  <strong>{textWarningCount}</strong>
+                  <span>alertas de texto</span>
+                </article>
+              </div>
             </div>
 
             <div className="editor-cognitive-tabs" role="tablist" aria-label="Modo da sidebar">
@@ -2731,49 +2836,68 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                 onClick={() => setCognitiveTab("referencias")}
                 type="button"
               >
-                Referências
+                <span>Referencias</span>
+                {tabCounts.referencias > 0 ? <small>{tabCounts.referencias}</small> : null}
               </button>
               <button
                 className={cognitiveTab === "estrutura" ? "active" : ""}
                 onClick={() => setCognitiveTab("estrutura")}
                 type="button"
               >
-                Estrutura
+                <span>Estrutura</span>
+                {tabCounts.estrutura > 0 ? <small>{tabCounts.estrutura}</small> : null}
               </button>
               <button
                 className={cognitiveTab === "texto" ? "active" : ""}
                 onClick={() => setCognitiveTab("texto")}
                 type="button"
               >
-                Texto
+                <span>Texto</span>
+                {tabCounts.texto > 0 ? <small>{tabCounts.texto}</small> : null}
               </button>
               <button
                 className={cognitiveTab === "revisao" ? "active" : ""}
                 onClick={() => setCognitiveTab("revisao")}
                 type="button"
               >
-                Revisão
+                <span>Revisao</span>
+                {tabCounts.revisao > 0 ? <small>{tabCounts.revisao}</small> : null}
               </button>
             </div>
 
             {cognitiveTab === "referencias" ? (
               <div className="editor-cognitive-panel">
-                <div className="editor-cognitive-stat-grid">
-                  <article>
-                    <strong>{manuscriptAnalysis.citationGaps.length}</strong>
-                    <span>afirmações sem citação</span>
-                  </article>
-                  <article>
-                    <strong>{manuscriptAnalysis.usedReferences.length}</strong>
-                    <span>referências no texto</span>
-                  </article>
-                </div>
+                <div className="editor-cognitive-block editor-cognitive-section-block">
+                  <div className="editor-cognitive-block-title">
+                    <strong>Onde a sustentacao ainda esta fragil</strong>
+                    <span className="editor-reference-status">
+                      {manuscriptAnalysis.usedReferences.length} refer?ncia(s) detectada(s)
+                    </span>
+                  </div>
 
-                <div className="editor-cognitive-block">
-                  <strong>Afirmações que pedem fonte</strong>
-                  {manuscriptAnalysis.citationGaps.length === 0 ? (
-                    <p className="muted">Nenhuma afirmação científica sem citação foi detectada agora.</p>
+                  {activeGap ? (
+                    <div className="editor-cognitive-focus">
+                      <span>{activeGap.section}</span>
+                      <strong>{activeGap.signal}</strong>
+                      <p>{activeGap.text}</p>
+                      <div className="editor-cognitive-action-row">
+                        <button
+                          className="button button-secondary"
+                          disabled={isFetchingReferences}
+                          onClick={() => void loadReferenceSuggestions(activeGap)}
+                          type="button"
+                        >
+                          {isFetchingReferences ? "Buscando..." : "Buscar papers para este trecho"}
+                        </button>
+                      </div>
+                    </div>
                   ) : (
+                    <p className="muted">
+                      Nenhuma afirmacao cientifica sem citacao foi detectada nesta leitura.
+                    </p>
+                  )}
+
+                  {manuscriptAnalysis.citationGaps.length > 0 ? (
                     <div className="editor-citation-gap-list">
                       {manuscriptAnalysis.citationGaps.map((gap) => (
                         <button
@@ -2788,36 +2912,31 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                         </button>
                       ))}
                     </div>
+                  ) : (
+                    <p className="muted">
+                      Quando surgirem lacunas, elas vao aparecer aqui como prioridades de sustentacao.
+                    </p>
                   )}
                 </div>
 
-                <div className="editor-cognitive-block">
+                <div className="editor-cognitive-block editor-cognitive-section-block">
                   <div className="editor-cognitive-block-title">
-                    <strong>Sugestões verificáveis</strong>
-                    {activeGap ? (
-                      <button
-                        className="button button-secondary"
-                        disabled={isFetchingReferences}
-                        onClick={() => void loadReferenceSuggestions(activeGap)}
-                        type="button"
-                      >
-                        {isFetchingReferences ? "Buscando..." : "Buscar papers"}
-                      </button>
-                    ) : null}
+                    <strong>Papers verificaveis para apoiar o argumento</strong>
+                    {activeGap ? <span className="editor-reference-status">foco atual: {activeGap.section}</span> : null}
                   </div>
 
                   {referenceMessage ? <p className="muted">{referenceMessage}</p> : null}
-                  {referenceSearchContext?.keywords?.length ? (
+                  {referenceSearchContext?.keywords.length ? (
                     <div className="editor-reference-search-context">
                       <span>Busca contextual</span>
                       <strong>{referenceSearchContext.query ?? referenceSearchContext.keywords.join(" ")}</strong>
-                      {referenceSearchContext.section ? <small>Seção: {referenceSearchContext.section}</small> : null}
+                      {referenceSearchContext.section ? <small>Secao: {referenceSearchContext.section}</small> : null}
                     </div>
                   ) : null}
 
                   {referenceSuggestions.length === 0 ? (
                     <p className="muted">
-                      Selecione uma afirmação acima para carregar papers relacionados ao trecho.
+                      Selecione uma afirmacao acima para carregar papers relacionados ao trecho.
                     </p>
                   ) : (
                     <div className="editor-reference-suggestions">
@@ -2825,87 +2944,84 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                         const triageStatus = referenceTriage[work.id];
 
                         return (
-                        <article data-status={triageStatus ?? "nova"} key={work.id}>
-                          <strong>{work.title ?? "Título não informado"}</strong>
-                          <span>
-                            {work.primary_location?.source?.display_name ?? "Fonte não informada"} ·{" "}
-                            {work.publication_year ?? "s.d."}
-                          </span>
-                          <p className="editor-reference-reason">
-                            {work.match_reason ??
-                              "Resultado verificável encontrado para a afirmação selecionada. Confira a aderência antes de inserir."}
-                          </p>
-                          {work.evidence_hint ? <p className="editor-reference-hint">{work.evidence_hint}</p> : null}
-                          {work.matched_terms?.length ? (
-                            <div className="editor-reference-term-list">
-                              {work.matched_terms.map((term) => (
-                                <span key={term}>{term}</span>
-                              ))}
-                            </div>
-                          ) : null}
-                          {triageStatus ? (
-                            <span className="editor-reference-status">Marcada como {triageStatus}</span>
-                          ) : null}
-                          <div>
-                            <button
-                              className="button button-primary"
-                              disabled={triageStatus === "descartada"}
-                              onClick={() => insertReferenceSuggestion(work)}
-                              type="button"
-                            >
-                              Inserir citação
-                            </button>
-                            <button
-                              className="button button-secondary"
-                              onClick={() =>
-                                setReferenceTriage((current) => ({
-                                  ...current,
-                                  [work.id]: "revisar"
-                                }))
-                              }
-                              type="button"
-                            >
-                              Revisar depois
-                            </button>
-                            <button
-                              className="button button-secondary"
-                              onClick={() =>
-                                setReferenceTriage((current) => ({
-                                  ...current,
-                                  [work.id]: "descartada"
-                                }))
-                              }
-                              type="button"
-                            >
-                              Descartar
-                            </button>
-                            {work.primary_location?.landing_page_url ? (
-                              <a
-                                className="button button-secondary"
-                                href={work.primary_location.landing_page_url}
-                                rel="noreferrer"
-                                target="_blank"
-                              >
-                                Abrir fonte
-                              </a>
+                          <article data-status={triageStatus ?? "nova"} key={work.id}>
+                            <strong>{work.title ?? "Titulo nao informado"}</strong>
+                            <span>
+                              {work.primary_location?.source?.display_name ?? "Fonte nao informada"} ? {work.publication_year ?? "s.d."}
+                            </span>
+                            <p className="editor-reference-reason">
+                              {work.match_reason ??
+                                "Resultado verificavel encontrado para a afirmacao selecionada. Confira a aderencia antes de inserir."}
+                            </p>
+                            {work.evidence_hint ? <p className="editor-reference-hint">{work.evidence_hint}</p> : null}
+                            {work.matched_terms?.length ? (
+                              <div className="editor-reference-term-list">
+                                {work.matched_terms.map((term) => (
+                                  <span key={term}>{term}</span>
+                                ))}
+                              </div>
                             ) : null}
-                          </div>
-                        </article>
+                            {triageStatus ? <span className="editor-reference-status">Marcada como {triageStatus}</span> : null}
+                            <div>
+                              <button
+                                className="button button-primary"
+                                disabled={triageStatus === "descartada"}
+                                onClick={() => insertReferenceSuggestion(work)}
+                                type="button"
+                              >
+                                Inserir citacao
+                              </button>
+                              <button
+                                className="button button-secondary"
+                                onClick={() =>
+                                  setReferenceTriage((current) => ({
+                                    ...current,
+                                    [work.id]: "revisar"
+                                  }))
+                                }
+                                type="button"
+                              >
+                                Revisar depois
+                              </button>
+                              <button
+                                className="button button-secondary"
+                                onClick={() =>
+                                  setReferenceTriage((current) => ({
+                                    ...current,
+                                    [work.id]: "descartada"
+                                  }))
+                                }
+                                type="button"
+                              >
+                                Descartar
+                              </button>
+                              {work.primary_location?.landing_page_url ? (
+                                <a
+                                  className="button button-secondary"
+                                  href={work.primary_location.landing_page_url}
+                                  rel="noreferrer"
+                                  target="_blank"
+                                >
+                                  Abrir fonte
+                                </a>
+                              ) : null}
+                            </div>
+                          </article>
                         );
                       })}
                     </div>
                   )}
                 </div>
 
-                <div className="editor-cognitive-block">
-                  <strong>Referências usadas</strong>
+                <div className="editor-cognitive-block editor-cognitive-section-block">
+                  <strong>Bibliografia viva do manuscrito</strong>
                   <div className="editor-bibliography-status">
                     <span>{manuscriptAnalysis.usedReferences.length} no texto</span>
                     <span>{manuscriptAnalysis.citationGaps.length} lacunas abertas</span>
                     <span>{triageSummary.revisar} para revisar</span>
                   </div>
                   {manuscriptAnalysis.usedReferences.length === 0 ? (
-                    <p className="muted">A seção Referências ainda não tem itens detectáveis.</p>
+                    <p className="muted">A secao Referencias ainda nao tem itens detect?veis.</p>
                   ) : (
                     <ol className="editor-used-references">
                       {manuscriptAnalysis.usedReferences.slice(0, 8).map((reference) => (
@@ -2917,23 +3033,9 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               </div>
             ) : cognitiveTab === "estrutura" ? (
               <div className="editor-cognitive-panel">
-                <div className="editor-cognitive-stat-grid">
-                  <article>
-                    <strong>{manuscriptAnalysis.headings.length}</strong>
-                    <span>seções detectadas</span>
-                  </article>
-                  <article>
-                    <strong>
-                      {manuscriptAnalysis.missingSections.length +
-                        manuscriptAnalysis.sectionDiagnostics.filter((item) => item.severity === "warning").length}
-                    </strong>
-                    <span>alertas estruturais</span>
-                  </article>
-                </div>
-
-                <div className="editor-cognitive-block">
+                <div className="editor-cognitive-block editor-cognitive-section-block">
                   <div className="editor-cognitive-block-title">
-                    <strong>Análise profunda</strong>
+                    <strong>Leitura estrutural completa</strong>
                     <button
                       className="button button-secondary"
                       disabled={isAnalyzingManuscript}
@@ -2944,7 +3046,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                     </button>
                   </div>
                   <p className="muted">
-                    Leitura server-side do manuscrito completo. Ela explica o critério e sugere revisão por seção.
+                    Leia o manuscrito inteiro no servidor para sair da heur?stica rapida e receber criterio, diagnostico e prioridades.
                   </p>
                   {deepAnalysisMessage ? <p className="muted">{deepAnalysisMessage}</p> : null}
 
@@ -2974,7 +3076,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                               <span>{review.status === "forte" ? "forte" : review.status === "ausente" ? "ausente" : "revisar"}</span>
                             </div>
                             <p>{review.diagnosis}</p>
-                            <small>Critério: {review.why.join(" ")}</small>
+                            <small>Crit?rio: {review.why.join(" ")}</small>
                             <small>Como melhorar: {review.suggestions.join(" ")}</small>
                           </article>
                         ))}
@@ -2983,10 +3085,13 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                   ) : null}
                 </div>
 
-                <div className="editor-cognitive-block">
-                  <strong>Mapa do manuscrito</strong>
+                <div className="editor-cognitive-block editor-cognitive-section-block">
+                  <div className="editor-cognitive-block-title">
+                    <strong>Mapa e lacunas da estrutura</strong>
+                    <span className="editor-reference-status">{recognizedScientificSectionsCount}/6 reconhecidas</span>
+                  </div>
                   {manuscriptAnalysis.headings.length === 0 ? (
-                    <p className="muted">Use títulos ou marcadores claros de seção para o WebLab mapear a estrutura.</p>
+                    <p className="muted">Use titulos ou marcadores claros de secao para o WebLab mapear a estrutura.</p>
                   ) : (
                     <ol className="editor-manuscript-map">
                       {manuscriptAnalysis.headings.map((heading) => (
@@ -2996,32 +3101,9 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                       ))}
                     </ol>
                   )}
-                </div>
 
-                <div className="editor-cognitive-block">
-                  <strong>Leitura por seção</strong>
-                  {manuscriptAnalysis.sectionDiagnostics.length === 0 ? (
-                    <p className="muted">Ainda preciso de mais texto para avaliar a função científica das seções.</p>
-                  ) : (
-                    <div className="editor-section-diagnostic-list">
-                      {manuscriptAnalysis.sectionDiagnostics.map((diagnostic) => (
-                        <article data-severity={diagnostic.severity} key={diagnostic.id}>
-                          <div>
-                            <strong>{diagnostic.section}</strong>
-                            <span>{diagnostic.severity === "ok" ? "ok" : "atenção"}</span>
-                          </div>
-                          <p>{diagnostic.message}</p>
-                          <small>{diagnostic.action}</small>
-                        </article>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="editor-cognitive-block">
-                  <strong>Seções esperadas</strong>
                   {manuscriptAnalysis.missingSections.length === 0 ? (
-                    <p className="muted">A estrutura científica básica está presente.</p>
+                    <p className="muted">A estrutura cientifica basica esta presente.</p>
                   ) : (
                     <div className="editor-missing-section-list">
                       {manuscriptAnalysis.missingSections.map((section) => (
@@ -3041,21 +3123,30 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                     </div>
                   )}
                 </div>
+
+                <div className="editor-cognitive-block editor-cognitive-section-block">
+                  <strong>Leitura por secao</strong>
+                  {manuscriptAnalysis.sectionDiagnostics.length === 0 ? (
+                    <p className="muted">Ainda preciso de mais texto para avaliar a funcao cientifica das secoes.</p>
+                  ) : (
+                    <div className="editor-section-diagnostic-list">
+                      {manuscriptAnalysis.sectionDiagnostics.map((diagnostic) => (
+                        <article data-severity={diagnostic.severity} key={diagnostic.id}>
+                          <div>
+                            <strong>{diagnostic.section}</strong>
+                            <span>{diagnostic.severity === "ok" ? "ok" : "atencao"}</span>
+                          </div>
+                          <p>{diagnostic.message}</p>
+                          <small>{diagnostic.action}</small>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             ) : cognitiveTab === "revisao" ? (
               <div className="editor-cognitive-panel">
-                <div className="editor-cognitive-stat-grid">
-                  <article>
-                    <strong>{unresolvedComments.length}</strong>
-                    <span>comentários em aberto</span>
-                  </article>
-                  <article>
-                    <strong>{versions.length}</strong>
-                    <span>versões salvas</span>
-                  </article>
-                </div>
-
-                <div className="editor-cognitive-block">
+                <div className="editor-cognitive-block editor-cognitive-section-block">
                   <div className="editor-cognitive-block-title">
                     <strong>Comentar trecho</strong>
                     <button className="button button-secondary" onClick={captureSelectedExcerpt} type="button">
@@ -3076,7 +3167,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                   <textarea
                     className="editor-inline-textarea"
                     onChange={(event) => setCommentDraft(event.target.value)}
-                    placeholder="Ex.: justificar melhor este argumento, inserir fonte primária, rever recorte metodológico..."
+                    placeholder="Ex.: justificar melhor este argumento, inserir fonte primaria, rever recorte metodologico..."
                     rows={4}
                     value={commentDraft}
                   />
@@ -3087,23 +3178,23 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                       onClick={() => void saveComment()}
                       type="button"
                     >
-                      {isSavingComment ? "Salvando comentário..." : "Salvar comentário"}
+                      {isSavingComment ? "Salvando comentario..." : "Salvar comentario"}
                     </button>
                     {commentMessage ? <span className="muted">{commentMessage}</span> : null}
                   </div>
                 </div>
 
-                <div className="editor-cognitive-block">
+                <div className="editor-cognitive-block editor-cognitive-section-block">
                   <div className="editor-cognitive-block-title">
-                    <strong>Comentários do manuscrito</strong>
+                    <strong>Coment?rios do manuscrito</strong>
                     <span className="editor-reference-status">
-                      {unresolvedComments.length} abertos · {resolvedComments} resolvidos
+                      {unresolvedComments.length} abertos ? {resolvedComments} resolvidos
                     </span>
                   </div>
                   {isLoadingReviewData ? (
-                    <p className="muted">Carregando comentários e versões...</p>
+                    <p className="muted">Carregando comentarios e versoes...</p>
                   ) : comments.length === 0 ? (
-                    <p className="muted">Ainda não há comentários nesse manuscrito.</p>
+                    <p className="muted">Ainda nao ha comentarios nesse manuscrito.</p>
                   ) : (
                     <div className="editor-review-comment-list">
                       {comments.map((comment) => {
@@ -3121,15 +3212,15 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                               <strong>{comment.authorName}</strong>
                               <span>{formatRelativeUpdate(comment.created_at)}</span>
                             </div>
-                            <blockquote>{comment.trecho || "Trecho não informado."}</blockquote>
+                            <blockquote>{comment.trecho || "Trecho nao informado."}</blockquote>
                             <p>{comment.comentario}</p>
                             {comment.resolvido_em ? (
                               <small>
-                                Resolvido por {comment.resolverName ?? "membro da equipe"} em{" "}
+                                Resolvido por {comment.resolverName ?? "membro da equipe"} em {" "}
                                 {formatRelativeUpdate(comment.resolvido_em)}.
                               </small>
                             ) : (
-                              <small>Aberto para revisão da equipe.</small>
+                              <small>Aberto para revisoo da equipe.</small>
                             )}
                             {canResolve ? (
                               <div className="editor-review-actions">
@@ -3138,7 +3229,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                                   onClick={() => void toggleCommentResolution(comment, !comment.resolvido_em)}
                                   type="button"
                                 >
-                                  {comment.resolvido_em ? "Reabrir" : "Marcar resolvido"}
+                                  {comment.resolvido_em ? "Reabrir" : "Marcar como resolvido"}
                                 </button>
                               </div>
                             ) : null}
@@ -3149,40 +3240,40 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                   )}
                 </div>
 
-                <div className="editor-cognitive-block">
+                <div className="editor-cognitive-block editor-cognitive-section-block">
                   <div className="editor-cognitive-block-title">
-                    <strong>Histórico de versões</strong>
+                    <strong>Hist?rico de versoes</strong>
                     <button
                       className="button button-secondary"
                       disabled={isSavingVersion || !canEdit}
                       onClick={() => void saveVersionSnapshot(versionNote)}
                       type="button"
                     >
-                      {isSavingVersion ? "Salvando..." : "Salvar versao atual"}
+                      {isSavingVersion ? "Salvando..." : "Salvar versoo atual"}
                     </button>
                   </div>
                   <input
                     className="editor-inline-input"
                     disabled={!canEdit}
                     onChange={(event) => setVersionNote(event.target.value)}
-                    placeholder="Observação opcional da versão (ex.: revisão do resumo, ajuste metodológico...)"
+                    placeholder="Observa??o opcional da versoo (ex.: revisoo do resumo, ajuste metodologico...)"
                     value={versionNote}
                   />
                   {versionMessage ? <p className="muted">{versionMessage}</p> : null}
                   {!canEdit ? (
-                    <p className="muted">O histórico detalhado de versões fica disponível apenas para a equipe autora.</p>
+                    <p className="muted">O historico detalhado de versoes fica disponivel apenas para a equipe autora.</p>
                   ) : versions.length === 0 ? (
-                    <p className="muted">Ainda não há snapshots salvos deste manuscrito.</p>
+                    <p className="muted">Ainda nao ha snapshots salvos deste manuscrito.</p>
                   ) : (
                     <div className="editor-version-list">
                       {versions.map((version) => (
                         <article className="editor-version-card" key={version.id}>
                           <div className="editor-comment-meta">
-                            <strong>{version.observacao || "Versão sem observação"}</strong>
+                            <strong>{version.observacao || "Versoo sem observacao"}</strong>
                             <span>{formatRelativeUpdate(version.created_at)}</span>
                           </div>
                           <p>
-                            {version.authorName} · {statusLabels[version.status_snapshot].toLowerCase()} ·{" "}
+                            {version.authorName} ? {statusLabels[version.status_snapshot].toLowerCase()} ? {" "}
                             {countArticleWords(version.conteudo_json)} palavras
                           </p>
                           <small>{version.titulo_snapshot}</small>
@@ -3193,7 +3284,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                               onClick={() => void restoreVersion(version)}
                               type="button"
                             >
-                              {restoringVersionId === version.id ? "Restaurando..." : "Restaurar versao"}
+                              {restoringVersionId === version.id ? "Restaurando..." : "Restaurar versoo"}
                             </button>
                           </div>
                         </article>
@@ -3204,18 +3295,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               </div>
             ) : (
               <div className="editor-cognitive-panel">
-                <div className="editor-cognitive-stat-grid">
-                  <article>
-                    <strong>{manuscriptAnalysis.textDiagnostics.length}</strong>
-                    <span>pontos de revisão</span>
-                  </article>
-                  <article>
-                    <strong>{manuscriptAnalysis.conceptSignals.length}</strong>
-                    <span>conceitos recorrentes</span>
-                  </article>
-                </div>
-
-                <div className="editor-cognitive-block">
+                <div className="editor-cognitive-block editor-cognitive-section-block">
                   <strong>Clareza e argumento</strong>
                   {manuscriptAnalysis.textDiagnostics.length === 0 ? (
                     <p className="muted">Ainda preciso de mais texto para avaliar o fluxo argumentativo.</p>
@@ -3235,20 +3315,20 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                   )}
                 </div>
 
-                <div className="editor-cognitive-block">
-                  <strong>Conexões conceituais</strong>
+                <div className="editor-cognitive-block editor-cognitive-section-block">
+                  <strong>Conexoes conceituais</strong>
                   {manuscriptAnalysis.conceptSignals.length === 0 ? (
-                    <p className="muted">Quando o manuscrito crescer, o WebLab vai destacar conceitos recorrentes entre seções.</p>
+                    <p className="muted">Quando o manuscrito crescer, o WebLab vai destacar conceitos recorrentes entre secoes.</p>
                   ) : (
                     <div className="editor-concept-signal-list">
                       {manuscriptAnalysis.conceptSignals.map((concept) => (
                         <article key={concept.id}>
                           <div>
                             <strong>{concept.term}</strong>
-                            <span>{concept.count} ocorrências</span>
+                            <span>{concept.count} ocorrencias</span>
                           </div>
                           <small>
-                            Aparece em {concept.sections.join(", ")}. Use isso para conectar ideias ou cortar repetição.
+                            Aparece em {concept.sections.join(", ")}. Use isso para conectar ideias ou cortar repeti??o.
                           </small>
                         </article>
                       ))}
