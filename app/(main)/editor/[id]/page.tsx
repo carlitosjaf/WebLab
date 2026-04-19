@@ -46,7 +46,7 @@ export default function EditorPage() {
 
       if (profileError || !profile) {
         if (isMounted) {
-          setErrorMessage(profileError?.message ?? "N?o foi poss?vel carregar seu perfil.");
+          setErrorMessage(profileError?.message ?? "Não foi possível carregar seu perfil.");
           setIsLoading(false);
         }
         return;
@@ -54,7 +54,7 @@ export default function EditorPage() {
 
       if (error || !data) {
         if (isMounted) {
-          setErrorMessage(error?.message ?? "Artigo n?o encontrado.");
+          setErrorMessage(error?.message ?? "Artigo não encontrado.");
           setIsLoading(false);
         }
         return;
@@ -70,7 +70,7 @@ export default function EditorPage() {
         setReadOnlyReason(
           allowEdit
             ? null
-            : "Este manuscrito foi compartilhado entre equipes apenas para leitura porque ja esta submetido ou aprovado."
+            : "Este manuscrito foi compartilhado entre equipes apenas para leitura porque já está submetido ou aprovado."
         );
         setErrorMessage(null);
         setIsLoading(false);
@@ -102,7 +102,7 @@ export default function EditorPage() {
     return (
       <main className="shell">
         <div className="container glass-card" style={{ padding: "32px", display: "grid", gap: "12px" }}>
-          <h1 style={{ margin: 0 }}>N?o foi poss?vel abrir o artigo</h1>
+          <h1 style={{ margin: 0 }}>Não foi possível abrir o artigo.</h1>
           <p className="danger" style={{ margin: 0 }}>
             {errorMessage ?? "Erro inesperado ao carregar o artigo."}
           </p>

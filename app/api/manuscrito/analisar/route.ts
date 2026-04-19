@@ -31,6 +31,10 @@ const EXPECTED_SECTIONS = [
   "Referências"
 ];
 
+// Simple in-memory cache for manuscript analyses keyed by content signature.
+const ANALYSIS_CACHE = new Map<string, { created: number; payload: unknown }>();
+const ANALYSIS_TTL_MS = 1000 * 60 * 10; // 10 minutes
+
 const SECTION_ALIASES: Record<string, string[]> = {
   Resumo: ["resumo", "abstract"],
   Introdução: ["introducao", "introdução", "apresentacao", "apresentação", "contextualizacao", "contextualização"],
@@ -304,34 +308,48 @@ export async function POST(request: Request) {
     );
   }
 
-  const { headings, sections } = extractSections(body.content);
-  const sectionReviews = EXPECTED_SECTIONS.map((section) => reviewExpectedSection(section, sections));
-  const revisionCount = sectionReviews.filter((review) => review.status !== "forte").length;
-  const overallScore = Math.round(
-    sectionReviews.reduce((sum, review) => sum + review.score, 0) / sectionReviews.length
-  );
-  const priorities = sectionReviews
-    .filter((review) => review.status !== "forte")
-    .sort((left, right) => left.score - right.score)
-    .slice(0, 4)
-    .map((review) => ({
-      section: review.section,
-      action: review.suggestions[0] ?? "Revisar a função científica da seção."
-    }));
+  try {
+    const signature = JSON.stringify(body.content).slice(0, 20000);
+    const cached = ANALYSIS_CACHE.get(signature);
+    if (cached && Date.now() - cached.created < ANALYSIS_TTL_MS) {
+      return NextResponse.json(cached.payload as any);
+    }
 
-  return NextResponse.json({
-    mode: "heuristic",
-    overallScore,
-    summary:
-      revisionCount === 0
-        ? "O manuscrito contém sinais estruturais mínimos nas seções principais. Ainda assim, revise argumento, evidências e aderência à revista."
-        : `Encontrei ${revisionCount} seção(ões) que precisam de revisão estrutural antes de tratar o manuscrito como pronto.`,
-    headings,
-    sectionReviews,
-    priorities,
-    nextActions:
-      priorities.length > 0
-        ? priorities.map((priority) => `${priority.section}: ${priority.action}`)
-        : ["Escolha a revista-alvo e faça uma revisão fina de estilo, referências e diretrizes aos autores."]
-  });
+    // proceed to compute and store
+    const { headings, sections } = extractSections(body.content);
+    const sectionReviews = EXPECTED_SECTIONS.map((section) => reviewExpectedSection(section, sections));
+    const revisionCount = sectionReviews.filter((review) => review.status !== "forte").length;
+    const overallScore = Math.round(
+      sectionReviews.reduce((sum, review) => sum + review.score, 0) / sectionReviews.length
+    );
+    const priorities = sectionReviews
+      .filter((review) => review.status !== "forte")
+      .sort((left, right) => left.score - right.score)
+      .slice(0, 4)
+      .map((review) => ({
+        section: review.section,
+        action: review.suggestions[0] ?? "Revisar a função científica da seção."
+      }));
+
+    const payload = {
+      mode: "heuristic",
+      overallScore,
+      summary:
+        revisionCount === 0
+          ? "O manuscrito contém sinais estruturais mínimos nas seções principais. Ainda assim, revise argumento, evidências e aderência à revista."
+          : `Encontrei ${revisionCount} seção(ões) que precisam de revisão estrutural antes de tratar o manuscrito como pronto.`,
+      headings,
+      sectionReviews,
+      priorities,
+      nextActions:
+        priorities.length > 0
+          ? priorities.map((priority) => `${priority.section}: ${priority.action}`)
+          : ["Escolha a revista-alvo e faça uma revisão fina de estilo, referências e diretrizes aos autores."]
+    };
+
+    ANALYSIS_CACHE.set(signature, { created: Date.now(), payload });
+    return NextResponse.json(payload);
+  } catch (err) {
+    return NextResponse.json({ message: err instanceof Error ? err.message : "Erro na análise." }, { status: 500 });
+  }
 }

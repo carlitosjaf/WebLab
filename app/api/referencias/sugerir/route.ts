@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 
 const OPENALEX_ENDPOINT = "https://api.openalex.org/works";
 
+// Simple in-memory cache to reduce repeated OpenAlex calls in the same server instance.
+// Keyed by query+usedReferences signature; entries expire after TTL_MS.
+const CACHE = new Map<string, { created: number; payload: unknown }>();
+const TTL_MS = 1000 * 60 * 10; // 10 minutes
+
 type OpenAlexWork = {
   id: string;
   title?: string;
@@ -31,6 +36,8 @@ type EnrichedOpenAlexWork = OpenAlexWork & {
   match_reason: string;
   section_signal?: string;
   evidence_hint?: string;
+  evidence_snippet?: string;
+  confidence?: number; // 0-100
 };
 
 const STOPWORDS = new Set([
@@ -276,8 +283,34 @@ function enrichWork(
     matched_terms: matchedTerms,
     match_reason: matchReason,
     section_signal: sectionSignal,
-    evidence_hint: inferEvidenceHint(sectionSignal)
+    evidence_hint: inferEvidenceHint(sectionSignal),
+    evidence_snippet: buildEvidenceSnippet(work),
+    confidence: computeConfidence(work, matchedTerms)
   };
+}
+
+function buildEvidenceSnippet(work: OpenAlexWork) {
+  const parts = [] as string[];
+  if (work.title) parts.push(work.title);
+  if (work.primary_location?.source?.display_name)
+    parts.push(work.primary_location.source.display_name);
+  if (work.biblio) {
+    const { volume, issue, first_page, last_page } = work.biblio;
+    const pages = [first_page, last_page].filter(Boolean).join("-");
+    parts.push([volume, issue, pages].filter(Boolean).join(" "));
+  }
+
+  return parts.join(" · ").slice(0, 320);
+}
+
+function computeConfidence(work: OpenAlexWork, matchedTerms: string[]) {
+  let score = 30 + (matchedTerms.length * 18); // base influence from matched terms
+  const year = work.publication_year ?? 0;
+  const currentYear = new Date().getFullYear();
+  const age = currentYear - year;
+  if (year && age <= 5) score += 20; // recent papers get boost
+  if (work.doi) score += 10;
+  return Math.min(95, Math.round(score));
 }
 
 export async function POST(request: Request) {
@@ -304,9 +337,23 @@ export async function POST(request: Request) {
   const sectionSignal = buildSectionSignal(section);
   let query = buildSearchQuery(claim, keywords);
   let rawWorks: OpenAlexWork[] = [];
+  const cacheKey = `${query}::${keywords.join(",")}::${usedReferences.join("||")}`;
+  const cached = CACHE.get(cacheKey);
+  if (cached && Date.now() - cached.created < TTL_MS) {
+    const cachedPayload = cached.payload as { results?: OpenAlexWork[] };
+    rawWorks = cachedPayload.results ?? [];
+  }
 
   try {
-    rawWorks = await fetchOpenAlexWorks(query);
+    if (!rawWorks.length) {
+      rawWorks = await fetchOpenAlexWorks(query);
+      // store raw response into cache for TTL_MS
+      try {
+        CACHE.set(cacheKey, { created: Date.now(), payload: { results: rawWorks } });
+      } catch (err) {
+        // ignore cache set errors
+      }
+    }
 
     if (rawWorks.length === 0 && claim !== query) {
       query = claim;

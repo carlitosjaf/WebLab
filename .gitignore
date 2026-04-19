@@ -10,3 +10,6 @@ pnpm-debug.log*
 *.log
 *.tsbuildinfo
 coverage
+.codex
+
+.vercel
