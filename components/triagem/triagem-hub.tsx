@@ -49,7 +49,7 @@ const exclusionReasons = [
 
 function formatCaptureAuthors(authors: string[]) {
   if (!authors.length) {
-    return "Autores nao informados";
+    return "Autores não informados";
   }
 
   if (authors.length === 1) {

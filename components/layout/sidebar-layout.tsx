@@ -119,7 +119,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             <span>WebLab</span>
           </button>
 
-          <nav className="app-nav" aria-label="Navegacao do laboratorio">
+          <nav className="app-nav" aria-label="Navegação do laboratório">
           {visibleLinks.map((link) => {
             const isActive =
               pathname === link.href ||

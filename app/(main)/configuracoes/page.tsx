@@ -288,7 +288,7 @@ export default function ConfiguracoesPage() {
       const createdTeam = (data as TeamRow[] | null)?.[0];
 
       if (!createdTeam) {
-        setTeamMessage("N?o consegui confirmar a cria??o da equipe.");
+        setTeamMessage("Não consegui confirmar a criação da equipe.");
         return;
       }
 
@@ -308,12 +308,12 @@ export default function ConfiguracoesPage() {
     const nextName = (teamEdits[targetTeam.id] ?? "").trim();
 
     if (!nextName) {
-      setTeamMessage("O nome da equipe n?o pode ficar vazio.");
+      setTeamMessage("O nome da equipe não pode ficar vazio.");
       return;
     }
 
     if (nextName === targetTeam.nome) {
-      setTeamMessage("Esse nome ja esta salvo.");
+      setTeamMessage("Esse nome já está salvo.");
       return;
     }
 
@@ -613,10 +613,10 @@ export default function ConfiguracoesPage() {
         <section className="glass-card" style={{ padding: "28px", display: "grid", gap: "20px" }}>
           <div style={{ display: "grid", gap: "8px" }}>
             <span className="eyebrow">equipes do weblab</span>
-            <h2 style={{ margin: 0 }}>Nucleos ativos do laboratorio</h2>
+            <h2 style={{ margin: 0 }}>Núcleos ativos do laboratório</h2>
             <p className="muted" style={{ margin: 0, maxWidth: "70ch" }}>
-              Aqui a coordenacao pode criar equipes e ajustar o nome de cada nucleo. Os badges de cor
-              tambem seguem essa identidade no dashboard.
+              Aqui a coordenação pode criar equipes e ajustar o nome de cada núcleo. Os badges de cor
+              também seguem essa identidade no dashboard.
             </p>
           </div>
 
@@ -720,7 +720,7 @@ export default function ConfiguracoesPage() {
                 >
                   <p className="muted" style={{ margin: 0 }}>
                     Ainda não encontrei o catálogo de equipes. Rode a migração nova no Supabase para
-                    habilitar esta area.
+                    habilitar esta área.
                   </p>
                 </article>
               )}
@@ -740,7 +740,7 @@ export default function ConfiguracoesPage() {
               <div style={{ display: "grid", gap: "6px" }}>
                 <strong style={{ fontSize: "1.05rem" }}>Criar nova equipe</strong>
                 <p className="muted" style={{ margin: 0 }}>
-                  Vamos deixar quatro nucleos iniciais prontos, mas voce pode criar outros quando precisar.
+                  Vamos deixar quatro núcleos iniciais prontos, mas você pode criar outros quando precisar.
                 </p>
               </div>
               <input
