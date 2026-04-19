@@ -190,6 +190,50 @@ export type Database = {
           }
         ];
       };
+      google_integracoes: {
+        Row: {
+          id: string;
+          user_id: string;
+          google_email: string | null;
+          access_token: string | null;
+          refresh_token: string | null;
+          scope: string | null;
+          token_type: string | null;
+          expiry_date: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          google_email?: string | null;
+          access_token?: string | null;
+          refresh_token?: string | null;
+          scope?: string | null;
+          token_type?: string | null;
+          expiry_date?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          google_email?: string | null;
+          access_token?: string | null;
+          refresh_token?: string | null;
+          scope?: string | null;
+          token_type?: string | null;
+          expiry_date?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "google_integracoes_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "perfis";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       plataforma_brasil_checklists: {
         Row: {
           id: string;

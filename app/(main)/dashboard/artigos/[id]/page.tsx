@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { GoogleDocsWorkspaceCard } from "@/components/dashboard/google-docs-workspace-card";
@@ -70,6 +70,7 @@ function getSubmissionReadiness(entry: SavedShortlist) {
 export default function ArticleSubmissionPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [article, setArticle] = useState<ArticleRow | null>(null);
   const [teamName, setTeamName] = useState<string | null>(null);
   const [canEdit, setCanEdit] = useState(false);
@@ -80,6 +81,7 @@ export default function ArticleSubmissionPage() {
   const [checklist, setChecklist] = useState<ChecklistRow | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const googleFeedback = searchParams.get("google");
 
   useEffect(() => {
     let isMounted = true;
@@ -330,6 +332,19 @@ export default function ArticleSubmissionPage() {
     setArticle(data as ArticleRow);
   };
 
+  const handleApplyGoogleDocMeta = (payload: { docId: string; docUrl: string; syncedAt: string }) => {
+    setArticle((current) =>
+      current
+        ? {
+            ...current,
+            google_doc_id: payload.docId,
+            google_doc_url: payload.docUrl,
+            google_last_synced_at: payload.syncedAt,
+          }
+        : current
+    );
+  };
+
   if (isLoading) {
     return (
       <main className="lovable-home">
@@ -398,6 +413,9 @@ export default function ArticleSubmissionPage() {
           </div>
 
           <div className="manuscript-command-meta">
+            {googleFeedback === "connected" ? <span className="status-chip">Conta Google conectada</span> : null}
+            {googleFeedback === "error" ? <span className="status-chip">Falha ao conectar com o Google</span> : null}
+            {googleFeedback === "denied" ? <span className="status-chip">A autorização do Google foi cancelada</span> : null}
             <span className="status-chip">{formatStatusLabel(article.status)}</span>
             {teamName ? (
               <span
@@ -445,6 +463,7 @@ export default function ArticleSubmissionPage() {
             canEdit={canEdit}
             onLinkDocument={handleLinkGoogleDoc}
             onMarkSynced={handleMarkGoogleSync}
+            onApplyGoogleDocMeta={handleApplyGoogleDocMeta}
           />
         </div>
       </section>

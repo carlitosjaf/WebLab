@@ -11,6 +11,7 @@ import {
   formatGoogleDocSyncLabel,
   inferGoogleDocSyncStatus,
 } from "@/lib/google-docs";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { ArticleRow } from "@/lib/types";
 import { formatRelativeUpdate, formatStatusLabel } from "@/lib/weblab";
 
@@ -19,6 +20,11 @@ type GoogleDocsWorkspaceCardProps = {
   canEdit: boolean;
   onLinkDocument: (payload: { docId: string; docUrl: string }) => Promise<void>;
   onMarkSynced: () => Promise<void>;
+  onApplyGoogleDocMeta: (payload: {
+    docId: string;
+    docUrl: string;
+    syncedAt: string;
+  }) => void;
 };
 
 export function GoogleDocsWorkspaceCard({
@@ -26,11 +32,13 @@ export function GoogleDocsWorkspaceCard({
   canEdit,
   onLinkDocument,
   onMarkSynced,
+  onApplyGoogleDocMeta,
 }: GoogleDocsWorkspaceCardProps) {
   const [docInput, setDocInput] = useState(article.google_doc_url ?? article.google_doc_id ?? "");
   const [message, setMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [copiedHint, setCopiedHint] = useState<string | null>(null);
+  const [isProvisioning, setIsProvisioning] = useState(false);
 
   const docUrl = buildGoogleDocUrl(article.google_doc_id) ?? article.google_doc_url;
   const syncStatus = inferGoogleDocSyncStatus(article.google_doc_id, article.google_last_synced_at, article.updated_at);
@@ -132,6 +140,72 @@ export function GoogleDocsWorkspaceCard({
     }
   };
 
+  const handleOpenGoogleFlow = async () => {
+    if (docUrl) {
+      window.open(docUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    if (!canEdit) {
+      setMessage("Somente a equipe autora pode conectar ou criar o documento Google.");
+      return;
+    }
+
+    setIsProvisioning(true);
+    setMessage(null);
+
+    try {
+      const supabase = getSupabaseClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Sua sessão expirou. Entre novamente antes de conectar o Google Docs.");
+      }
+
+      const response = await fetch("/api/google/docs/connect", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          articleId: article.id,
+          title: article.titulo,
+        }),
+      });
+
+      const payload = (await response.json()) as
+        | { error?: string; mode?: never }
+        | { mode: "authorize"; authUrl: string }
+        | { mode: "created"; docId: string; docUrl: string; syncedAt: string };
+
+      if (!response.ok) {
+        throw new Error("error" in payload && payload.error ? payload.error : "Não foi possível abrir o fluxo do Google Docs.");
+      }
+
+      if ("mode" in payload && payload.mode === "authorize") {
+        window.location.assign(payload.authUrl);
+        return;
+      }
+
+      if ("mode" in payload && payload.mode === "created") {
+        onApplyGoogleDocMeta({
+          docId: payload.docId,
+          docUrl: payload.docUrl,
+          syncedAt: payload.syncedAt,
+        });
+        window.open(payload.docUrl, "_blank", "noopener,noreferrer");
+        setMessage("Documento criado e conectado automaticamente.");
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível abrir o fluxo do Google Docs.");
+    } finally {
+      setIsProvisioning(false);
+    }
+  };
+
   return (
     <section className="manuscript-hub">
       <div className="manuscript-hub__content">
@@ -157,14 +231,18 @@ export function GoogleDocsWorkspaceCard({
         </div>
 
         <div className="manuscript-hub__actions">
-          <a
-            className="lovable-primary-link"
-            href={docUrl ?? buildGoogleDocCreateUrl()}
-            rel="noreferrer"
-            target="_blank"
+          <button
+            className="lovable-primary-link manuscript-hub__primary-action"
+            disabled={isProvisioning}
+            onClick={() => void handleOpenGoogleFlow()}
+            type="button"
           >
-            {docUrl ? "Abrir no Google Docs" : "Criar no Google Docs"}
-          </a>
+            {isProvisioning
+              ? "Preparando Google Docs..."
+              : docUrl
+                ? "Abrir no Google Docs"
+                : "Criar no Google Docs"}
+          </button>
           <button className="lovable-small-button" disabled={!article.google_doc_id || isSaving} onClick={() => void handleMarkSynced()} type="button">
             Marcar sincronização
           </button>
@@ -223,7 +301,7 @@ export function GoogleDocsWorkspaceCard({
                 Abrir documento vinculado →
               </a>
             ) : (
-              <span>Depois de criar o arquivo, volte aqui e cole o link.</span>
+              <span>No primeiro uso, o WebLab pedirá autorização da sua conta Google e voltará já com o documento conectado.</span>
             )}
             {message ? <p className="muted">{message}</p> : null}
           </div>

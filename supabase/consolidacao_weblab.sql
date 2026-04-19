@@ -105,13 +105,29 @@ create table if not exists public.conteudos_site_equipe (
   unique (equipe_id)
 );
 
+create table if not exists public.google_integracoes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.perfis (id) on delete cascade,
+  google_email text,
+  access_token text,
+  refresh_token text,
+  scope text,
+  token_type text,
+  expiry_date timestamptz,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  unique (user_id)
+);
+
 alter table public.plataforma_brasil_checklists enable row level security;
 alter table public.periodicos_shortlists enable row level security;
 alter table public.conteudos_site_equipe enable row level security;
+alter table public.google_integracoes enable row level security;
 
 grant select, insert, update on public.plataforma_brasil_checklists to authenticated;
 grant select, insert, update, delete on public.periodicos_shortlists to authenticated;
 grant select, insert, update on public.conteudos_site_equipe to authenticated;
+grant select on public.google_integracoes to authenticated;
 
 drop policy if exists "team can read checklist" on public.plataforma_brasil_checklists;
 create policy "team can read checklist"
@@ -172,6 +188,21 @@ with check (
         perfis.role = 'coordenador_geral'
         or perfis.equipe_id = plataforma_brasil_checklists.equipe_id
       )
+  )
+);
+
+drop policy if exists "users can read own google integration" on public.google_integracoes;
+create policy "users can read own google integration"
+on public.google_integracoes
+for select
+to authenticated
+using (
+  auth.uid() = user_id
+  or exists (
+    select 1
+    from public.perfis
+    where perfis.id = auth.uid()
+      and perfis.role = 'coordenador_geral'
   )
 );
 
