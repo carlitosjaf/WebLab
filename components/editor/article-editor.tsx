@@ -7,7 +7,9 @@ import type { Route } from "next";
 import { EditorContent, JSONContent, useEditor } from "@tiptap/react";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
+import { Redo2, Undo2 } from "lucide-react";
 
+import { Toolbar } from "@/components/ui/toolbar";
 import { exportArticleToDocx } from "@/lib/docx-export";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type {
@@ -2094,6 +2096,110 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     textWarningCount,
     unresolvedComments.length
   ]);
+  const toolbarGroups = useMemo(
+    () => [
+      {
+        id: "history",
+        label: "Historico",
+        items: [
+          {
+            id: "undo",
+            label: "Desfazer",
+            icon: Undo2,
+            variant: "icon" as const,
+            onClick: () => editor?.chain().focus().undo().run(),
+            disabled: !editor?.can().chain().focus().undo().run() || !canEdit
+          },
+          {
+            id: "redo",
+            label: "Refazer",
+            icon: Redo2,
+            variant: "icon" as const,
+            onClick: () => editor?.chain().focus().redo().run(),
+            disabled: !editor?.can().chain().focus().redo().run() || !canEdit
+          }
+        ]
+      },
+      {
+        id: "formatting",
+        label: "Formatacao principal",
+        items: [
+          {
+            id: "bold",
+            label: "Negrito",
+            variant: "text" as const,
+            onClick: () => editor?.chain().focus().toggleBold().run(),
+            isActive: !!editor?.isActive("bold"),
+            disabled: !canEdit
+          },
+          {
+            id: "italic",
+            label: "Italico",
+            variant: "text" as const,
+            onClick: () => editor?.chain().focus().toggleItalic().run(),
+            isActive: !!editor?.isActive("italic"),
+            disabled: !canEdit
+          },
+          {
+            id: "paragraph",
+            label: "Texto",
+            variant: "text" as const,
+            onClick: () => editor?.chain().focus().setParagraph().run(),
+            isActive: !!editor?.isActive("paragraph"),
+            disabled: !canEdit
+          },
+          {
+            id: "h2",
+            label: "H2",
+            variant: "text" as const,
+            onClick: () => editor?.chain().focus().toggleHeading({ level: 2 }).run(),
+            isActive: !!editor?.isActive("heading", { level: 2 }),
+            disabled: !canEdit
+          },
+          {
+            id: "h3",
+            label: "H3",
+            variant: "text" as const,
+            onClick: () => editor?.chain().focus().toggleHeading({ level: 3 }).run(),
+            isActive: !!editor?.isActive("heading", { level: 3 }),
+            disabled: !canEdit
+          },
+          {
+            id: "bulletList",
+            label: "Lista",
+            variant: "text" as const,
+            onClick: () => editor?.chain().focus().toggleBulletList().run(),
+            isActive: !!editor?.isActive("bulletList"),
+            disabled: !canEdit
+          },
+          {
+            id: "orderedList",
+            label: "1.",
+            variant: "text" as const,
+            onClick: () => editor?.chain().focus().toggleOrderedList().run(),
+            isActive: !!editor?.isActive("orderedList"),
+            disabled: !canEdit
+          },
+          {
+            id: "blockquote",
+            label: "Citar",
+            variant: "text" as const,
+            onClick: () => editor?.chain().focus().toggleBlockquote().run(),
+            isActive: !!editor?.isActive("blockquote"),
+            disabled: !canEdit
+          },
+          {
+            id: "comment",
+            label: "Comentar",
+            variant: "text" as const,
+            onClick: () => captureSelectedExcerpt(),
+            disabled: !editor
+          }
+        ]
+      }
+    ],
+    [canEdit, editor]
+  );
 
   const runDeepManuscriptAnalysis = async () => {
     setIsAnalyzingManuscript(true);
@@ -2677,6 +2783,8 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               ))}
             </div>
           </div>
+
+          <Toolbar groups={toolbarGroups} />
 
           <div
             className="editor-template-panel"
