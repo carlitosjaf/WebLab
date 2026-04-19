@@ -40,7 +40,9 @@ export default function LattesAssistantPage() {
       if (profile?.equipe_id || profile?.role === "coordenador_geral") {
         let lattesQuery = supabase
           .from("artigos")
-          .select("id, titulo, status, conteudo_json, autor_id, equipe_id, updated_at, last_editor_id")
+          .select(
+            "id, titulo, status, conteudo_json, autor_id, equipe_id, google_doc_id, google_doc_url, google_last_synced_at, updated_at, last_editor_id"
+          )
           .eq("status", "aprovado")
           .order("titulo", { ascending: true });
 

@@ -38,7 +38,10 @@ alter table public.perfis
 
 alter table public.artigos
   add column if not exists updated_at timestamptz default timezone('utc', now()),
-  add column if not exists last_editor_id uuid references public.perfis (id);
+  add column if not exists last_editor_id uuid references public.perfis (id),
+  add column if not exists google_doc_id text,
+  add column if not exists google_doc_url text,
+  add column if not exists google_last_synced_at timestamptz;
 
 update public.artigos
 set

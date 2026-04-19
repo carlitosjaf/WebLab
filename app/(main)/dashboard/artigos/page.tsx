@@ -66,7 +66,9 @@ export default function ResearchPage() {
       const [{ data, error }, { data: teams }] = await Promise.all([
         supabase
           .from("artigos")
-          .select("id, titulo, conteudo_json, status, autor_id, equipe_id, updated_at, last_editor_id")
+          .select(
+            "id, titulo, conteudo_json, status, autor_id, equipe_id, google_doc_id, google_doc_url, google_last_synced_at, updated_at, last_editor_id"
+          )
           .order("updated_at", { ascending: false }),
         supabase.from("equipes").select("id, nome, codigo_convite")
       ]);
@@ -133,7 +135,7 @@ export default function ResearchPage() {
             {weblabTools.map((tool) => {
               const toolHref =
                 tool.label === "Editor vivo" && articles[0]
-                  ? (`/editor/${articles[0].id}` as Route)
+                  ? (`/dashboard/artigos/${articles[0].id}` as Route)
                   : (tool.href as Route);
 
               return (
@@ -199,8 +201,8 @@ export default function ResearchPage() {
                         </strong>
                         <small>{connection.sharedTerms.join(", ")}</small>
                         <div>
-                          <Link href={`/editor/${connection.leftArticle.id}`}>Abrir primeiro</Link>
-                          <Link href={`/editor/${connection.rightArticle.id}`}>Abrir segundo</Link>
+                          <Link href={`/dashboard/artigos/${connection.leftArticle.id}` as Route}>Abrir primeiro</Link>
+                          <Link href={`/dashboard/artigos/${connection.rightArticle.id}` as Route}>Abrir segundo</Link>
                         </div>
                       </div>
                     ))}
@@ -350,8 +352,8 @@ export default function ResearchPage() {
                           : "Artigo compartilhado para leitura entre as equipes do WebLab."}
                       </p>
                       <div className="project-public-actions">
-                        <Link href={`/editor/${article.id}`}>Abrir no editor</Link>
-                        <Link href={`/dashboard/artigos/${article.id}` as Route}>Painel de submissão</Link>
+                        <Link href={`/dashboard/artigos/${article.id}` as Route}>Abrir manuscrito</Link>
+                        <Link href={`/editor/${article.id}`}>Editor clássico</Link>
                         <Link href="/dashboard/periodicos">Radar editorial</Link>
                       </div>
                     </div>

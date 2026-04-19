@@ -5,6 +5,8 @@ import type { Route } from "next";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { GoogleDocsWorkspaceCard } from "@/components/dashboard/google-docs-workspace-card";
+import { buildGoogleDocCreateUrl, buildGoogleDocUrl } from "@/lib/google-docs";
 import { formatRecommendationLevel } from "@/lib/periodicos";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type {
@@ -102,7 +104,9 @@ export default function ArticleSubmissionPage() {
         supabase.from("perfis").select("id, equipe_id, role").eq("id", user.id).maybeSingle(),
         supabase
           .from("artigos")
-          .select("id, titulo, status, conteudo_json, autor_id, equipe_id, updated_at, last_editor_id")
+          .select(
+            "id, titulo, status, conteudo_json, autor_id, equipe_id, google_doc_id, google_doc_url, google_last_synced_at, updated_at, last_editor_id"
+          )
           .eq("id", params.id)
           .maybeSingle()
       ]);
@@ -228,6 +232,7 @@ export default function ArticleSubmissionPage() {
   const teamBadgeTone = getTeamBadgeTone(teamName);
   const editorialProgress = prioritizedJournal ? getSubmissionReadiness(prioritizedJournal) : null;
   const wordCount = article ? countArticleWords(article.conteudo_json) : 0;
+  const googleDocHref = article ? buildGoogleDocUrl(article.google_doc_id) ?? article.google_doc_url ?? buildGoogleDocCreateUrl() : buildGoogleDocCreateUrl();
   const summarySteps = [
     {
       label: "Manuscrito ativo",
@@ -272,6 +277,58 @@ export default function ArticleSubmissionPage() {
           : "Visível apenas para a equipe autora"
     }
   ];
+
+  const handleLinkGoogleDoc = async (payload: { docId: string; docUrl: string }) => {
+    if (!article || !canEdit) {
+      throw new Error("Apenas a equipe autora pode vincular o Google Docs.");
+    }
+
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("artigos")
+      .update({
+        google_doc_id: payload.docId,
+        google_doc_url: payload.docUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", article.id)
+      .select(
+        "id, titulo, status, conteudo_json, autor_id, equipe_id, google_doc_id, google_doc_url, google_last_synced_at, updated_at, last_editor_id"
+      )
+      .single();
+
+    if (error || !data) {
+      throw new Error(error?.message ?? "Não foi possível salvar o vínculo do documento.");
+    }
+
+    setArticle(data as ArticleRow);
+  };
+
+  const handleMarkGoogleSync = async () => {
+    if (!article || !canEdit) {
+      throw new Error("Apenas a equipe autora pode registrar sincronização.");
+    }
+
+    const now = new Date().toISOString();
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("artigos")
+      .update({
+        google_last_synced_at: now,
+        updated_at: now,
+      })
+      .eq("id", article.id)
+      .select(
+        "id, titulo, status, conteudo_json, autor_id, equipe_id, google_doc_id, google_doc_url, google_last_synced_at, updated_at, last_editor_id"
+      )
+      .single();
+
+    if (error || !data) {
+      throw new Error(error?.message ?? "Não foi possível registrar a sincronização.");
+    }
+
+    setArticle(data as ArticleRow);
+  };
 
   if (isLoading) {
     return (
@@ -325,14 +382,17 @@ export default function ArticleSubmissionPage() {
               </p>
             </div>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <Link className="lovable-small-button" href={`/editor/${article.id}` as Route}>
-                Abrir no editor
-              </Link>
+              <a className="lovable-primary-link" href={googleDocHref} rel="noreferrer" target="_blank">
+                {article.google_doc_id ? "Abrir no Google Docs" : "Criar no Google Docs"}
+              </a>
               <Link className="lovable-small-button" href="/dashboard/periodicos">
                 Radar editorial
               </Link>
               <Link className="lovable-small-button" href="/dashboard/triagem">
                 Triagem
+              </Link>
+              <Link className="lovable-small-button" href={`/editor/${article.id}` as Route}>
+                Editor clássico
               </Link>
             </div>
           </div>
@@ -379,6 +439,13 @@ export default function ArticleSubmissionPage() {
               <span>comentários em aberto</span>
             </article>
           </div>
+
+          <GoogleDocsWorkspaceCard
+            article={article}
+            canEdit={canEdit}
+            onLinkDocument={handleLinkGoogleDoc}
+            onMarkSynced={handleMarkGoogleSync}
+          />
         </div>
       </section>
 

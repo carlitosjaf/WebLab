@@ -137,6 +137,9 @@ export type Database = {
           status: ArticleStatus;
           autor_id: string;
           equipe_id: string;
+          google_doc_id: string | null;
+          google_doc_url: string | null;
+          google_last_synced_at: string | null;
           updated_at: string | null;
           last_editor_id: string | null;
         };
@@ -147,6 +150,9 @@ export type Database = {
           status?: ArticleStatus;
           autor_id?: string;
           equipe_id?: string;
+          google_doc_id?: string | null;
+          google_doc_url?: string | null;
+          google_last_synced_at?: string | null;
           updated_at?: string | null;
           last_editor_id?: string | null;
         };
@@ -154,6 +160,9 @@ export type Database = {
           titulo?: string;
           conteudo_json?: ArticleContent | null;
           status?: ArticleStatus;
+          google_doc_id?: string | null;
+          google_doc_url?: string | null;
+          google_last_synced_at?: string | null;
           updated_at?: string | null;
           last_editor_id?: string | null;
         };

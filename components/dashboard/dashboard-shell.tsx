@@ -194,7 +194,7 @@ export function DashboardShell({
       }
 
       setTitle("");
-      router.push(`/editor/${data.id}`);
+      router.push(`/dashboard/artigos/${data.id}` as Route);
       router.refresh();
     });
   };
@@ -323,10 +323,10 @@ export function DashboardShell({
                     <div className="dashboard-home-card-actions">
                       <button
                         className="lovable-small-button"
-                        onClick={() => router.push(`/editor/${article.id}`)}
+                        onClick={() => router.push(`/dashboard/artigos/${article.id}` as Route)}
                         type="button"
                       >
-                        Abrir no editor
+                        Abrir manuscrito
                       </button>
                       <button
                         className="lovable-small-button"

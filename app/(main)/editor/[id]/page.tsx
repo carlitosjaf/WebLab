@@ -39,7 +39,9 @@ export default function EditorPage() {
         supabase.from("perfis").select("equipe_id, role").eq("id", user.id).maybeSingle(),
         supabase
           .from("artigos")
-          .select("id, titulo, status, conteudo_json, autor_id, equipe_id, updated_at, last_editor_id")
+          .select(
+            "id, titulo, status, conteudo_json, autor_id, equipe_id, google_doc_id, google_doc_url, google_last_synced_at, updated_at, last_editor_id"
+          )
           .eq("id", params.id)
           .single()
       ]);
