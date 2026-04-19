@@ -2573,108 +2573,109 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
             </div>
           </div>
 
-          <div
-            className="editor-toolbar"
-            style={{
-              display: "flex",
-              gap: "10px",
-              flexWrap: "wrap",
-              paddingBottom: "16px",
-              borderBottom: "1px solid rgba(255,255,255,0.08)"
-            }}
-          >
-            {[
-              {
-                label: "Desfazer",
-                action: () => editor?.chain().focus().undo().run(),
-                active: false,
-                disabled: !editor?.can().chain().focus().undo().run() || !canEdit
-              },
-              {
-                label: "Refazer",
-                action: () => editor?.chain().focus().redo().run(),
-                active: false,
-                disabled: !editor?.can().chain().focus().redo().run() || !canEdit
-              },
-              {
-                label: "Negrito",
-                action: () => editor?.chain().focus().toggleBold().run(),
-                active: editor?.isActive("bold"),
-                disabled: !canEdit
-              },
-              {
-                label: "Italico",
-                action: () => editor?.chain().focus().toggleItalic().run(),
-                active: editor?.isActive("italic"),
-                disabled: !canEdit
-              },
-              {
-                label: "Texto",
-                action: () => editor?.chain().focus().setParagraph().run(),
-                active: editor?.isActive("paragraph"),
-                disabled: !canEdit
-              },
-              {
-                label: "H2",
-                action: () => editor?.chain().focus().toggleHeading({ level: 2 }).run(),
-                active: editor?.isActive("heading", { level: 2 }),
-                disabled: !canEdit
-              },
-              {
-                label: "H3",
-                action: () => editor?.chain().focus().toggleHeading({ level: 3 }).run(),
-                active: editor?.isActive("heading", { level: 3 }),
-                disabled: !canEdit
-              },
-              {
-                label: "Lista",
-                action: () => editor?.chain().focus().toggleBulletList().run(),
-                active: editor?.isActive("bulletList"),
-                disabled: !canEdit
-              },
-              {
-                label: "1.",
-                action: () => editor?.chain().focus().toggleOrderedList().run(),
-                active: editor?.isActive("orderedList"),
-                disabled: !canEdit
-              },
-              {
-                label: "Citar",
-                action: () => editor?.chain().focus().toggleBlockquote().run(),
-                active: editor?.isActive("blockquote"),
-                disabled: !canEdit
-              },
-              {
-                label: "Comentar",
-                action: captureSelectedExcerpt,
-                active: false,
-                disabled: !editor
-              }
-            ].map((item) => (
-              <button
-                key={item.label}
-                className="button"
-                disabled={item.disabled}
-                onClick={item.action}
-                style={{
-                  background: item.disabled
-                    ? "rgba(255,255,255,0.03)"
-                    : item.active
-                      ? "rgba(214,255,247,0.18)"
-                      : "rgba(255,255,255,0.05)",
-                  color: item.disabled
-                    ? "rgba(245,245,247,0.35)"
-                    : "var(--foreground)",
-                  border: item.active
-                    ? "1px solid rgba(214,255,247,0.22)"
-                    : "1px solid rgba(255,255,255,0.08)",
-                  padding: "10px 14px"
-                }}
-                type="button"
-              >
-                {item.label}
-              </button>
-            ))}
+          <div className="editor-toolbar" role="toolbar" aria-label="Ferramentas de formatação do manuscrito">
+            <div className="editor-toolbar-group" aria-label="Histórico">
+              {[
+                {
+                  label: "Desfazer",
+                  shortLabel: "↶",
+                  action: () => editor?.chain().focus().undo().run(),
+                  active: false,
+                  disabled: !editor?.can().chain().focus().undo().run() || !canEdit
+                },
+                {
+                  label: "Refazer",
+                  shortLabel: "↷",
+                  action: () => editor?.chain().focus().redo().run(),
+                  active: false,
+                  disabled: !editor?.can().chain().focus().redo().run() || !canEdit
+                }
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  className="editor-toolbar-button editor-toolbar-button-icon"
+                  data-active={item.active ? "true" : "false"}
+                  disabled={item.disabled}
+                  onClick={item.action}
+                  title={item.label}
+                  type="button"
+                >
+                  <span aria-hidden="true">{item.shortLabel}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="editor-toolbar-divider" aria-hidden="true" />
+
+            <div className="editor-toolbar-group" aria-label="Formatação básica">
+              {[
+                {
+                  label: "Negrito",
+                  action: () => editor?.chain().focus().toggleBold().run(),
+                  active: editor?.isActive("bold"),
+                  disabled: !canEdit
+                },
+                {
+                  label: "Itálico",
+                  action: () => editor?.chain().focus().toggleItalic().run(),
+                  active: editor?.isActive("italic"),
+                  disabled: !canEdit
+                },
+                {
+                  label: "Texto",
+                  action: () => editor?.chain().focus().setParagraph().run(),
+                  active: editor?.isActive("paragraph"),
+                  disabled: !canEdit
+                },
+                {
+                  label: "H2",
+                  action: () => editor?.chain().focus().toggleHeading({ level: 2 }).run(),
+                  active: editor?.isActive("heading", { level: 2 }),
+                  disabled: !canEdit
+                },
+                {
+                  label: "H3",
+                  action: () => editor?.chain().focus().toggleHeading({ level: 3 }).run(),
+                  active: editor?.isActive("heading", { level: 3 }),
+                  disabled: !canEdit
+                },
+                {
+                  label: "Lista",
+                  action: () => editor?.chain().focus().toggleBulletList().run(),
+                  active: editor?.isActive("bulletList"),
+                  disabled: !canEdit
+                },
+                {
+                  label: "1.",
+                  action: () => editor?.chain().focus().toggleOrderedList().run(),
+                  active: editor?.isActive("orderedList"),
+                  disabled: !canEdit
+                },
+                {
+                  label: "Citar",
+                  action: () => editor?.chain().focus().toggleBlockquote().run(),
+                  active: editor?.isActive("blockquote"),
+                  disabled: !canEdit
+                },
+                {
+                  label: "Comentar",
+                  action: captureSelectedExcerpt,
+                  active: false,
+                  disabled: !editor
+                }
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  className="editor-toolbar-button"
+                  data-active={item.active ? "true" : "false"}
+                  disabled={item.disabled}
+                  onClick={item.action}
+                  type="button"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div
