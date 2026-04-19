@@ -370,9 +370,9 @@ export default function ArticleSubmissionPage() {
   return (
     <main className="lovable-home">
       <section className="public-content-section">
-        <div className="lovable-container" style={{ display: "grid", gap: "18px" }}>
-          <div className="public-section-head-row">
-            <div>
+        <div className="lovable-container manuscript-command-page">
+          <div className="manuscript-command-hero">
+            <div className="manuscript-command-hero__copy">
               <span className="eyebrow">painel de submissão</span>
               <h1 className="public-section-title" style={{ marginTop: "8px" }}>
                 {article.titulo}
@@ -381,7 +381,7 @@ export default function ArticleSubmissionPage() {
                 Um lugar para decidir revista-alvo, acompanhar triagem, fechar revisão e reduzir atrito antes da submissão.
               </p>
             </div>
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <div className="manuscript-command-hero__actions">
               <a className="lovable-primary-link" href={googleDocHref} rel="noreferrer" target="_blank">
                 {article.google_doc_id ? "Abrir no Google Docs" : "Criar no Google Docs"}
               </a>
@@ -397,7 +397,7 @@ export default function ArticleSubmissionPage() {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          <div className="manuscript-command-meta">
             <span className="status-chip">{formatStatusLabel(article.status)}</span>
             {teamName ? (
               <span

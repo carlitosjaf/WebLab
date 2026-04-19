@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   buildGoogleDocCreateUrl,
@@ -30,24 +30,49 @@ export function GoogleDocsWorkspaceCard({
   const [docInput, setDocInput] = useState(article.google_doc_url ?? article.google_doc_id ?? "");
   const [message, setMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [copiedHint, setCopiedHint] = useState<string | null>(null);
 
   const docUrl = buildGoogleDocUrl(article.google_doc_id) ?? article.google_doc_url;
-  const syncStatus = inferGoogleDocSyncStatus(article.google_doc_id, article.google_last_synced_at);
+  const syncStatus = inferGoogleDocSyncStatus(article.google_doc_id, article.google_last_synced_at, article.updated_at);
   const syncLabel = formatGoogleDocSyncLabel(syncStatus);
+  const bootBriefing = useMemo(
+    () =>
+      [
+        article.titulo,
+        "",
+        "Resumo",
+        "Objetivo:",
+        "Método:",
+        "Achado principal:",
+        "Contribuição:",
+        "",
+        "Próximos passos no WebLab",
+        "- revisar leitura cognitiva",
+        "- validar referências",
+        "- rodar radar editorial",
+        "- fechar checklist de submissão",
+      ].join("\n"),
+    [article.titulo]
+  );
 
   const checklist = useMemo(
     () => [
       {
-        label: "Documento Google vinculado",
+        label: "Criar o documento",
         done: Boolean(article.google_doc_id),
-        detail: article.google_doc_id ? "O manuscrito já abre no Google Docs." : "Crie um documento e cole o link aqui.",
+        detail: article.google_doc_id ? "O manuscrito já tem um documento principal." : "Abra o Docs, gere o arquivo e volte com o link.",
       },
       {
-        label: "Última sincronização",
+        label: "Vincular ao WebLab",
+        done: Boolean(article.google_doc_id),
+        detail: article.google_doc_id ? "O WebLab já sabe qual documento acompanhar." : "Cole o link do Google Docs para conectar o manuscrito.",
+      },
+      {
+        label: "Registrar sincronização",
         done: Boolean(article.google_last_synced_at),
         detail: article.google_last_synced_at
-          ? `Registrada em ${formatRelativeUpdate(article.google_last_synced_at)}`
-          : "Ainda não registrada.",
+          ? `Último checkpoint em ${formatRelativeUpdate(article.google_last_synced_at)}`
+          : "Marque a sincronização depois de atualizar o Google Docs.",
       },
       {
         label: "Editor clássico",
@@ -57,6 +82,20 @@ export function GoogleDocsWorkspaceCard({
     ],
     [article.google_doc_id, article.google_last_synced_at]
   );
+
+  useEffect(() => {
+    setDocInput(article.google_doc_url ?? article.google_doc_id ?? "");
+  }, [article.google_doc_id, article.google_doc_url]);
+
+  const handleCopy = async (label: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopiedHint(label);
+      window.setTimeout(() => setCopiedHint((current) => (current === label ? null : current)), 1800);
+    } catch {
+      setMessage("Não consegui copiar automaticamente. Tente de novo em alguns segundos.");
+    }
+  };
 
   const handleLink = async () => {
     const docId = extractGoogleDocId(docInput);
@@ -94,30 +133,30 @@ export function GoogleDocsWorkspaceCard({
   };
 
   return (
-    <section className="docs-workspace-card">
-      <div className="docs-workspace-card__content">
-        <div className="docs-workspace-card__eyebrow-row">
+    <section className="manuscript-hub">
+      <div className="manuscript-hub__content">
+        <div className="manuscript-hub__eyebrow-row">
           <span className="eyebrow">manuscrito conectado</span>
-          <span className={`docs-sync-chip docs-sync-chip--${syncStatus}`}>{syncLabel}</span>
+          <span className={`manuscript-sync-chip manuscript-sync-chip--${syncStatus}`}>{syncLabel}</span>
         </div>
 
-        <h2>Escreva no Google Docs. Decida no WebLab.</h2>
+        <h2>Escreva no Google Docs. Coordene tudo aqui.</h2>
         <p>
-          O WebLab vira a mesa de comando do manuscrito: leitura cognitiva, radar editorial, triagem,
-          referências e submissão. O Google Docs fica responsável pela escrita, autosave e colaboração.
+          O Google Docs assume a escrita, o autosave e a colaboração. O WebLab fica com a parte inteligente:
+          leitura cognitiva, triagem, referências, radar editorial e decisão de submissão.
         </p>
 
-        <div className="docs-workspace-card__meta">
+        <div className="manuscript-hub__meta">
           <span>{formatStatusLabel(article.status)}</span>
-          <span>{article.google_doc_id ? "Documento vinculado" : "Documento ainda não vinculado"}</span>
-          <span>
+          <span>{article.google_doc_id ? "Documento vinculado" : "Aguardando vínculo"}</span>
+          <span className={syncStatus === "atualizacao_pendente" ? "is-warning" : undefined}>
             {article.google_last_synced_at
               ? `Sincronizado em ${formatRelativeUpdate(article.google_last_synced_at)}`
               : "Sem sincronização registrada"}
           </span>
         </div>
 
-        <div className="docs-workspace-card__actions">
+        <div className="manuscript-hub__actions">
           <a
             className="lovable-primary-link"
             href={docUrl ?? buildGoogleDocCreateUrl()}
@@ -134,12 +173,39 @@ export function GoogleDocsWorkspaceCard({
           </Link>
         </div>
 
-        <div className="docs-link-panel">
-          <div className="docs-link-panel__head">
+        <div className="manuscript-hub__assist-row">
+          <button className="lovable-small-button" onClick={() => void handleCopy("Título copiado", article.titulo)} type="button">
+            Copiar título
+          </button>
+          <button className="lovable-small-button" onClick={() => void handleCopy("Briefing copiado", bootBriefing)} type="button">
+            Copiar briefing inicial
+          </button>
+          {copiedHint ? <span className="manuscript-hub__copied">{copiedHint}</span> : null}
+        </div>
+
+        <div className="manuscript-steps">
+          {checklist.map((item, index) => (
+            <article className="manuscript-step-card" key={item.label}>
+              <span className="manuscript-step-card__index">0{index + 1}</span>
+              <strong>{item.label}</strong>
+              <p>{item.detail}</p>
+              <span className={`manuscript-step-card__status ${item.done ? "is-done" : "is-pending"}`}>
+                {item.done ? "Feito" : "Pendente"}
+              </span>
+            </article>
+          ))}
+        </div>
+
+        <div className="manuscript-link-panel">
+          <div className="manuscript-link-panel__head">
             <strong>Vincular documento Google</strong>
-            <span className="muted">Cole o link do documento ou o ID depois de criar o arquivo.</span>
+            <span className="muted">
+              {canEdit
+                ? "Cole o link do documento ou o ID depois de criar o arquivo."
+                : "Somente a equipe autora pode alterar o vínculo do Google Docs."}
+            </span>
           </div>
-          <div className="docs-link-panel__row">
+          <div className="manuscript-link-panel__row">
             <input
               className="field"
               disabled={!canEdit || isSaving}
@@ -151,41 +217,40 @@ export function GoogleDocsWorkspaceCard({
               {isSaving ? "Salvando..." : "Vincular"}
             </button>
           </div>
-          {message ? <p className="muted">{message}</p> : null}
-        </div>
-
-        <div className="docs-check-grid">
-          {checklist.map((item) => (
-            <article className="docs-check-card" key={item.label}>
-              <strong>{item.done ? "OK" : "Ajustar"}</strong>
-              <span>{item.label}</span>
-              <small>{item.detail}</small>
-            </article>
-          ))}
+          <div className="manuscript-link-panel__footer">
+            {docUrl ? (
+              <a href={docUrl} rel="noreferrer" target="_blank">
+                Abrir documento vinculado →
+              </a>
+            ) : (
+              <span>Depois de criar o arquivo, volte aqui e cole o link.</span>
+            )}
+            {message ? <p className="muted">{message}</p> : null}
+          </div>
         </div>
       </div>
 
-      <aside className="docs-preview-shell" aria-label="Prévia do fluxo Google Docs com WebLab">
-        <div className="docs-preview-browser">
-          <div className="docs-preview-browser__bar">
+      <aside className="manuscript-preview" aria-label="Prévia do fluxo Google Docs com WebLab">
+        <div className="manuscript-preview__browser">
+          <div className="manuscript-preview__bar">
             <span />
             <span />
             <span />
           </div>
-          <div className="docs-preview-browser__body">
-            <div className="docs-preview-doc">
-              <div className="docs-preview-doc__header">
+          <div className="manuscript-preview__body">
+            <div className="manuscript-preview__doc">
+              <div className="manuscript-preview__header">
                 <strong>{article.titulo}</strong>
                 <small>Google Docs · Conta da equipe</small>
               </div>
-              <div className="docs-preview-doc__toolbar">
+              <div className="manuscript-preview__toolbar">
                 <span>Arquivo</span>
                 <span>Editar</span>
                 <span>Inserir</span>
                 <span>Formatar</span>
                 <span>Ferramentas</span>
               </div>
-              <div className="docs-preview-doc__page">
+              <div className="manuscript-preview__page">
                 <h3>Introdução</h3>
                 <p>
                   Produzir e compartilhar conhecimento para o fortalecimento do SUS exige escrita clara,
@@ -196,13 +261,13 @@ export function GoogleDocsWorkspaceCard({
               </div>
             </div>
 
-            <div className="docs-preview-sidebar">
-              <div className="docs-preview-sidebar__tabs">
+            <div className="manuscript-preview__sidebar">
+              <div className="manuscript-preview__tabs">
                 <span className="active">Leitura</span>
                 <span>Referências</span>
                 <span>Radar</span>
               </div>
-              <div className="docs-preview-sidebar__panel">
+              <div className="manuscript-preview__panel">
                 <strong>WebLab</strong>
                 <div>
                   <span>Resumo incompleto</span>

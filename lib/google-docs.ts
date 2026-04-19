@@ -34,7 +34,8 @@ export function buildGoogleDocCreateUrl() {
 
 export function inferGoogleDocSyncStatus(
   docId: string | null | undefined,
-  lastSyncedAt: string | null | undefined
+  lastSyncedAt: string | null | undefined,
+  updatedAt?: string | null | undefined
 ): GoogleDocSyncStatus {
   if (!docId) {
     return "nao_configurado";
@@ -47,6 +48,11 @@ export function inferGoogleDocSyncStatus(
   const syncDate = new Date(lastSyncedAt);
   if (Number.isNaN(syncDate.getTime())) {
     return "rascunho_local";
+  }
+
+  const updatedDate = updatedAt ? new Date(updatedAt) : null;
+  if (updatedDate && !Number.isNaN(updatedDate.getTime()) && updatedDate.getTime() > syncDate.getTime()) {
+    return "atualizacao_pendente";
   }
 
   const diffHours = Math.abs(Date.now() - syncDate.getTime()) / (1000 * 60 * 60);
