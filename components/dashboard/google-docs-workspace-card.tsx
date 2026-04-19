@@ -20,6 +20,7 @@ type GoogleDocsWorkspaceCardProps = {
   canEdit: boolean;
   onLinkDocument: (payload: { docId: string; docUrl: string }) => Promise<void>;
   onMarkSynced: () => Promise<void>;
+  onClearGoogleDoc: () => Promise<void>;
   onApplyGoogleDocMeta: (payload: {
     docId: string;
     docUrl: string;
@@ -32,6 +33,7 @@ export function GoogleDocsWorkspaceCard({
   canEdit,
   onLinkDocument,
   onMarkSynced,
+  onClearGoogleDoc,
   onApplyGoogleDocMeta,
 }: GoogleDocsWorkspaceCardProps) {
   const [docInput, setDocInput] = useState(article.google_doc_url ?? article.google_doc_id ?? "");
@@ -39,6 +41,12 @@ export function GoogleDocsWorkspaceCard({
   const [isSaving, setIsSaving] = useState(false);
   const [copiedHint, setCopiedHint] = useState<string | null>(null);
   const [isProvisioning, setIsProvisioning] = useState(false);
+  const [googleStatus, setGoogleStatus] = useState<{
+    configured: boolean;
+    connected: boolean;
+    googleEmail: string | null;
+    updatedAt: string | null;
+  } | null>(null);
 
   const docUrl = buildGoogleDocUrl(article.google_doc_id) ?? article.google_doc_url;
   const syncStatus = inferGoogleDocSyncStatus(article.google_doc_id, article.google_last_synced_at, article.updated_at);
@@ -94,6 +102,52 @@ export function GoogleDocsWorkspaceCard({
   useEffect(() => {
     setDocInput(article.google_doc_url ?? article.google_doc_id ?? "");
   }, [article.google_doc_id, article.google_doc_url]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadGoogleStatus = async () => {
+      try {
+        const supabase = getSupabaseClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!session?.access_token) {
+          return;
+        }
+
+        const response = await fetch("/api/google/docs/status", {
+          headers: {
+            authorization: `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          configured: boolean;
+          connected: boolean;
+          googleEmail: string | null;
+          updatedAt: string | null;
+        };
+
+        if (isMounted) {
+          setGoogleStatus(payload);
+        }
+      } catch {
+        // keep silent, the panel already has local fallback states
+      }
+    };
+
+    void loadGoogleStatus();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleCopy = async (label: string, value: string) => {
     try {
@@ -206,6 +260,70 @@ export function GoogleDocsWorkspaceCard({
     }
   };
 
+  const handleDisconnectGoogle = async () => {
+    setIsProvisioning(true);
+    setMessage(null);
+
+    try {
+      const supabase = getSupabaseClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Sua sessão expirou. Entre novamente antes de desconectar o Google.");
+      }
+
+      const response = await fetch("/api/google/docs/disconnect", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const payload = (await response.json()) as { error?: string; ok?: boolean };
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Não foi possível desconectar a conta Google.");
+      }
+
+      setGoogleStatus((current) =>
+        current
+          ? {
+              ...current,
+              connected: false,
+              googleEmail: null,
+              updatedAt: null,
+            }
+          : {
+              configured: true,
+              connected: false,
+              googleEmail: null,
+              updatedAt: null,
+            }
+      );
+      setMessage("Conta Google desconectada do WebLab.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível desconectar a conta Google.");
+    } finally {
+      setIsProvisioning(false);
+    }
+  };
+
+  const handleClearArticleLink = async () => {
+    setIsSaving(true);
+    setMessage(null);
+
+    try {
+      await onClearGoogleDoc();
+      setDocInput("");
+      setMessage("Documento desvinculado deste manuscrito.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Não foi possível desvincular o documento.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <section className="manuscript-hub">
       <div className="manuscript-hub__content">
@@ -223,6 +341,12 @@ export function GoogleDocsWorkspaceCard({
         <div className="manuscript-hub__meta">
           <span>{formatStatusLabel(article.status)}</span>
           <span>{article.google_doc_id ? "Documento vinculado" : "Aguardando vínculo"}</span>
+          {googleStatus?.connected ? <span>Conta Google: {googleStatus.googleEmail ?? "Conectada"}</span> : null}
+          {googleStatus && !googleStatus.connected ? (
+            <span className={!googleStatus.configured ? "is-warning" : undefined}>
+              {!googleStatus.configured ? "Integração Google ainda não configurada" : "Conta Google ainda não conectada"}
+            </span>
+          ) : null}
           <span className={syncStatus === "atualizacao_pendente" ? "is-warning" : undefined}>
             {article.google_last_synced_at
               ? `Sincronizado em ${formatRelativeUpdate(article.google_last_synced_at)}`
@@ -246,6 +370,14 @@ export function GoogleDocsWorkspaceCard({
           <button className="lovable-small-button" disabled={!article.google_doc_id || isSaving} onClick={() => void handleMarkSynced()} type="button">
             Marcar sincronização
           </button>
+          <button
+            className="lovable-small-button"
+            disabled={!googleStatus?.connected || isProvisioning}
+            onClick={() => void handleDisconnectGoogle()}
+            type="button"
+          >
+            Desconectar Google
+          </button>
           <Link className="lovable-small-button" href={`/editor/${article.id}` as Route}>
             Abrir editor clássico
           </Link>
@@ -258,6 +390,11 @@ export function GoogleDocsWorkspaceCard({
           <button className="lovable-small-button" onClick={() => void handleCopy("Briefing copiado", bootBriefing)} type="button">
             Copiar briefing inicial
           </button>
+          {article.google_doc_id ? (
+            <button className="lovable-small-button" disabled={isSaving} onClick={() => void handleClearArticleLink()} type="button">
+              Desvincular documento
+            </button>
+          ) : null}
           {copiedHint ? <span className="manuscript-hub__copied">{copiedHint}</span> : null}
         </div>
 

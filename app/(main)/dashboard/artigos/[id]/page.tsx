@@ -332,6 +332,34 @@ export default function ArticleSubmissionPage() {
     setArticle(data as ArticleRow);
   };
 
+  const handleClearGoogleDoc = async () => {
+    if (!article || !canEdit) {
+      throw new Error("Apenas a equipe autora pode desvincular o Google Docs.");
+    }
+
+    const now = new Date().toISOString();
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from("artigos")
+      .update({
+        google_doc_id: null,
+        google_doc_url: null,
+        google_last_synced_at: null,
+        updated_at: now,
+      })
+      .eq("id", article.id)
+      .select(
+        "id, titulo, status, conteudo_json, autor_id, equipe_id, google_doc_id, google_doc_url, google_last_synced_at, updated_at, last_editor_id"
+      )
+      .single();
+
+    if (error || !data) {
+      throw new Error(error?.message ?? "Não foi possível desvincular o documento Google.");
+    }
+
+    setArticle(data as ArticleRow);
+  };
+
   const handleApplyGoogleDocMeta = (payload: { docId: string; docUrl: string; syncedAt: string }) => {
     setArticle((current) =>
       current
@@ -463,6 +491,7 @@ export default function ArticleSubmissionPage() {
             canEdit={canEdit}
             onLinkDocument={handleLinkGoogleDoc}
             onMarkSynced={handleMarkGoogleSync}
+            onClearGoogleDoc={handleClearGoogleDoc}
             onApplyGoogleDocMeta={handleApplyGoogleDocMeta}
           />
         </div>
