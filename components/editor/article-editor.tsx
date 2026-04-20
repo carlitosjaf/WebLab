@@ -2595,355 +2595,250 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
           </div>
         </section>
 
-        <section
-          className="glass-card editor-document-layout"
-          style={{
-            padding: "26px",
-            display: "grid",
-            gap: "20px"
-          }}
-        >
-          <div className="editor-paper-column">
-          <div
-            className="editor-status-card"
-            style={{
-              display: "grid",
-              gap: "10px",
-              padding: "18px 20px",
-              borderRadius: "22px",
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.08)"
-            }}
-          >
-            <strong>Artigo em {statusLabels[status].toLowerCase()}</strong>
-            <span className="muted">
-              Use o editor para desenvolver o texto e altere o status conforme o artigo evolui entre
-              rascunho, submissão interna e aprovação.
-            </span>
-            {!canEdit ? (
-              <span className="danger" style={{ fontSize: "0.92rem" }}>
-                {readOnlyReason ?? "Leitura compartilhada: apenas a equipe autora pode editar este manuscrito."}
-              </span>
-            ) : null}
-            <div style={{ display: "flex", gap: "14px", flexWrap: "wrap" }}>
-              <span className="muted">
-                {editor
-                  ? countArticleWords(editor.getJSON() as ArticleContent)
-                  : countArticleWords(article.conteudo_json)}{" "}
-                palavra(s)
-              </span>
-              <span className="muted">Última edição: {formatRelativeUpdate(article.updated_at)}</span>
-            </div>
-          </div>
-
-          <input
-            className="editor-title-input"
-            disabled={!canEdit}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Título do artigo"
-            style={{
-              width: "100%",
-              border: "none",
-              background: "transparent",
-              fontSize: "clamp(2rem, 5vw, 3.4rem)",
-              fontWeight: 700,
-              color: "var(--foreground)"
-            }}
-            value={title}
-          />
-
-          <div
-            className="editor-radar-card"
-            style={{
-              display: "grid",
-              gap: "10px",
-              padding: "18px 20px",
-              borderRadius: "22px",
-              background: "rgba(255,255,255,0.04)",
-              border: "1px solid rgba(255,255,255,0.08)"
-            }}
-          >
-            <strong>Revistas para submissão</strong>
-            <span className="muted">
-              Use o radar editorial quando for decidir submissão: o módulo cruza tema, indexadores e
-              shortlist sem quebrar o fluxo do manuscrito.
-            </span>
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <Link
-                className="button button-primary"
-                href={"/dashboard/periodicos" as Route}
-                style={{ textDecoration: "none", width: "fit-content" }}
-              >
-                Abrir localizador de revistas
-              </Link>
-            </div>
-          </div>
-
-          <div className="editor-toolbar" role="toolbar" aria-label="Ferramentas de formatação do manuscrito">
-            <div className="editor-toolbar-group" aria-label="Histórico">
-              {[
-                {
-                  label: "Desfazer",
-                  shortLabel: "↶",
-                  action: () => editor?.chain().focus().undo().run(),
-                  active: false,
-                  disabled: !editor?.can().chain().focus().undo().run() || !canEdit
-                },
-                {
-                  label: "Refazer",
-                  shortLabel: "↷",
-                  action: () => editor?.chain().focus().redo().run(),
-                  active: false,
-                  disabled: !editor?.can().chain().focus().redo().run() || !canEdit
-                }
-              ].map((item) => (
-                <button
-                  key={item.label}
-                  className="editor-toolbar-button editor-toolbar-button-icon"
-                  data-active={item.active ? "true" : "false"}
-                  disabled={item.disabled}
-                  onClick={item.action}
-                  title={item.label}
-                  type="button"
-                >
-                  <span aria-hidden="true">{item.shortLabel}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="editor-toolbar-divider" aria-hidden="true" />
-
-            <div className="editor-toolbar-group" aria-label="Formatação básica">
-              {[
-                {
-                  label: "Negrito",
-                  action: () => editor?.chain().focus().toggleBold().run(),
-                  active: editor?.isActive("bold"),
-                  disabled: !canEdit
-                },
-                {
-                  label: "Itálico",
-                  action: () => editor?.chain().focus().toggleItalic().run(),
-                  active: editor?.isActive("italic"),
-                  disabled: !canEdit
-                },
-                {
-                  label: "Texto",
-                  action: () => editor?.chain().focus().setParagraph().run(),
-                  active: editor?.isActive("paragraph"),
-                  disabled: !canEdit
-                },
-                {
-                  label: "H2",
-                  action: () => editor?.chain().focus().toggleHeading({ level: 2 }).run(),
-                  active: editor?.isActive("heading", { level: 2 }),
-                  disabled: !canEdit
-                },
-                {
-                  label: "H3",
-                  action: () => editor?.chain().focus().toggleHeading({ level: 3 }).run(),
-                  active: editor?.isActive("heading", { level: 3 }),
-                  disabled: !canEdit
-                },
-                {
-                  label: "Lista",
-                  action: () => editor?.chain().focus().toggleBulletList().run(),
-                  active: editor?.isActive("bulletList"),
-                  disabled: !canEdit
-                },
-                {
-                  label: "1.",
-                  action: () => editor?.chain().focus().toggleOrderedList().run(),
-                  active: editor?.isActive("orderedList"),
-                  disabled: !canEdit
-                },
-                {
-                  label: "Citar",
-                  action: () => editor?.chain().focus().toggleBlockquote().run(),
-                  active: editor?.isActive("blockquote"),
-                  disabled: !canEdit
-                },
-                {
-                  label: "Comentar",
-                  action: captureSelectedExcerpt,
-                  active: false,
-                  disabled: !editor
-                }
-              ].map((item) => (
-                <button
-                  key={item.label}
-                  className="editor-toolbar-button"
-                  data-active={item.active ? "true" : "false"}
-                  disabled={item.disabled}
-                  onClick={item.action}
-                  type="button"
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <Toolbar groups={toolbarGroups} />
-
-          <div
-            className="editor-template-panel"
-            style={{
-              display: "grid",
-              gap: "12px",
-              padding: "18px 0 4px",
-              borderBottom: "1px solid rgba(255,255,255,0.08)"
-            }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
-              <strong>Templates vivos</strong>
-              <span className="muted">Escolha o tipo de estudo e monte uma estrutura guiada para esse formato.</span>
-            </div>
-
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              {editorTemplates.map((template) => (
-                <button
-                  key={template.id}
-                  className="button"
-                  onClick={() => setSelectedTemplateId(template.id)}
-                  style={{
-                    background:
-                      selectedTemplateId === template.id ? "rgba(214,255,247,0.18)" : "rgba(255,255,255,0.05)",
-                    color: "var(--foreground)",
-                    border:
-                      selectedTemplateId === template.id
-                        ? "1px solid rgba(214,255,247,0.22)"
-                        : "1px solid rgba(255,255,255,0.08)",
-                    padding: "10px 14px"
-                  }}
-                  type="button"
-                >
-                  {template.name}
-                </button>
-              ))}
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gap: "10px",
-                padding: "16px",
-                borderRadius: "20px",
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)"
-              }}
-            >
-              <div style={{ display: "grid", gap: "6px" }}>
-                <strong>{activeTemplate.name}</strong>
-                <span className="muted">{activeTemplate.description}</span>
+        <section className="glass-card editor-document-layout">
+          <div className="editor-main-column">
+            <header className="editor-hero-panel">
+              <div className="editor-hero-top">
+                <div className="editor-hero-badges">
+                  <span className="eyebrow">atelier editorial</span>
+                  <span className="editor-hero-badge">{statusLabels[status]}</span>
+                  {abntMode ? <span className="editor-hero-badge editor-hero-badge--soft">ABNT ativa</span> : null}
+                </div>
+                <div className="editor-hero-meta">
+                  <span>
+                    {editor ? countArticleWords(editor.getJSON() as ArticleContent) : countArticleWords(article.conteudo_json)}{" "}
+                    palavras
+                  </span>
+                  <span>Última edição {formatRelativeUpdate(article.updated_at)}</span>
+                  <span>
+                    {saveState === "saving"
+                      ? "Salvando agora"
+                      : saveState === "saved"
+                        ? "Tudo salvo"
+                        : saveState === "error"
+                          ? "Falha ao salvar"
+                          : "Pronto para editar"}
+                  </span>
+                </div>
               </div>
 
-              <div style={{ display: "grid", gap: "8px" }}>
-                {activeTemplate.tips.map((tip) => (
-                  <span key={tip} className="muted">
-                    • {tip}
-                  </span>
+              <input
+                className="editor-title-input editor-title-input--hero"
+                disabled={!canEdit}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Título do manuscrito"
+                value={title}
+              />
+
+              <div className="editor-hero-grid">
+                <div className="editor-hero-copy">
+                  <strong>O manuscrito vive aqui.</strong>
+                  <p>
+                    Escreva, estruture e refine o argumento no próprio WebLab. O radar, a revisão e a
+                    leitura cognitiva passam a orbitar o texto, não competir com ele.
+                  </p>
+                  {!canEdit ? (
+                    <div className="editor-hero-alert">
+                      {readOnlyReason ?? "Leitura compartilhada: apenas a equipe autora pode editar este manuscrito."}
+                    </div>
+                  ) : (
+                    <div className="editor-hero-support">
+                      <span>Templates vivos, comentários e versões ficam à mão enquanto você escreve.</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="editor-hero-notes">
+                  <article>
+                    <span>Status editorial</span>
+                    <strong>{statusLabels[status]}</strong>
+                    <small>Atualize o estágio do texto conforme ele amadurece dentro da equipe.</small>
+                  </article>
+                  <article>
+                    <span>Radar acoplado</span>
+                    <strong>Pronto para decidir revista</strong>
+                    <small>Quando o texto estiver sólido, o radar cruza escopo, indexadores e shortlist.</small>
+                  </article>
+                </div>
+              </div>
+
+              <div className="editor-hero-actions">
+                <div className="editor-status-picker">
+                  <label htmlFor="articleStatus">Status</label>
+                  <select
+                    id="articleStatus"
+                    disabled={isUpdatingStatus || !canEdit}
+                    onChange={(event) => void handleStatusChange(event.target.value as ArticleStatus)}
+                    value={status}
+                  >
+                    {Object.entries(statusLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="editor-hero-action-list">
+                  <button
+                    className="button button-primary"
+                    disabled={isSavingVersion || !canEdit}
+                    onClick={() => void saveVersionSnapshot(versionNote)}
+                    type="button"
+                  >
+                    {isSavingVersion ? "Salvando versão..." : "Salvar versão"}
+                  </button>
+
+                  <button
+                    className="button button-secondary"
+                    disabled={isExportingDocx}
+                    onClick={() => void exportToDocx()}
+                    type="button"
+                  >
+                    {isExportingDocx ? "Gerando DOCX..." : "Exportar DOCX"}
+                  </button>
+
+                  <Link className="button editor-radar-link" href={"/dashboard/periodicos" as Route}>
+                    Radar editorial
+                  </Link>
+
+                  <button
+                    className="button button-secondary"
+                    disabled={!canEdit}
+                    onClick={() => setAbntMode((current) => !current)}
+                    type="button"
+                  >
+                    {abntMode ? "Desativar ABNT" : "Modo ABNT"}
+                  </button>
+
+                  <button className="button button-secondary" disabled={isLeaving} onClick={handleLeave} type="button">
+                    {isLeaving ? "Saindo..." : "Voltar"}
+                  </button>
+                </div>
+              </div>
+            </header>
+
+            <Toolbar groups={toolbarGroups} stickyTopClassName="editor-toolbar-floating" />
+
+            <section className="editor-template-panel">
+              <div className="editor-template-panel__header">
+                <div>
+                  <span className="eyebrow">templates vivos</span>
+                  <strong>Comece com um esqueleto inteligente, sem engessar o texto.</strong>
+                </div>
+                <p>
+                  Escolha o tipo de estudo, aplique a estrutura completa ou injete só a seção certa onde o
+                  manuscrito estiver pedindo.
+                </p>
+              </div>
+
+              <div className="editor-template-panel__chips">
+                {editorTemplates.map((template) => (
+                  <button
+                    className="editor-template-chip"
+                    data-active={selectedTemplateId === template.id ? "true" : "false"}
+                    key={template.id}
+                    onClick={() => setSelectedTemplateId(template.id)}
+                    type="button"
+                  >
+                    {template.name}
+                  </button>
                 ))}
               </div>
 
-              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <div className="editor-template-panel__detail">
+                <div className="editor-template-panel__detail-copy">
+                  <strong>{activeTemplate.name}</strong>
+                  <p>{activeTemplate.description}</p>
+                </div>
+                <div className="editor-template-panel__tips">
+                  {activeTemplate.tips.map((tip) => (
+                    <span key={tip}>{tip}</span>
+                  ))}
+                </div>
+                <div className="editor-template-panel__actions">
+                  <button
+                    className="button button-primary"
+                    disabled={!canEdit}
+                    onClick={applyCompleteTemplate}
+                    type="button"
+                  >
+                    Montar estrutura completa
+                  </button>
+
+                  <button
+                    className="button button-secondary"
+                    disabled={!canEdit}
+                    onClick={() => insertScientificSection(activeTemplate.content, "end")}
+                    type="button"
+                  >
+                    Inserir no fim do texto
+                  </button>
+                </div>
+              </div>
+
+              <div className="editor-template-panel__controls">
                 <button
-                  className="button button-primary"
+                  className="button button-secondary"
                   disabled={!canEdit}
                   onClick={applyCompleteTemplate}
                   type="button"
                 >
-                  Montar estrutura completa
+                  Reaplicar template
                 </button>
 
-                <button
-                  className="button button-secondary"
-                  disabled={!canEdit}
-                  onClick={() => insertScientificSection(activeTemplate.content, "end")}
-                  type="button"
-                >
-                  Inserir no fim do texto
-                </button>
+                <div className="editor-template-panel__selectors">
+                  <select
+                    disabled={!canEdit}
+                    onChange={(event) => {
+                      const nextGroup =
+                        sectionGroups.find((group) => group.id === event.target.value) ?? sectionGroups[0];
+                      setSelectedGroupId(nextGroup.id);
+                      setSelectedSectionLabel(nextGroup.sections[0]?.label ?? "");
+                    }}
+                    value={selectedGroupId}
+                  >
+                    {sectionGroups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    disabled={!canEdit}
+                    onChange={(event) => setSelectedSectionLabel(event.target.value)}
+                    value={selectedSectionLabel}
+                  >
+                    {activeSectionGroup.sections.map((section) => (
+                      <option key={section.label} value={section.label}>
+                        {section.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    className="button button-secondary"
+                    disabled={!canEdit}
+                    onClick={() => selectedSection && insertScientificSection(selectedSection.content)}
+                    type="button"
+                  >
+                    Adicionar seção
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <div className="editor-page-shell">
+              <div className="editor-document-meta-strip">
+                <span>{canEdit ? "Escrita ativa no WebLab" : "Modo leitura compartilhada"}</span>
+                <span>{abntMode ? "Visual de submissão ABNT" : "Modo manuscrito livre"}</span>
+                <span>{saveState === "saved" ? "Alterações salvas" : "Continue escrevendo"}</span>
+              </div>
+              <div className={abntMode ? "editor-surface editor-page abnt-mode" : "editor-surface editor-page"}>
+                <EditorContent editor={editor} />
               </div>
             </div>
-
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <button
-                className="button button-secondary"
-                disabled={!canEdit}
-                onClick={applyCompleteTemplate}
-                type="button"
-              >
-                Reaplicar template selecionado
-              </button>
-
-              <select
-                disabled={!canEdit}
-                onChange={(event) => {
-                  const nextGroup =
-                    sectionGroups.find((group) => group.id === event.target.value) ?? sectionGroups[0];
-                  setSelectedGroupId(nextGroup.id);
-                  setSelectedSectionLabel(nextGroup.sections[0]?.label ?? "");
-                }}
-                style={{
-                  borderRadius: "999px",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  background: "rgba(255,255,255,0.05)",
-                  color: "var(--foreground)",
-                  padding: "10px 14px",
-                  minWidth: "160px"
-                }}
-                value={selectedGroupId}
-              >
-                {sectionGroups.map((group) => (
-                  <option key={group.id} value={group.id}>
-                    {group.label}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                disabled={!canEdit}
-                onChange={(event) => setSelectedSectionLabel(event.target.value)}
-                style={{
-                  borderRadius: "999px",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  background: "rgba(255,255,255,0.05)",
-                  color: "var(--foreground)",
-                  padding: "10px 14px",
-                  minWidth: "220px"
-                }}
-                value={selectedSectionLabel}
-              >
-                {activeSectionGroup.sections.map((section) => (
-                  <option key={section.label} value={section.label}>
-                    {section.label}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                className="button button-secondary"
-                disabled={!canEdit}
-                onClick={() => selectedSection && insertScientificSection(selectedSection.content)}
-                type="button"
-              >
-                Adicionar seção
-              </button>
-            </div>
-          </div>
-
-          <div
-            className="editor-page-shell"
-            style={{
-              minHeight: "480px",
-              padding: "8px 6px 20px"
-            }}
-          >
-            <div className={abntMode ? "editor-surface editor-page abnt-mode" : "editor-surface editor-page"}>
-              <EditorContent editor={editor} />
-            </div>
-          </div>
           </div>
 
           <aside className="editor-cognitive-sidebar-v2" aria-label="Sidebar cognitiva do manuscrito">

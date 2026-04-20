@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Atkinson_Hyperlegible, Crimson_Pro, Inter, JetBrains_Mono } from "next/font/google";
 
 import "./globals.css";
 
@@ -15,6 +15,18 @@ const jetbrainsMono = JetBrains_Mono({
   weight: ["300", "400", "500", "600"]
 });
 
+const crimsonPro = Crimson_Pro({
+  subsets: ["latin"],
+  variable: "--font-editor-serif",
+  weight: ["600", "700"]
+});
+
+const atkinsonHyperlegible = Atkinson_Hyperlegible({
+  subsets: ["latin"],
+  variable: "--font-editor-sans",
+  weight: ["400", "700"]
+});
+
 export const metadata: Metadata = {
   title: "WebLab",
   description: "Laboratório virtual para escrita, colaboração e submissão científica."
@@ -27,7 +39,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${inter.variable} ${jetbrainsMono.variable}`}>{children}</body>
+      <body
+        className={`${inter.variable} ${jetbrainsMono.variable} ${crimsonPro.variable} ${atkinsonHyperlegible.variable}`}
+      >
+        {children}
+      </body>
     </html>
   );
 }
