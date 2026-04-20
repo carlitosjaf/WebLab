@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { GoogleDocsWorkspaceCard } from "@/components/dashboard/google-docs-workspace-card";
 import { ManuscriptCognitionPanel } from "@/components/dashboard/manuscript-cognition-panel";
 import { buildGoogleDocCreateUrl, buildGoogleDocUrl } from "@/lib/google-docs";
+import { getSubmissionAlignment } from "@/lib/manuscript-submission";
 import { formatRecommendationLevel } from "@/lib/periodicos";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type {
@@ -234,6 +235,7 @@ export default function ArticleSubmissionPage() {
   const unresolvedComments = comments.filter((comment) => !comment.resolvido_em);
   const teamBadgeTone = getTeamBadgeTone(teamName);
   const editorialProgress = prioritizedJournal ? getSubmissionReadiness(prioritizedJournal) : null;
+  const submissionAlignment = article ? getSubmissionAlignment(article.titulo, article.conteudo_json, prioritizedJournal) : null;
   const wordCount = article ? countArticleWords(article.conteudo_json) : 0;
   const googleDocHref = article ? buildGoogleDocUrl(article.google_doc_id) ?? article.google_doc_url ?? buildGoogleDocCreateUrl() : buildGoogleDocCreateUrl();
   const summarySteps = [
@@ -556,6 +558,75 @@ export default function ArticleSubmissionPage() {
               </div>
             </article>
           </div>
+
+          {submissionAlignment ? (
+            <section className="manuscript-alignment-board" aria-label="Encaixe editorial do manuscrito">
+              <div className="manuscript-alignment-board__hero">
+                <div>
+                  <span className="eyebrow">encaixe editorial</span>
+                  <h2>O quanto o manuscrito ja conversa com a revista-alvo</h2>
+                  <p>{submissionAlignment.summary}</p>
+                </div>
+                <div className="manuscript-alignment-score">
+                  <strong>{submissionAlignment.score}</strong>
+                  <span>score de aderencia</span>
+                </div>
+              </div>
+
+              <div className="manuscript-alignment-grid">
+                <article className="manuscript-alignment-card">
+                  <span className="eyebrow">o que ja ajuda</span>
+                  <h3>Forcas do encaixe</h3>
+                  <div className="knowledge-connection-list">
+                    {submissionAlignment.strengths.length > 0 ? (
+                      submissionAlignment.strengths.map((item) => (
+                        <div key={item}>
+                          <strong>OK</strong>
+                          <small>{item}</small>
+                        </div>
+                      ))
+                    ) : (
+                      <div>
+                        <small>Ainda nao encontrei sinais fortes suficientes para sustentar a submissao sem ajustes.</small>
+                      </div>
+                    )}
+                  </div>
+                </article>
+
+                <article className="manuscript-alignment-card">
+                  <span className="eyebrow">o que trava</span>
+                  <h3>Lacunas antes da decisao final</h3>
+                  <div className="knowledge-connection-list">
+                    {submissionAlignment.gaps.length > 0 ? (
+                      submissionAlignment.gaps.map((item) => (
+                        <div key={item}>
+                          <strong>Ajustar</strong>
+                          <small>{item}</small>
+                        </div>
+                      ))
+                    ) : (
+                      <div>
+                        <small>As principais barreiras editoriais ja parecem bem enderecadas para esta revista.</small>
+                      </div>
+                    )}
+                  </div>
+                </article>
+
+                <article className="manuscript-alignment-card manuscript-alignment-card--wide">
+                  <span className="eyebrow">proximos ajustes</span>
+                  <h3>O que eu faria antes de submeter</h3>
+                  <div className="knowledge-connection-list">
+                    {submissionAlignment.actions.map((item) => (
+                      <div key={item}>
+                        <strong>Passo</strong>
+                        <small>{item}</small>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              </div>
+            </section>
+          ) : null}
         </div>
       </section>
 
