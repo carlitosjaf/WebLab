@@ -8066,6 +8066,52 @@ textarea:focus,
   color: #b91c1c;
 }
 
+.manuscript-cognition-gap,
+.manuscript-cognition-reference {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid #dbe4ee;
+  background: #f8fafc;
+}
+
+.manuscript-cognition-gap small,
+.manuscript-cognition-reference small {
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.manuscript-cognition-inline-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.manuscript-cognition-reference-list {
+  display: grid;
+  gap: 12px;
+}
+
+.manuscript-cognition-reference__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.manuscript-cognition-reference__head span {
+  color: #0f766e;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+
+.manuscript-cognition-link-button {
+  text-decoration: none;
+  justify-content: center;
+}
+
 @media (max-width: 1180px) {
   .manuscript-command-hero,
   .manuscript-hub {
@@ -8101,7 +8147,8 @@ textarea:focus,
   .manuscript-hub__actions,
   .manuscript-hub__assist-row,
   .manuscript-command-meta,
-  .manuscript-cognition-shell__actions {
+  .manuscript-cognition-shell__actions,
+  .manuscript-cognition-inline-actions {
     flex-direction: column;
     align-items: stretch;
   }
