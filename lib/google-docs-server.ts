@@ -1,6 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
-import { google } from "googleapis";
+import { google, type docs_v1 } from "googleapis";
+
+import type { ArticleContent } from "@/lib/types";
 
 type GoogleOAuthState = {
   uid: string;
@@ -21,7 +23,7 @@ const GOOGLE_DOC_SCOPES = [
 function getRequiredEnv(name: string) {
   const value = process.env[name];
   if (!value) {
-    throw new Error(`A variável ${name} precisa estar definida para ativar a integração com Google Docs.`);
+    throw new Error(`A variavel ${name} precisa estar definida para ativar a integracao com Google Docs.`);
   }
 
   return value;
@@ -44,6 +46,24 @@ export function createGoogleOAuthClient() {
   );
 }
 
+function createAuthorizedDocsClient(input: {
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  expiryDate?: number | null;
+}) {
+  const oauth = createGoogleOAuthClient();
+  oauth.setCredentials({
+    access_token: input.accessToken ?? undefined,
+    refresh_token: input.refreshToken ?? undefined,
+    expiry_date: input.expiryDate ?? undefined,
+  });
+
+  return {
+    oauth,
+    docs: google.docs({ auth: oauth, version: "v1" }),
+  };
+}
+
 function signState(payload: string) {
   return createHmac("sha256", getRequiredEnv("GOOGLE_STATE_SECRET")).update(payload).digest("base64url");
 }
@@ -58,7 +78,7 @@ export function decodeGoogleOAuthState(rawState: string) {
   const [payload, signature] = rawState.split(".");
 
   if (!payload || !signature) {
-    throw new Error("State do Google inválido.");
+    throw new Error("State do Google invalido.");
   }
 
   const expected = signState(payload);
@@ -66,7 +86,7 @@ export function decodeGoogleOAuthState(rawState: string) {
   const reference = Buffer.from(expected, "utf8");
 
   if (provided.length !== reference.length || !timingSafeEqual(provided, reference)) {
-    throw new Error("Assinatura do state do Google inválida.");
+    throw new Error("Assinatura do state do Google invalida.");
   }
 
   const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as GoogleOAuthState;
@@ -104,20 +124,189 @@ export async function exchangeGoogleCode(code: string) {
   };
 }
 
+function textNode(text: string) {
+  return {
+    type: "text",
+    text,
+  };
+}
+
+function paragraphNode(text: string) {
+  return {
+    type: "paragraph",
+    content: [textNode(text)],
+  };
+}
+
+function headingNode(level: 2 | 3, text: string) {
+  return {
+    type: "heading",
+    attrs: { level },
+    content: [textNode(text)],
+  };
+}
+
+function cleanGoogleText(text: string) {
+  return text.replace(/\r/g, "").replace(/\n/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function tiptapTextFromContent(content: ArticleContent | null | undefined) {
+  const collect = (nodes: Array<Record<string, unknown>> | undefined): string[] => {
+    if (!nodes?.length) {
+      return [];
+    }
+
+    return nodes.flatMap((node) => {
+      const currentText = typeof node.text === "string" ? [node.text] : [];
+      const nested = Array.isArray(node.content)
+        ? collect(node.content as Array<Record<string, unknown>>)
+        : [];
+      const type = typeof node.type === "string" ? node.type : "";
+
+      if (type === "heading") {
+        return [[...currentText, ...nested].join(" ").replace(/\s+/g, " ").trim(), ""].filter(Boolean);
+      }
+
+      if (type === "paragraph" || type === "blockquote" || type === "listItem") {
+        return [[...currentText, ...nested].join(" ").replace(/\s+/g, " ").trim(), ""].filter(Boolean);
+      }
+
+      return [...currentText, ...nested];
+    });
+  };
+
+  return collect(content?.content as Array<Record<string, unknown>> | undefined)
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function buildDefaultGoogleDocText(title: string) {
+  return [
+    title,
+    "",
+    "Resumo",
+    "Objetivo:",
+    "Metodo:",
+    "Achado principal:",
+    "Contribuicao:",
+    "",
+    "Introducao",
+    "Contextualize o problema, explicite a lacuna e feche com o objetivo do estudo.",
+    "",
+    "Metodologia",
+    "Descreva fonte de dados, participantes, procedimentos e estrategia analitica.",
+    "",
+    "Resultados",
+    "Organize achados por eixo, categoria ou bloco logico.",
+    "",
+    "Discussao",
+    "Conecte os resultados a literatura, implicacoes e limitacoes.",
+    "",
+    "Conclusao",
+    "Retome o objetivo e declare a contribuicao central do manuscrito.",
+    "",
+    "Referencias",
+  ].join("\n");
+}
+
+function pickInitialDocumentText(title: string, seedContent?: ArticleContent | null) {
+  const imported = tiptapTextFromContent(seedContent);
+  if (imported) {
+    return imported.startsWith(title) ? imported : `${title}\n\n${imported}`;
+  }
+
+  return buildDefaultGoogleDocText(title);
+}
+
+function mapNamedStyleToLevel(namedStyleType?: string | null): 2 | 3 | null {
+  switch (namedStyleType) {
+    case "TITLE":
+    case "HEADING_1":
+    case "HEADING_2":
+      return 2;
+    case "HEADING_3":
+    case "HEADING_4":
+      return 3;
+    default:
+      return null;
+  }
+}
+
+function getParagraphText(paragraph?: docs_v1.Schema$Paragraph | null) {
+  if (!paragraph?.elements?.length) {
+    return "";
+  }
+
+  return cleanGoogleText(
+    paragraph.elements
+      .map((element) => element.textRun?.content ?? "")
+      .join("")
+  );
+}
+
+function appendStructuralElementNodes(
+  target: Array<Record<string, unknown>>,
+  element?: docs_v1.Schema$StructuralElement | null
+) {
+  if (!element) {
+    return;
+  }
+
+  if (element.paragraph) {
+    const text = getParagraphText(element.paragraph);
+    if (!text) {
+      return;
+    }
+
+    const headingLevel = mapNamedStyleToLevel(element.paragraph.paragraphStyle?.namedStyleType ?? null);
+    target.push(headingLevel ? headingNode(headingLevel, text) : paragraphNode(text));
+    return;
+  }
+
+  if (element.table?.tableRows?.length) {
+    element.table.tableRows.forEach((row) => {
+      row.tableCells?.forEach((cell) => {
+        cell.content?.forEach((child) => appendStructuralElementNodes(target, child));
+      });
+    });
+  }
+}
+
+export async function syncGoogleDocumentToArticleContent(input: {
+  documentId: string;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  expiryDate?: number | null;
+}) {
+  const { docs } = createAuthorizedDocsClient(input);
+  const response = await docs.documents.get({
+    documentId: input.documentId,
+  });
+
+  const document = response.data;
+  const nodes: Array<Record<string, unknown>> = [];
+  document.body?.content?.forEach((element) => appendStructuralElementNodes(nodes, element));
+
+  return {
+    title: document.title?.trim() || "Documento Google",
+    content: {
+      type: "doc",
+      content: nodes.length > 0 ? nodes : [paragraphNode("Documento Google conectado, mas sem conteudo textual legivel ainda.")],
+    } as ArticleContent,
+    importedBlocks: nodes.length,
+    syncedAt: new Date().toISOString(),
+  };
+}
+
 export async function createGoogleDocumentFromTemplate(input: {
   accessToken?: string | null;
   refreshToken?: string | null;
   expiryDate?: number | null;
   title: string;
+  seedContent?: ArticleContent | null;
 }) {
-  const oauth = createGoogleOAuthClient();
-  oauth.setCredentials({
-    access_token: input.accessToken ?? undefined,
-    refresh_token: input.refreshToken ?? undefined,
-    expiry_date: input.expiryDate ?? undefined,
-  });
-
-  const docs = google.docs({ auth: oauth, version: "v1" });
+  const { docs } = createAuthorizedDocsClient(input);
 
   const created = await docs.documents.create({
     requestBody: {
@@ -127,35 +316,10 @@ export async function createGoogleDocumentFromTemplate(input: {
 
   const documentId = created.data.documentId;
   if (!documentId) {
-    throw new Error("O Google Docs não retornou um documentId.");
+    throw new Error("O Google Docs nao retornou um documentId.");
   }
 
-  const text = [
-    input.title,
-    "",
-    "Resumo",
-    "Objetivo:",
-    "Método:",
-    "Achado principal:",
-    "Contribuição:",
-    "",
-    "Introdução",
-    "Contextualize o problema, explicite a lacuna e feche com o objetivo do estudo.",
-    "",
-    "Metodologia",
-    "Descreva fonte de dados, participantes, procedimentos e estratégia analítica.",
-    "",
-    "Resultados",
-    "Organize achados por eixo, categoria ou bloco lógico.",
-    "",
-    "Discussão",
-    "Conecte os resultados à literatura, às implicações e às limitações.",
-    "",
-    "Conclusão",
-    "Retome o objetivo e declare a contribuição central do manuscrito.",
-    "",
-    "Referências",
-  ].join("\n");
+  const text = pickInitialDocumentText(input.title, input.seedContent);
 
   await docs.documents.batchUpdate({
     documentId,

@@ -99,12 +99,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const created = await createGoogleDocumentFromTemplate({
-      accessToken: integration.access_token,
-      refreshToken: integration.refresh_token,
-      expiryDate: integration.expiry_date ? new Date(integration.expiry_date).getTime() : null,
-      title: body.title ?? (article as ArticleRow).titulo,
-    });
+      const created = await createGoogleDocumentFromTemplate({
+        accessToken: integration.access_token,
+        refreshToken: integration.refresh_token,
+        expiryDate: integration.expiry_date ? new Date(integration.expiry_date).getTime() : null,
+        title: body.title ?? (article as ArticleRow).titulo,
+        seedContent: (article as ArticleRow).conteudo_json,
+      });
 
     await admin
       .from("artigos")

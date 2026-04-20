@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
         admin.from("perfis").select("id, equipe_id, role").eq("id", state.uid).maybeSingle(),
         admin
           .from("artigos")
-          .select("id, titulo, equipe_id")
+          .select("id, titulo, equipe_id, conteudo_json")
           .eq("id", state.articleId)
           .maybeSingle(),
       ]);
@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
           refreshToken: tokens.refresh_token ?? null,
           expiryDate: tokens.expiry_date ?? null,
           title: state.title ?? article.titulo,
+          seedContent: article.conteudo_json,
         });
 
         await admin

@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { GoogleDocsWorkspaceCard } from "@/components/dashboard/google-docs-workspace-card";
+import { ManuscriptCognitionPanel } from "@/components/dashboard/manuscript-cognition-panel";
 import { buildGoogleDocCreateUrl, buildGoogleDocUrl } from "@/lib/google-docs";
 import { formatRecommendationLevel } from "@/lib/periodicos";
 import { getSupabaseClient } from "@/lib/supabaseClient";
@@ -373,6 +374,10 @@ export default function ArticleSubmissionPage() {
     );
   };
 
+  const handleArticleSynced = (nextArticle: ArticleRow) => {
+    setArticle(nextArticle);
+  };
+
   if (isLoading) {
     return (
       <main className="lovable-home">
@@ -494,6 +499,8 @@ export default function ArticleSubmissionPage() {
             onClearGoogleDoc={handleClearGoogleDoc}
             onApplyGoogleDocMeta={handleApplyGoogleDocMeta}
           />
+
+          <ManuscriptCognitionPanel article={article} canEdit={canEdit} onArticleSynced={handleArticleSynced} />
         </div>
       </section>
 

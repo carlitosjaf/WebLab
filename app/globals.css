@@ -7883,6 +7883,189 @@ textarea:focus,
   line-height: 1.5;
 }
 
+.manuscript-cognition-shell {
+  display: grid;
+  gap: 20px;
+  padding: 28px 30px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 30px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(244, 250, 248, 0.98));
+  box-shadow: 0 22px 56px rgba(15, 23, 42, 0.08);
+}
+
+.manuscript-cognition-shell__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.manuscript-cognition-shell__head h2 {
+  margin: 10px 0 8px;
+  color: #0f172a;
+  font-size: clamp(1.45rem, 2.4vw, 2rem);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.manuscript-cognition-shell__head p,
+.manuscript-cognition-review p,
+.manuscript-cognition-empty p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.7;
+}
+
+.manuscript-cognition-shell__actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.manuscript-cognition-shell__button {
+  min-width: 210px;
+  justify-content: center;
+}
+
+.manuscript-cognition-shell__meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.manuscript-cognition-shell__message {
+  margin: 0;
+  color: #0f766e;
+  font-size: 0.94rem;
+  font-weight: 700;
+}
+
+.manuscript-cognition-empty,
+.manuscript-cognition-card {
+  display: grid;
+  gap: 12px;
+  padding: 22px;
+  border-radius: 24px;
+  border: 1px solid #dbe4ee;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.manuscript-cognition-empty strong,
+.manuscript-cognition-card h3,
+.manuscript-cognition-review strong {
+  color: #0f172a;
+}
+
+.manuscript-cognition-card h3 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.manuscript-cognition-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.manuscript-cognition-card--wide {
+  grid-column: 1 / -1;
+}
+
+.manuscript-cognition-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.manuscript-cognition-stats div {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.manuscript-cognition-stats strong {
+  color: #0f766e;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.manuscript-cognition-stats span,
+.manuscript-cognition-list strong,
+.manuscript-cognition-review small {
+  color: #475569;
+}
+
+.manuscript-cognition-list,
+.manuscript-cognition-review-list {
+  display: grid;
+  gap: 12px;
+}
+
+.manuscript-cognition-list div,
+.manuscript-cognition-review {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.manuscript-cognition-review__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.manuscript-cognition-review__head span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.manuscript-cognition-review--forte {
+  border-color: rgba(15, 118, 110, 0.16);
+  background: rgba(236, 253, 245, 0.86);
+}
+
+.manuscript-cognition-review--forte .manuscript-cognition-review__head span {
+  background: rgba(15, 118, 110, 0.12);
+  color: #0f766e;
+}
+
+.manuscript-cognition-review--revisar {
+  border-color: rgba(249, 115, 22, 0.18);
+  background: rgba(255, 247, 237, 0.94);
+}
+
+.manuscript-cognition-review--revisar .manuscript-cognition-review__head span {
+  background: rgba(249, 115, 22, 0.12);
+  color: #c2410c;
+}
+
+.manuscript-cognition-review--ausente {
+  border-color: rgba(220, 38, 38, 0.14);
+  background: rgba(254, 242, 242, 0.94);
+}
+
+.manuscript-cognition-review--ausente .manuscript-cognition-review__head span {
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+}
+
 @media (max-width: 1180px) {
   .manuscript-command-hero,
   .manuscript-hub {
@@ -7910,26 +8093,31 @@ textarea:focus,
 @media (max-width: 760px) {
   .manuscript-hub,
   .manuscript-link-panel,
-  .manuscript-step-card {
+  .manuscript-step-card,
+  .manuscript-cognition-shell {
     padding: 18px;
   }
 
   .manuscript-hub__actions,
   .manuscript-hub__assist-row,
-  .manuscript-command-meta {
+  .manuscript-command-meta,
+  .manuscript-cognition-shell__actions {
     flex-direction: column;
     align-items: stretch;
   }
 
   .manuscript-hub__actions > *,
   .manuscript-hub__assist-row > *,
-  .manuscript-command-hero__actions > * {
+  .manuscript-command-hero__actions > *,
+  .manuscript-cognition-shell__button {
     width: 100%;
     justify-content: center;
   }
 
   .manuscript-link-panel__row,
-  .manuscript-steps {
+  .manuscript-steps,
+  .manuscript-cognition-grid,
+  .manuscript-cognition-stats {
     grid-template-columns: 1fr;
   }
 

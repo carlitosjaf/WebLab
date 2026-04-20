@@ -84,11 +84,11 @@ export function GoogleDocsWorkspaceCard({
         detail: article.google_doc_id ? "O WebLab já sabe qual documento acompanhar." : "Cole o link do Google Docs para conectar o manuscrito.",
       },
       {
-        label: "Registrar sincronização",
+        label: "Registrar checkpoint",
         done: Boolean(article.google_last_synced_at),
         detail: article.google_last_synced_at
-          ? `Último checkpoint em ${formatRelativeUpdate(article.google_last_synced_at)}`
-          : "Marque a sincronização depois de atualizar o Google Docs.",
+          ? `Ultimo checkpoint em ${formatRelativeUpdate(article.google_last_synced_at)}`
+          : "Use a leitura cognitiva para sincronizar o texto real do Google Docs.",
       },
       {
         label: "Editor clássico",
@@ -368,7 +368,7 @@ export function GoogleDocsWorkspaceCard({
                 : "Criar no Google Docs"}
           </button>
           <button className="lovable-small-button" disabled={!article.google_doc_id || isSaving} onClick={() => void handleMarkSynced()} type="button">
-            Marcar sincronização
+            Registrar checkpoint
           </button>
           <button
             className="lovable-small-button"
