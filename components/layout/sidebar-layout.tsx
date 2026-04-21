@@ -41,6 +41,7 @@ const accountLinks: NavLink[] = [
 ];
 
 const ARTICLE_WORKSPACE_PATHS = [
+  "/artigos",
   "/dashboard/artigos",
   "/dashboard/periodicos",
   "/dashboard/triagem",
@@ -50,6 +51,12 @@ const ARTICLE_WORKSPACE_PATHS = [
 ] as const;
 
 function extractArticleId(pathname: string) {
+  const standaloneArticleMatch = pathname.match(/^\/artigos\/([^/]+)$/);
+
+  if (standaloneArticleMatch?.[1]) {
+    return standaloneArticleMatch[1];
+  }
+
   const articlePanelMatch = pathname.match(/^\/dashboard\/artigos\/([^/]+)$/);
 
   if (articlePanelMatch?.[1]) {
@@ -65,6 +72,10 @@ function isArticleWorkspace(pathname: string) {
 }
 
 function getWorkspaceChildKey(pathname: string) {
+  if (/^\/artigos\/[^/]+$/.test(pathname)) {
+    return "painel";
+  }
+
   if (pathname === "/dashboard/artigos") {
     return "biblioteca";
   }
