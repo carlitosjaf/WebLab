@@ -6,7 +6,7 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 
 import { PublicPageHero } from "@/components/public/public-layout";
-import { OFFICIAL_EDITORIAL_ROUTE } from "@/lib/article-intelligence";
+import { getClassicEditorHref } from "@/lib/article-intelligence";
 import { buildTeamKnowledgeMap } from "@/lib/knowledge-network";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { ArticleRow, Database, EvidenceScreeningSetRow } from "@/lib/types";
@@ -133,20 +133,13 @@ export default function ResearchPage() {
         <div className="lovable-container">
           <h2 className="public-section-title">Ferramentas do WebLab</h2>
           <div className="research-theme-grid">
-            {weblabTools.map((tool) => {
-              const toolHref =
-                tool.label === "Editor vivo"
-                  ? (`/artigos/${OFFICIAL_EDITORIAL_ROUTE}` as Route)
-                  : (tool.href as Route);
-
-              return (
-                <Link className="research-theme-card" href={toolHref} key={tool.label}>
-                  <span>{tool.icon}</span>
-                  <h3>{tool.label}</h3>
-                  <p>{tool.description}</p>
-                </Link>
-              );
-            })}
+            {weblabTools.map((tool) => (
+              <Link className="research-theme-card" href={tool.href as Route} key={tool.label}>
+                <span>{tool.icon}</span>
+                <h3>{tool.label}</h3>
+                <p>{tool.description}</p>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
@@ -354,7 +347,7 @@ export default function ResearchPage() {
                       </p>
                       <div className="project-public-actions">
                         <Link href={`/dashboard/artigos/${article.id}` as Route}>Abrir manuscrito</Link>
-                        <Link href={`/editor/${article.id}`}>Editor clássico</Link>
+                        <Link href={getClassicEditorHref(article.id)}>Editor clássico</Link>
                         <Link href="/dashboard/periodicos">Radar editorial</Link>
                       </div>
                     </div>

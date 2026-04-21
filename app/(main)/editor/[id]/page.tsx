@@ -3,7 +3,11 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-import { OFFICIAL_EDITORIAL_ROUTE } from "@/lib/article-intelligence";
+import {
+  getOfficialEditorialHref,
+  isOfficialEditorialId,
+  OFFICIAL_EDITORIAL_ROUTE
+} from "@/lib/article-intelligence";
 import { ArticleEditor } from "@/components/editor/article-editor";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { ArticleRow, UserRole } from "@/lib/types";
@@ -16,14 +20,14 @@ export default function EditorPage() {
   const [readOnlyReason, setReadOnlyReason] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const isOfficialEditorialRoute = params.id === OFFICIAL_EDITORIAL_ROUTE;
+  const isOfficialEditorialRoute = isOfficialEditorialId(params.id ?? OFFICIAL_EDITORIAL_ROUTE);
 
   useEffect(() => {
     let isMounted = true;
 
     const loadArticle = async () => {
       if (isOfficialEditorialRoute) {
-        router.replace(`/artigos/${OFFICIAL_EDITORIAL_ROUTE}`);
+        router.replace(getOfficialEditorialHref());
         return;
       }
 

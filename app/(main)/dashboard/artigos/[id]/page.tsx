@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { GoogleDocsWorkspaceCard } from "@/components/dashboard/google-docs-workspace-card";
 import { ManuscriptCognitionPanel } from "@/components/dashboard/manuscript-cognition-panel";
+import { getClassicEditorHref } from "@/lib/article-intelligence";
 import { buildGoogleDocCreateUrl, buildGoogleDocUrl } from "@/lib/google-docs";
 import { getSubmissionAlignment } from "@/lib/manuscript-submission";
 import { formatRecommendationLevel } from "@/lib/periodicos";
@@ -441,7 +442,7 @@ export default function ArticleSubmissionPage() {
               <Link className="lovable-small-button" href="/dashboard/triagem">
                 Triagem
               </Link>
-              <Link className="lovable-small-button" href={`/editor/${article.id}` as Route}>
+              <Link className="lovable-small-button" href={getClassicEditorHref(article.id)}>
                 Editor clássico
               </Link>
             </div>
@@ -535,7 +536,7 @@ export default function ArticleSubmissionPage() {
                   </p>
                   <div className="project-public-actions">
                     <Link href="/dashboard/periodicos">Abrir shortlist →</Link>
-                    <Link href={`/editor/${article.id}` as Route}>Voltar ao manuscrito →</Link>
+                    <Link href={getClassicEditorHref(article.id)}>Voltar ao manuscrito →</Link>
                   </div>
                 </div>
               ) : (

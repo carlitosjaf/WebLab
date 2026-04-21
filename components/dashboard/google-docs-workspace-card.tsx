@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useEffect, useMemo, useState } from "react";
 
+import { getClassicEditorHref } from "@/lib/article-intelligence";
 import {
   buildGoogleDocCreateUrl,
   buildGoogleDocUrl,
@@ -378,7 +379,7 @@ export function GoogleDocsWorkspaceCard({
           >
             Desconectar Google
           </button>
-          <Link className="lovable-small-button" href={`/editor/${article.id}` as Route}>
+          <Link className="lovable-small-button" href={getClassicEditorHref(article.id)}>
             Abrir editor clássico
           </Link>
         </div>

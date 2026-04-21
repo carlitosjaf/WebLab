@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useEffect, useMemo, useState } from "react";
 
+import { getClassicEditorHref, getManuscriptPanelHref } from "@/lib/article-intelligence";
 import {
   INDEXER_OPTIONS,
   INDEXER_STRATEGY,
@@ -1124,13 +1125,13 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
               <span className="muted">Última edição: {formatRelativeUpdate(selectedArticle?.updated_at ?? null)}</span>
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                 <Link
-                  href={selectedArticle ? (`/dashboard/artigos/${selectedArticle.id}` as Route) : ("/dashboard" as Route)}
+                  href={selectedArticle ? getManuscriptPanelHref(selectedArticle.id) : ("/dashboard" as Route)}
                   className="button button-secondary"
                 >
                   {selectedArticle ? "Abrir painel do artigo" : "Ir para Home"}
                 </Link>
                 <Link
-                  href={selectedArticle ? (`/editor/${selectedArticle.id}` as Route) : ("/dashboard" as Route)}
+                  href={selectedArticle ? getClassicEditorHref(selectedArticle.id) : ("/dashboard" as Route)}
                   className="button button-secondary"
                 >
                   {selectedArticle ? "Abrir manuscrito no editor" : "Criar manuscrito"}

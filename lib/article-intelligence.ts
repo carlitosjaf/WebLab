@@ -1,4 +1,7 @@
+import type { Route } from "next";
+
 export const OFFICIAL_EDITORIAL_ROUTE = "demo-editorial";
+export const OFFICIAL_EDITORIAL_HREF = `/artigos/${OFFICIAL_EDITORIAL_ROUTE}` as Route;
 
 export const OFFICIAL_EDITORIAL_ENTRY = {
   title:
@@ -33,3 +36,18 @@ Os achados demonstram que o sofrimento psíquico não pode ser lido apenas como 
 Conclusão
 
 Conclui-se que o debate sobre permanência e excelência acadêmica precisa incorporar de modo mais consequente as condições materiais e subjetivas de realização da pesquisa.`;
+export function isOfficialEditorialId(value: string | null | undefined) {
+  return value === OFFICIAL_EDITORIAL_ROUTE;
+}
+
+export function getOfficialEditorialHref() {
+  return OFFICIAL_EDITORIAL_HREF;
+}
+
+export function getClassicEditorHref(articleId: string) {
+  return `/editor/${articleId}` as Route;
+}
+
+export function getManuscriptPanelHref(articleId: string) {
+  return `/dashboard/artigos/${articleId}` as Route;
+}

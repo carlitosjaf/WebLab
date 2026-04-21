@@ -6,7 +6,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import React from "react";
 
-import { OFFICIAL_EDITORIAL_ROUTE } from "@/lib/article-intelligence";
+import {
+  getManuscriptPanelHref,
+  getOfficialEditorialHref,
+  isOfficialEditorialId,
+  OFFICIAL_EDITORIAL_ROUTE
+} from "@/lib/article-intelligence";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { UserRole } from "@/lib/types";
 
@@ -74,7 +79,7 @@ function isArticleWorkspace(pathname: string) {
 }
 
 function getWorkspaceChildKey(pathname: string) {
-  if (pathname === `/artigos/${OFFICIAL_EDITORIAL_ROUTE}`) {
+  if (pathname === getOfficialEditorialHref()) {
     return "editor";
   }
 
@@ -174,17 +179,20 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const currentArticleId = extractArticleId(pathname);
+    const savedArticleId = window.localStorage.getItem("weblab:last-article-id");
 
-    if (currentArticleId) {
+    if (currentArticleId && !isOfficialEditorialId(currentArticleId)) {
       setWorkspaceArticleId(currentArticleId);
       window.localStorage.setItem("weblab:last-article-id", currentArticleId);
       return;
     }
 
-    const savedArticleId = window.localStorage.getItem("weblab:last-article-id");
     if (savedArticleId) {
       setWorkspaceArticleId(savedArticleId);
+      return;
     }
+
+    setWorkspaceArticleId(null);
   }, [pathname]);
 
   const visibleLinks = useMemo(
@@ -225,10 +233,11 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
     const hasRealWorkspaceArticle =
       Boolean(workspaceArticleId) && workspaceArticleId !== OFFICIAL_EDITORIAL_ROUTE;
+    const realWorkspaceArticleId = hasRealWorkspaceArticle ? workspaceArticleId : null;
     const panelHref = hasRealWorkspaceArticle
-      ? (`/dashboard/artigos/${workspaceArticleId}` as Route)
+      ? getManuscriptPanelHref(realWorkspaceArticleId as string)
       : ("/dashboard/artigos" as Route);
-    const editorHref = `/artigos/${OFFICIAL_EDITORIAL_ROUTE}` as Route;
+    const editorHref = getOfficialEditorialHref();
     const activeKey = getWorkspaceChildKey(pathname);
 
     return {

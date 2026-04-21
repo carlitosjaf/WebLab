@@ -1,3 +1,5 @@
+import { OFFICIAL_EDITORIAL_HREF } from "@/lib/article-intelligence";
+
 export const publicNavLinks = [
   { label: "Home", href: "/dashboard" },
   { label: "Equipe", href: "/dashboard/equipe" },
@@ -43,7 +45,7 @@ export const weblabTools = [
     icon: "E",
     label: "Editor vivo",
     description: "Escreva, revise, salve e exporte manuscritos científicos em equipe.",
-    href: "/dashboard"
+    href: OFFICIAL_EDITORIAL_HREF
   }
 ];
 
