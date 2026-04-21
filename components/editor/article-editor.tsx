@@ -50,6 +50,11 @@ type SectionGroup = {
 };
 
 type CognitiveTab = "referencias" | "estrutura" | "texto" | "revisao";
+type ResearchPanelKey = "cognition" | "references" | "submission" | "next";
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
 
 type ManuscriptHeading = {
   id: string;
@@ -549,8 +554,8 @@ function getConceptTerms(text: string) {
     text
       .toLowerCase()
       .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .match(/[a-zA-ZÀ-ÿ]{5,}/g)
+      .replace(/[̀-ͯ]/g, "")
+      .match(/[a-zA-Z?-?]{5,}/g)
       ?.filter((word) => !conceptStopwords.has(word))
       .slice(0, 400) ?? []
   );
@@ -1807,6 +1812,13 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
   const [googleLastSyncedAt, setGoogleLastSyncedAt] = useState(article.google_last_synced_at);
   const [googleMessage, setGoogleMessage] = useState<string | null>(null);
   const [isGoogleWorking, setIsGoogleWorking] = useState(false);
+  const [showStructureStudio, setShowStructureStudio] = useState(false);
+  const [openResearchPanels, setOpenResearchPanels] = useState<Record<ResearchPanelKey, boolean>>({
+    cognition: true,
+    references: true,
+    submission: true,
+    next: true
+  });
   const lastSavedSnapshot = useRef(
     JSON.stringify({
       titulo: article.titulo,
@@ -2474,6 +2486,79 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     textWarningCount,
     unresolvedComments.length
   ]);
+  const editorialReadiness = deepAnalysis
+    ? deepAnalysis.overallScore
+    : Math.round(
+        clamp(
+          sectionCoveragePercent * 0.48 +
+            Math.max(0, 22 - manuscriptAnalysis.citationGaps.length * 4) +
+            Math.max(0, 18 - textWarningCount * 3) +
+            Math.max(0, 12 - unresolvedComments.length * 2),
+          28,
+          92
+        )
+      );
+  const thematicTag = useMemo(() => {
+    const source = `${title} ${manuscriptAnalysis.headings.map((heading) => heading.title).join(" ")}`.toLowerCase();
+
+    if (/\b(sa[uú]de|pandemia|epidemi|sus|cuidado|sanit)/.test(source)) {
+      return "Saúde pública";
+    }
+
+    if (/\b(psicologia|subjetiv|sofrimento|mental|cl[ií]nico)/.test(source)) {
+      return "Psicologia";
+    }
+
+    if (/\b(educa[cç][aã]o|universidade|p[oó]s-gradua[cç][aã]o|ensino)/.test(source)) {
+      return "Educação";
+    }
+
+    return "Pesquisa acadêmica";
+  }, [manuscriptAnalysis.headings, title]);
+  const nextEditorialActions = deepAnalysis?.priorities.length
+    ? deepAnalysis.priorities.slice(0, 3).map((priority) => ({
+        id: `${priority.section}-${priority.action}`,
+        title: priority.section,
+        description: priority.action
+      }))
+    : cognitiveActions.map((action) => ({
+        id: action.id,
+        title: action.label,
+        description:
+          action.id === "analisar"
+            ? "Rodar leitura estrutural completa para sair da heurística rápida."
+            : action.id === "inserir_secao"
+              ? `Completar a base científica com ${action.section}.`
+              : action.id === "buscar_fonte"
+                ? "Localizar fonte verificável para o trecho que ainda está frágil."
+                : action.id === "revisar_texto"
+                  ? "Lapidar clareza e progressão argumentativa."
+                  : "Responder e resolver pendências editoriais do manuscrito."
+      }));
+  const reviewChecklist = [
+    {
+      label: "Estrutura científica mínima presente",
+      done: manuscriptAnalysis.missingSections.length === 0
+    },
+    {
+      label: "Afirmações críticas com sustentação suficiente",
+      done: manuscriptAnalysis.citationGaps.length <= 1
+    },
+    {
+      label: "Fluxo argumentativo sem alertas centrais",
+      done: textWarningCount === 0
+    },
+    {
+      label: "Pendências editoriais sob controle",
+      done: unresolvedComments.length === 0
+    }
+  ];
+  const toggleResearchPanel = (panel: ResearchPanelKey) => {
+    setOpenResearchPanels((current) => ({
+      ...current,
+      [panel]: !current[panel]
+    }));
+  };
   const toolbarGroups = useMemo(
     () => [
       {
@@ -2853,1096 +2938,205 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
 
   return (
     <main className="shell editor-workspace">
-      <div className="container editor-workspace-container" style={{ display: "grid", gap: "20px" }}>
-        <section
-          className="glass-card editor-command-bar"
-          style={{
-            padding: "22px 24px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: "16px",
-            flexWrap: "wrap"
-          }}
-        >
-          <div style={{ display: "grid", gap: "8px" }}>
-            <Link href={getCentralEditorialHref()} className="muted">
-              {"<- Voltar para a Central Editorial"}
-            </Link>
-            <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-              <span
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: "999px",
-                  background:
-                    saveState === "error"
-                      ? "rgba(196, 69, 54, 0.12)"
-                      : saveState === "saving"
-                        ? "var(--accent-soft)"
-                        : "rgba(255,255,255,0.06)",
-                  color: saveTone,
-                  fontWeight: 700,
-                  fontSize: "0.88rem",
-                  border: "1px solid rgba(255,255,255,0.08)"
-                }}
-              >
-                {saveState === "saving"
-                  ? "Salvando"
-                  : saveState === "error"
-                    ? "Erro ao salvar"
-                    : "Sincronizado"}
-              </span>
-              <span className="muted">{saveMessage}</span>
-              <span className="editor-word-chip">
-                {editor
-                  ? countArticleWords(editor.getJSON() as ArticleContent)
-                  : countArticleWords(article.conteudo_json)}{" "}
-                palavras
-              </span>
+      <div className="container editor-studio-page">
+        <div className="editor-studio-layout">
+          <section className="editor-studio-main">
+            <div className="editor-studio-card">
+              <div className="editor-studio-head">
+                <div className="editor-studio-head-left">
+                  <span className="eyebrow">editor</span>
+                  <span className="editor-studio-status-chip">{statusLabels[status]}</span>
+                </div>
+                <div className="editor-studio-head-meta">
+                  <span className="editor-studio-meta-pill">{editor ? countArticleWords(editor.getJSON() as ArticleContent) : countArticleWords(article.conteudo_json)}{" "}palavras</span>
+                  <span className="editor-studio-meta-pill">?ltima edi??o {formatRelativeUpdate(article.updated_at)}</span>
+                  <span className="editor-studio-meta-pill">{saveState === "saving" ? "Salvando" : saveState === "saved" ? "Tudo salvo" : saveState === "error" ? "Erro ao salvar" : "Pronto"}</span>
+                </div>
+              </div>
+
+              <div className="editor-studio-document-card">
+                <input className="editor-title-input editor-title-input--studio" disabled={!canEdit} onChange={(event) => setTitle(event.target.value)} placeholder="T?tulo do manuscrito" value={title} />
+
+                <div className="editor-studio-tags">
+                  <span>{activeTemplate.name}</span>
+                  <span>{thematicTag}</span>
+                  <span>PT-BR</span>
+                </div>
+
+                <div className="editor-studio-actions">
+                  <button className="button button-primary" disabled={isSavingVersion || !canEdit} onClick={() => void saveVersionSnapshot(versionNote)} type="button">{isSavingVersion ? "Salvando..." : "Salvar vers?o"}</button>
+                  <button className="button button-secondary" disabled={isExportingDocx} onClick={() => void exportToDocx()} type="button">{isExportingDocx ? "Gerando DOCX..." : "Exportar DOCX"}</button>
+                  <button className="button button-secondary" disabled={isGoogleWorking} onClick={() => void handleGooglePrimaryAction()} type="button">{isGoogleWorking ? "Preparando Google..." : googleDocHref ? "Abrir Google Docs" : "Conectar Google Docs"}</button>
+                  <button className="button button-secondary" disabled={isGoogleWorking || !googleDocId} onClick={() => void handleSyncFromGoogleDocs()} type="button">{isGoogleWorking ? "Sincronizando..." : "Importar do Google"}</button>
+                  <button className="button button-secondary" disabled={isGoogleWorking || !googleDocId || !canEdit} onClick={() => void handlePushToGoogleDocs()} type="button">{isGoogleWorking ? "Enviando..." : "Publicar no Google"}</button>
+                  <button className="button button-secondary" onClick={() => setShowStructureStudio((current) => !current)} type="button">{showStructureStudio ? "Ocultar estrutura" : "Estrutura"}</button>
+                  <Link className="button editor-radar-link" href={"/dashboard/periodicos" as Route}>Radar editorial</Link>
+                  <button className="button button-secondary" disabled={!canEdit} onClick={() => setAbntMode((current) => !current)} type="button">{abntMode ? "Modo ABNT ativo" : "Modo ABNT"}</button>
+                  <button className="button button-secondary" disabled={isLeaving} onClick={handleLeave} type="button">{isLeaving ? "Saindo..." : "Voltar"}</button>
+                </div>
+
+                {googleMessage ? <p className="editor-google-message">{googleMessage}</p> : null}
+                {!canEdit ? <p className="editor-google-message">{readOnlyReason ?? "Modo leitura compartilhada."}</p> : null}
+
+                <div className="editor-studio-toolbar-shell">
+                  <Toolbar groups={toolbarGroups} stickyTopClassName="editor-toolbar-floating" />
+                </div>
+
+                <div className={abntMode ? "editor-surface editor-page abnt-mode" : "editor-surface editor-page"}>
+                  <EditorContent editor={editor} />
+                </div>
+              </div>
             </div>
-          </div>
+          </section>
 
-          <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-            <label className="muted" htmlFor="articleStatus">
-              Status
-            </label>
-            <select
-              id="articleStatus"
-              disabled={isUpdatingStatus || !canEdit}
-              onChange={(event) => void handleStatusChange(event.target.value as ArticleStatus)}
-              style={{
-                borderRadius: "999px",
-                border: "1px solid rgba(255,255,255,0.08)",
-                background: "rgba(255,255,255,0.05)",
-                color: "var(--foreground)",
-                padding: "10px 14px"
-              }}
-              value={status}
-            >
-              {Object.entries(statusLabels).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-
-            <button
-              className="button button-secondary"
-              disabled={isLeaving}
-              onClick={handleLeave}
-              type="button"
-            >
-              {isLeaving ? "Saindo..." : "Voltar para a central"}
-            </button>
-
-            <button
-              className="button button-primary"
-              disabled={isExportingDocx}
-              onClick={() => void exportToDocx()}
-              type="button"
-            >
-              {isExportingDocx ? "Gerando DOCX..." : "Exportar DOCX"}
-            </button>
-
-            <button
-              className="button button-secondary"
-              disabled={isSavingVersion || !canEdit}
-              onClick={() => void saveVersionSnapshot(versionNote)}
-              type="button"
-            >
-              {isSavingVersion ? "Salvando versão..." : "Salvar versão"}
-            </button>
-
-            <Link className="button editor-radar-link" href={"/dashboard/periodicos" as Route}>
-              Radar editorial
-            </Link>
-
-            <button
-              className="button"
-              disabled={!canEdit}
-              onClick={() => setAbntMode((current) => !current)}
-              style={{
-                background: abntMode ? "rgba(214,255,247,0.18)" : "rgba(255,255,255,0.05)",
-                color: "var(--foreground)",
-                border: abntMode ? "1px solid rgba(214,255,247,0.22)" : "1px solid rgba(255,255,255,0.08)"
-              }}
-              type="button"
-            >
-              {abntMode ? "ABNT ativa" : "Formatação ABNT"}
-            </button>
-          </div>
-        </section>
-
-        <section className="glass-card editor-document-layout">
-          <div className="editor-main-column">
-            <header className="editor-hero-panel">
-              <div className="editor-hero-top">
-                <div className="editor-hero-badges">
-                  <span className="eyebrow">atelier editorial</span>
-                  <span className="editor-hero-badge">{statusLabels[status]}</span>
-                  {abntMode ? <span className="editor-hero-badge editor-hero-badge--soft">ABNT ativa</span> : null}
-                </div>
-                <div className="editor-hero-meta">
-                  <span>
-                    {editor ? countArticleWords(editor.getJSON() as ArticleContent) : countArticleWords(article.conteudo_json)}{" "}
-                    palavras
-                  </span>
-                  <span>Última edição {formatRelativeUpdate(article.updated_at)}</span>
-                  <span>
-                    {googleDocId
-                      ? googleLastSyncedAt
-                        ? `Google sincronizado ${formatRelativeUpdate(googleLastSyncedAt)}`
-                        : "Google Docs conectado"
-                      : "Google Docs pendente"}
-                  </span>
-                  <span>
-                    {saveState === "saving"
-                      ? "Salvando agora"
-                      : saveState === "saved"
-                        ? "Tudo salvo"
-                        : saveState === "error"
-                          ? "Falha ao salvar"
-                          : "Pronto para editar"}
-                  </span>
-                </div>
+          <aside className="editor-research-column" aria-label="Painel do Pesquisador">
+            <div className="editor-research-card">
+              <div className="editor-research-header">
+                <strong>Painel do Pesquisador</strong>
+                <p>Leitura editorial cont?nua do manuscrito, com foco em estrutura, sustenta??o e prontid?o.</p>
               </div>
 
-              <input
-                className="editor-title-input editor-title-input--hero"
-                disabled={!canEdit}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="Título do manuscrito"
-                value={title}
-              />
-
-              <div className="editor-hero-grid">
-                <div className="editor-hero-copy">
-                  <strong>O manuscrito vive aqui.</strong>
-                  <p>
-                    Escreva, estruture e refine o argumento no próprio WebLab. O radar, a revisão e a
-                    leitura cognitiva passam a orbitar o texto, não competir com ele.
-                  </p>
-                  {!canEdit ? (
-                    <div className="editor-hero-alert">
-                      {readOnlyReason ?? "Leitura compartilhada: apenas a equipe autora pode editar este manuscrito."}
-                    </div>
-                  ) : (
-                    <div className="editor-hero-support">
-                      <span>Templates vivos, comentários e versões ficam à mão enquanto você escreve.</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="editor-hero-notes">
-                  <article>
-                    <span>Status editorial</span>
-                    <strong>{statusLabels[status]}</strong>
-                    <small>Atualize o estágio do texto conforme ele amadurece dentro da equipe.</small>
-                  </article>
-                  <article>
-                    <span>Radar acoplado</span>
-                    <strong>Pronto para decidir revista</strong>
-                    <small>Quando o texto estiver sólido, o radar cruza escopo, indexadores e shortlist.</small>
-                  </article>
-                  <article>
-                    <span>Sync editorial</span>
-                    <strong>{googleDocId ? "Google Docs ativo" : "Conectar Google Docs"}</strong>
-                    <small>
-                      {googleDocId
-                        ? "Publique e importe versões do documento da equipe sem sair do writer."
-                        : "Ative o documento da equipe para manter checkpoint entre WebLab e Google Docs."}
-                    </small>
-                  </article>
-                </div>
-              </div>
-
-              <div className="editor-hero-actions">
-                <div className="editor-status-picker">
-                  <label htmlFor="articleStatus">Status</label>
-                  <select
-                    id="articleStatus"
-                    disabled={isUpdatingStatus || !canEdit}
-                    onChange={(event) => void handleStatusChange(event.target.value as ArticleStatus)}
-                    value={status}
-                  >
-                    {Object.entries(statusLabels).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="editor-hero-action-list">
-                  <button
-                    className="button button-primary"
-                    disabled={isSavingVersion || !canEdit}
-                    onClick={() => void saveVersionSnapshot(versionNote)}
-                    type="button"
-                  >
-                    {isSavingVersion ? "Salvando versão..." : "Salvar versão"}
-                  </button>
-
-                  <button
-                    className="button button-secondary"
-                    disabled={isExportingDocx}
-                    onClick={() => void exportToDocx()}
-                    type="button"
-                  >
-                    {isExportingDocx ? "Gerando DOCX..." : "Exportar DOCX"}
-                  </button>
-
-                  <button
-                    className="button button-secondary"
-                    disabled={isGoogleWorking}
-                    onClick={() => void handleGooglePrimaryAction()}
-                    type="button"
-                  >
-                    {isGoogleWorking
-                      ? "Preparando Google..."
-                      : googleDocHref
-                        ? "Abrir Google Docs"
-                        : "Conectar Google Docs"}
-                  </button>
-
-                  <button
-                    className="button button-secondary"
-                    disabled={isGoogleWorking || !googleDocId}
-                    onClick={() => void handleSyncFromGoogleDocs()}
-                    type="button"
-                  >
-                    {isGoogleWorking ? "Sincronizando..." : "Importar do Google"}
-                  </button>
-
-                  <button
-                    className="button button-secondary"
-                    disabled={isGoogleWorking || !googleDocId || !canEdit}
-                    onClick={() => void handlePushToGoogleDocs()}
-                    type="button"
-                  >
-                    {isGoogleWorking ? "Enviando..." : "Publicar no Google"}
-                  </button>
-
-                  <Link className="button editor-radar-link" href={"/dashboard/periodicos" as Route}>
-                    Radar editorial
-                  </Link>
-
-                  <button
-                    className="button button-secondary"
-                    disabled={!canEdit}
-                    onClick={() => setAbntMode((current) => !current)}
-                    type="button"
-                  >
-                    {abntMode ? "Desativar ABNT" : "Modo ABNT"}
-                  </button>
-
-                  <button className="button button-secondary" disabled={isLeaving} onClick={handleLeave} type="button">
-                    {isLeaving ? "Saindo..." : "Central Editorial"}
-                  </button>
-                </div>
-              </div>
-
-              {googleMessage ? <p className="editor-google-message">{googleMessage}</p> : null}
-            </header>
-
-            <Toolbar groups={toolbarGroups} stickyTopClassName="editor-toolbar-floating" />
-
-            <section className="editor-template-panel">
-              <div className="editor-template-panel__header">
-                <div>
-                  <span className="eyebrow">templates vivos</span>
-                  <strong>Comece com um esqueleto inteligente, sem engessar o texto.</strong>
-                </div>
-                <p>
-                  Escolha o tipo de estudo, aplique a estrutura completa ou injete só a seção certa onde o
-                  manuscrito estiver pedindo.
-                </p>
-              </div>
-
-              <div className="editor-template-panel__chips">
-                {editorTemplates.map((template) => (
-                  <button
-                    className="editor-template-chip"
-                    data-active={selectedTemplateId === template.id ? "true" : "false"}
-                    key={template.id}
-                    onClick={() => setSelectedTemplateId(template.id)}
-                    type="button"
-                  >
-                    {template.name}
-                  </button>
-                ))}
-              </div>
-
-              <div className="editor-template-panel__detail">
-                <div className="editor-template-panel__detail-copy">
-                  <strong>{activeTemplate.name}</strong>
-                  <p>{activeTemplate.description}</p>
-                </div>
-                <div className="editor-template-panel__tips">
-                  {activeTemplate.tips.map((tip) => (
-                    <span key={tip}>{tip}</span>
-                  ))}
-                </div>
-                <div className="editor-template-panel__actions">
-                  <button
-                    className="button button-primary"
-                    disabled={!canEdit}
-                    onClick={applyCompleteTemplate}
-                    type="button"
-                  >
-                    Montar estrutura completa
-                  </button>
-
-                  <button
-                    className="button button-secondary"
-                    disabled={!canEdit}
-                    onClick={() => insertScientificSection(activeTemplate.content, "end")}
-                    type="button"
-                  >
-                    Inserir no fim do texto
-                  </button>
-                </div>
-              </div>
-
-              <div className="editor-template-panel__controls">
-                <button
-                  className="button button-secondary"
-                  disabled={!canEdit}
-                  onClick={applyCompleteTemplate}
-                  type="button"
-                >
-                  Reaplicar template
+              <section className="editor-research-section">
+                <button className="editor-research-toggle" onClick={() => toggleResearchPanel("cognition")} type="button">
+                  <span>Leitura Cognitiva</span>
+                  <small>{openResearchPanels.cognition ? "?" : "+"}</small>
                 </button>
-
-                <div className="editor-template-panel__selectors">
-                  <select
-                    disabled={!canEdit}
-                    onChange={(event) => {
-                      const nextGroup =
-                        sectionGroups.find((group) => group.id === event.target.value) ?? sectionGroups[0];
-                      setSelectedGroupId(nextGroup.id);
-                      setSelectedSectionLabel(nextGroup.sections[0]?.label ?? "");
-                    }}
-                    value={selectedGroupId}
-                  >
-                    {sectionGroups.map((group) => (
-                      <option key={group.id} value={group.id}>
-                        {group.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    disabled={!canEdit}
-                    onChange={(event) => setSelectedSectionLabel(event.target.value)}
-                    value={selectedSectionLabel}
-                  >
-                    {activeSectionGroup.sections.map((section) => (
-                      <option key={section.label} value={section.label}>
-                        {section.label}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button
-                    className="button button-secondary"
-                    disabled={!canEdit}
-                    onClick={() => selectedSection && insertScientificSection(selectedSection.content)}
-                    type="button"
-                  >
-                    Adicionar seção
-                  </button>
-                </div>
-              </div>
-            </section>
-
-            <div className="editor-page-shell">
-              <div className="editor-document-meta-strip">
-                <span>{canEdit ? "Escrita ativa no WebLab" : "Modo leitura compartilhada"}</span>
-                <span>{abntMode ? "Visual de submissão ABNT" : "Modo manuscrito livre"}</span>
-                <span>{saveState === "saved" ? "Alterações salvas" : "Continue escrevendo"}</span>
-              </div>
-              <div className={abntMode ? "editor-surface editor-page abnt-mode" : "editor-surface editor-page"}>
-                <EditorContent editor={editor} />
-              </div>
-            </div>
-          </div>
-
-          <aside className="editor-cognitive-sidebar-v2" aria-label="Sidebar cognitiva do manuscrito">
-            <div className="cognitive-inspector">
-              <div className="cognitive-inspector__header">
-                <span className="eyebrow">leitura cognitiva</span>
-                <div className="cognitive-inspector__header-copy">
-                  <strong>Co-orientador do manuscrito</strong>
-                  <p>
-                    O WebLab observa estrutura, referências e clareza para mostrar o que ainda falta sustentar.
-                  </p>
-                </div>
-              </div>
-
-            <div className={`cognitive-inspector__overview tone-${cognitiveSnapshot.tone}`}>
-              <div className="cognitive-inspector__overview-top">
-                <div className="cognitive-inspector__overview-copy">
-                  <span className="cognitive-inspector__pill">{cognitiveSnapshot.label}</span>
-                  <strong>{cognitiveSnapshot.title}</strong>
-                </div>
-                <div className="cognitive-inspector__score">
-                  {deepAnalysis ? `${deepAnalysis.overallScore}%` : `${sectionCoveragePercent}%`}
-                </div>
-              </div>
-              <p>{cognitiveSnapshot.description}</p>
-              {cognitiveActions.length > 0 ? (
-                <div className="cognitive-inspector__actions">
-                  {cognitiveActions.map((action) => (
-                    <button
-                      className="button button-secondary"
-                      key={action.id}
-                      onClick={() => {
-                        if (action.id === "analisar") {
-                          void runDeepManuscriptAnalysis();
-                          setCognitiveTab("estrutura");
-                          return;
-                        }
-
-                        if (action.id === "inserir_secao") {
-                          const block = scientificSections.find((item) => item.label === action.section);
-                          if (block) {
-                            insertScientificSection(block.content);
-                            setCognitiveTab("estrutura");
-                          }
-                          return;
-                        }
-
-                        if (action.id === "buscar_fonte" && activeGap) {
-                          setCognitiveTab("referencias");
-                          void loadReferenceSuggestions(activeGap);
-                          return;
-                        }
-
-                        if (action.id === "revisar_texto") {
-                          setCognitiveTab("texto");
-                          return;
-                        }
-
-                        if (action.id === "abrir_revisao") {
-                          setCognitiveTab("revisao");
-                        }
-                      }}
-                      type="button"
-                    >
-                      {action.label}
+                {openResearchPanels.cognition ? (
+                  <div className="editor-research-body">
+                    <button className="editor-research-item" onClick={() => void runDeepManuscriptAnalysis()} type="button">
+                      <span>An?lise cr?tica do texto</span>
+                      <small>{isAnalyzingManuscript ? "em andamento" : `${textWarningCount} alerta(s)`}</small>
                     </button>
-                  ))}
-                </div>
-              ) : null}
-              <div className="cognitive-inspector__stats">
-                <article>
-                  <strong>{recognizedScientificSectionsCount}/6</strong>
-                  <span>Seções-base</span>
-                </article>
-                <article>
-                  <strong>{manuscriptAnalysis.citationGaps.length}</strong>
-                  <span>Lacunas de citação</span>
-                </article>
-                <article>
-                  <strong>{textWarningCount}</strong>
-                  <span>Alertas de texto</span>
-                </article>
-              </div>
-            </div>
-
-            <div className="cognitive-inspector__tabs" role="tablist" aria-label="Modo da sidebar">
-              <button
-                className={cognitiveTab === "referencias" ? "active" : ""}
-                onClick={() => setCognitiveTab("referencias")}
-                type="button"
-              >
-                <span>Referências</span>
-                {tabCounts.referencias > 0 ? <small>{tabCounts.referencias}</small> : null}
-              </button>
-              <button
-                className={cognitiveTab === "estrutura" ? "active" : ""}
-                onClick={() => setCognitiveTab("estrutura")}
-                type="button"
-              >
-                <span>Estrutura</span>
-                {tabCounts.estrutura > 0 ? <small>{tabCounts.estrutura}</small> : null}
-              </button>
-              <button
-                className={cognitiveTab === "texto" ? "active" : ""}
-                onClick={() => setCognitiveTab("texto")}
-                type="button"
-              >
-                <span>Texto</span>
-                {tabCounts.texto > 0 ? <small>{tabCounts.texto}</small> : null}
-              </button>
-              <button
-                className={cognitiveTab === "revisao" ? "active" : ""}
-                onClick={() => setCognitiveTab("revisao")}
-                type="button"
-              >
-                <span>Revisão</span>
-                {tabCounts.revisao > 0 ? <small>{tabCounts.revisao}</small> : null}
-              </button>
-            </div>
-
-            {cognitiveTab === "referencias" ? (
-              <div className="cognitive-inspector__body">
-                <div className="cognitive-inspector__section">
-                  <div className="cognitive-inspector__section-head">
-                    <strong>Onde a sustentação ainda está frágil</strong>
-                    <span className="cognitive-inspector__meta-pill">
-                      {manuscriptAnalysis.usedReferences.length} referência(s) detectada(s)
-                    </span>
-                  </div>
-
-                  {activeGap ? (
-                    <div className="cognitive-inspector__focus-card">
-                      <span>{activeGap.section}</span>
-                      <strong>{activeGap.signal}</strong>
-                      <p>{activeGap.text}</p>
-                      <div className="cognitive-inspector__inline-actions">
-                        <button
-                          className="button button-secondary"
-                          disabled={isFetchingReferences}
-                          onClick={() => void loadReferenceSuggestions(activeGap)}
-                          type="button"
-                        >
-                          {isFetchingReferences ? "Buscando..." : "Buscar papers para este trecho"}
-                        </button>
-                        <button
-                          className="button button-secondary"
-                          disabled={!canEdit}
-                          onClick={() =>
-                            insertGuidedBlocks(
-                              buildCitationSupportBlocks(activeGap),
-                              "Bloco-guia de sustentacao inserido no manuscrito.",
-                              "referencias",
-                              "reference"
-                            )
-                          }
-                          type="button"
-                        >
-                          Inserir bloco-guia
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="cognitive-inspector__muted muted">
-                      Nenhuma afirmação científica sem citação foi detectada nesta leitura.
-                    </p>
-                  )}
-
-                  {manuscriptAnalysis.citationGaps.length > 0 ? (
-                    <div className="cognitive-inspector__stack cognitive-inspector__gap-list">
-                      {manuscriptAnalysis.citationGaps.map((gap) => (
-                        <button
-                          className={activeGap?.id === gap.id ? "active" : ""}
-                          key={gap.id}
-                          onClick={() => void loadReferenceSuggestions(gap)}
-                          type="button"
-                        >
-                          <span>{gap.section}</span>
-                          {gap.text}
-                          <small>{gap.signal}</small>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="cognitive-inspector__muted muted">
-                      Quando surgirem lacunas, elas vão aparecer aqui como prioridades de sustentação.
-                    </p>
-                  )}
-                </div>
-
-                <div className="cognitive-inspector__section">
-                  <div className="cognitive-inspector__section-head">
-                    <strong>Papers verificáveis para apoiar o argumento</strong>
-                    {activeGap ? <span className="cognitive-inspector__meta-pill">foco atual: {activeGap.section}</span> : null}
-                  </div>
-
-                  {referenceMessage ? <p className="cognitive-inspector__muted muted">{referenceMessage}</p> : null}
-                  {referenceSearchContext?.keywords.length ? (
-                    <div className="cognitive-inspector__context-card">
-                      <span>Busca contextual</span>
-                      <strong>{referenceSearchContext.query ?? referenceSearchContext.keywords.join(" ")}</strong>
-                      {referenceSearchContext.section ? <small>Seção: {referenceSearchContext.section}</small> : null}
-                    </div>
-                  ) : null}
-
-                  {referenceSuggestions.length === 0 ? (
-                    <p className="cognitive-inspector__muted muted">
-                      Selecione uma afirmação acima para carregar papers relacionados ao trecho.
-                    </p>
-                  ) : (
-                    <div className="cognitive-inspector__stack cognitive-inspector__suggestions">
-                      {referenceSuggestions.map((work) => {
-                        const triageStatus = referenceTriage[work.id];
-
-                        return (
-                          <article data-status={triageStatus ?? "nova"} key={work.id}>
-                            <strong>{work.title ?? "Título não informado"}</strong>
-                            <span>
-                              {work.primary_location?.source?.display_name ?? "Fonte não informada"} ? {work.publication_year ?? "s.d."}
-                            </span>
-                            <p className="cognitive-inspector__reason">
-                              {work.match_reason ??
-                                "Resultado verificável encontrado para a afirmação selecionada. Confira a aderência antes de inserir."}
-                            </p>
-                            {work.evidence_hint ? <p className="cognitive-inspector__hint">{work.evidence_hint}</p> : null}
-                            {work.matched_terms?.length ? (
-                              <div className="cognitive-inspector__term-list">
-                                {work.matched_terms.map((term) => (
-                                  <span key={term}>{term}</span>
-                                ))}
-                              </div>
-                            ) : null}
-                            {triageStatus ? <span className="cognitive-inspector__meta-pill">Marcada como {triageStatus}</span> : null}
-                            <div className="cognitive-inspector__inline-actions">
-                              <button
-                                className="button button-primary"
-                                disabled={triageStatus === "descartada"}
-                                onClick={() => insertReferenceSuggestion(work)}
-                                type="button"
-                              >
-                                Inserir citação
-                              </button>
-                              <button
-                                className="button button-secondary"
-                                onClick={() =>
-                                  setReferenceTriage((current) => ({
-                                    ...current,
-                                    [work.id]: "revisar"
-                                  }))
-                                }
-                                type="button"
-                              >
-                                Revisar depois
-                              </button>
-                              <button
-                                className="button button-secondary"
-                                onClick={() =>
-                                  setReferenceTriage((current) => ({
-                                    ...current,
-                                    [work.id]: "descartada"
-                                  }))
-                                }
-                                type="button"
-                              >
-                                Descartar
-                              </button>
-                              {work.primary_location?.landing_page_url ? (
-                                <a
-                                  className="button button-secondary"
-                                  href={work.primary_location.landing_page_url}
-                                  rel="noreferrer"
-                                  target="_blank"
-                                >
-                                  Abrir fonte
-                                </a>
-                              ) : null}
-                            </div>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div className="cognitive-inspector__section">
-                  <strong>Bibliografia viva do manuscrito</strong>
-                  <div className="cognitive-inspector__bibliography-status">
-                    <span>{manuscriptAnalysis.usedReferences.length} no texto</span>
-                    <span>{manuscriptAnalysis.citationGaps.length} lacunas abertas</span>
-                    <span>{triageSummary.revisar} para revisar</span>
-                  </div>
-                  {manuscriptAnalysis.usedReferences.length === 0 ? (
-                    <p className="cognitive-inspector__muted muted">A seção Referências ainda não tem itens detectáveis.</p>
-                  ) : (
-                    <ol className="cognitive-inspector__used-references">
-                      {manuscriptAnalysis.usedReferences.slice(0, 8).map((reference) => (
-                        <li key={reference.id}>{reference.text}</li>
-                      ))}
-                    </ol>
-                  )}
-                </div>
-              </div>
-            ) : cognitiveTab === "estrutura" ? (
-              <div className="cognitive-inspector__body">
-                <div className="cognitive-inspector__section">
-                  <div className="cognitive-inspector__section-head">
-                    <strong>Leitura estrutural completa</strong>
-                    <button
-                      className="button button-secondary"
-                      disabled={isAnalyzingManuscript}
-                      onClick={() => void runDeepManuscriptAnalysis()}
-                      type="button"
-                    >
-                      {isAnalyzingManuscript ? "Analisando..." : "Analisar manuscrito"}
+                    <button className="editor-research-item" onClick={() => setShowStructureStudio(true)} type="button">
+                      <span>Resumos autom?ticos</span>
+                      <small>{activeTemplate.name}</small>
                     </button>
                   </div>
-                  <p className="cognitive-inspector__muted muted">
-                    Leia o manuscrito inteiro no servidor para sair da heurística rápida e receber critério, diagnóstico e prioridades.
-                  </p>
-                  {deepAnalysisMessage ? <p className="cognitive-inspector__muted muted">{deepAnalysisMessage}</p> : null}
+                ) : null}
+              </section>
 
-                  {deepAnalysis ? (
-                    <div className="cognitive-inspector__deep-analysis editor-deep-analysis">
-                      <div className="cognitive-inspector__context-card editor-deep-analysis-score">
-                        <strong>{deepAnalysis.overallScore}%</strong>
-                        <span>{deepAnalysis.summary}</span>
+              <section className="editor-research-section">
+                <button className="editor-research-toggle" onClick={() => toggleResearchPanel("references")} type="button">
+                  <span>Refer?ncias Inteligentes</span>
+                  <small>{openResearchPanels.references ? "?" : "+"}</small>
+                </button>
+                {openResearchPanels.references ? (
+                  <div className="editor-research-body">
+                    <button className="editor-research-item" disabled={!activeGap} onClick={() => activeGap && void loadReferenceSuggestions(activeGap)} type="button">
+                      <span>{manuscriptAnalysis.citationGaps.length} cita??es relevantes</span>
+                      <small>{activeGap ? activeGap.section : "sem foco ativo"}</small>
+                    </button>
+                    <div className="editor-research-item editor-research-item--static">
+                      <span>{manuscriptAnalysis.usedReferences.length} refer?ncias j? reconhecidas</span>
+                      <small>{triageSummary.revisar} marcada(s) para revis?o</small>
+                    </div>
+                  </div>
+                ) : null}
+              </section>
+
+              <section className="editor-research-section">
+                <button className="editor-research-toggle" onClick={() => toggleResearchPanel("submission")} type="button">
+                  <span>Pronto para Submiss?o</span>
+                  <small>{openResearchPanels.submission ? "?" : "+"}</small>
+                </button>
+                {openResearchPanels.submission ? (
+                  <div className="editor-research-body">
+                    <div className="editor-submission-progress">
+                      <div className="editor-submission-progress-bar"><span style={{ width: `${editorialReadiness}%` }} /></div>
+                      <div className="editor-submission-progress-meta">
+                        <strong>{editorialReadiness}%</strong>
+                        <small>{editorialReadiness >= 75 ? "em revis?o final" : "ainda em amadurecimento"}</small>
                       </div>
-
-                      {deepAnalysis.priorities.length > 0 ? (
-                        <div className="cognitive-inspector__stack cognitive-inspector__priority-list">
-                          {deepAnalysis.priorities.map((priority) => (
-                            <article key={`${priority.section}-${priority.action}`}>
-                              <div>
-                                <strong>{priority.section}</strong>
-                                <span>{priority.action}</span>
-                              </div>
-                              <div className="cognitive-inspector__inline-actions">
-                                <button
-                                  className="button button-secondary"
-                                  disabled={!canEdit}
-                                  onClick={() =>
-                                    insertGuidedBlocks(
-                                      buildSectionGuideBlocks(priority.section, priority.action),
-                                      `Orientacao para ${priority.section} inserida no manuscrito.`
-                                    )
-                                  }
-                                  type="button"
-                                >
-                                  Aplicar no manuscrito
-                                </button>
-                              </div>
-                            </article>
-                          ))}
+                    </div>
+                    <div className="editor-research-checklist">
+                      {reviewChecklist.map((item) => (
+                        <div className="editor-research-check" key={item.label}>
+                          <span>{item.done ? "?" : "?"}</span>
+                          <small>{item.label}</small>
                         </div>
-                      ) : null}
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </section>
 
-                      <div className="cognitive-inspector__stack cognitive-inspector__section-review-list">
-                        {deepAnalysis.sectionReviews.map((review) => (
-                          <article data-status={review.status} key={review.section}>
-                            <div>
-                              <strong>{review.section}</strong>
-                              <span>{review.status === "forte" ? "forte" : review.status === "ausente" ? "ausente" : "revisar"}</span>
-                            </div>
-                            <p>{review.diagnosis}</p>
-                            <small>Critério: {review.why.join(" ")}</small>
-                            <small>Como melhorar: {review.suggestions.join(" ")}</small>
-                            <div className="cognitive-inspector__inline-actions">
-                              <button
-                                className="button button-secondary"
-                                disabled={!canEdit}
-                                onClick={() =>
-                                  insertGuidedBlocks(
-                                    buildSectionGuideBlocks(
-                                      review.section,
-                                      review.suggestions[0] ?? review.diagnosis,
-                                      review.diagnosis
-                                    ),
-                                    `Guia de revisão para ${review.section} inserido no texto.`
-                                  )
-                                }
-                                type="button"
-                              >
-                                Inserir orientação
-                              </button>
-                            </div>
-                          </article>
-                        ))}
+              <section className="editor-research-section">
+                <button className="editor-research-toggle" onClick={() => toggleResearchPanel("next")} type="button">
+                  <span>Pr?xima A??o</span>
+                  <small>{openResearchPanels.next ? "?" : "+"}</small>
+                </button>
+                {openResearchPanels.next ? (
+                  <div className="editor-research-body">
+                    {(nextEditorialActions.length > 0 ? nextEditorialActions : [{ id: "default", title: "Seguir escrevendo", description: "O texto j? est? est?vel o bastante para avan?ar no pr?ximo bloco." }]).map((action) => (
+                      <div className="editor-research-item editor-research-item--static" key={action.id}>
+                        <span>{action.title}</span>
+                        <small>{action.description}</small>
                       </div>
-                    </div>
-                  ) : null}
-                </div>
-
-                <div className="cognitive-inspector__section">
-                  <div className="cognitive-inspector__section-head">
-                    <strong>Mapa e lacunas da estrutura</strong>
-                    <span className="cognitive-inspector__meta-pill">{recognizedScientificSectionsCount}/6 reconhecidas</span>
+                    ))}
                   </div>
-                  {manuscriptAnalysis.headings.length === 0 ? (
-                    <p className="cognitive-inspector__muted muted">Use títulos ou marcadores claros de seção para o WebLab mapear a estrutura.</p>
-                  ) : (
-                    <ol className="cognitive-inspector__manuscript-map">
-                      {manuscriptAnalysis.headings.map((heading) => (
-                        <li data-level={heading.level} key={heading.id}>
-                          {heading.title}
-                        </li>
-                      ))}
-                    </ol>
-                  )}
-
-                  {manuscriptAnalysis.missingSections.length === 0 ? (
-                    <p className="cognitive-inspector__muted muted">A estrutura científica básica está presente.</p>
-                  ) : (
-                      <div className="cognitive-inspector__stack cognitive-inspector__missing-list">
-                      {manuscriptAnalysis.missingSections.map((section) => (
-                        <button
-                          key={section}
-                          onClick={() => {
-                            const block = scientificSections.find((item) => item.label === section);
-                            if (block) {
-                              insertScientificSection(block.content);
-                            }
-                          }}
-                          type="button"
-                        >
-                          Adicionar {section}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="cognitive-inspector__section">
-                  <strong>Leitura por seção</strong>
-                  {manuscriptAnalysis.sectionDiagnostics.length === 0 ? (
-                    <p className="cognitive-inspector__muted muted">Ainda preciso de mais texto para avaliar a função científica das seções.</p>
-                  ) : (
-                    <div className="cognitive-inspector__stack cognitive-inspector__section-diagnostic-list">
-                      {manuscriptAnalysis.sectionDiagnostics.map((diagnostic) => (
-                        <article data-severity={diagnostic.severity} key={diagnostic.id}>
-                          <div>
-                            <strong>{diagnostic.section}</strong>
-                            <span>{diagnostic.severity === "ok" ? "ok" : "atenção"}</span>
-                          </div>
-                          <p>{diagnostic.message}</p>
-                          <small>{diagnostic.action}</small>
-                          <div className="cognitive-inspector__inline-actions">
-                            <button
-                              className="button button-secondary"
-                              disabled={!canEdit}
-                              onClick={() =>
-                                insertGuidedBlocks(
-                                  buildSectionGuideBlocks(diagnostic.section, diagnostic.action, diagnostic.message),
-                                  `Intervenção guiada para ${diagnostic.section} inserida no manuscrito.`
-                                )
-                              }
-                              type="button"
-                            >
-                              Inserir orientação
-                            </button>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : cognitiveTab === "revisao" ? (
-              <div className="cognitive-inspector__body">
-                <div className="cognitive-inspector__section">
-                  <div className="cognitive-inspector__section-head">
-                    <strong>Comentar trecho</strong>
-                    <button className="button button-secondary" onClick={captureSelectedExcerpt} type="button">
-                      Capturar seleção
-                    </button>
-                  </div>
-                  <p className="cognitive-inspector__muted muted">
-                    Selecione um trecho do manuscrito, capture a seleção e deixe uma observação objetiva para a equipe.
-                  </p>
-                  {selectedExcerpt ? (
-                    <div className="cognitive-inspector__context-card cognitive-inspector__excerpt">
-                      <span>Trecho selecionado</span>
-                      <strong>{selectedExcerpt}</strong>
-                    </div>
-                  ) : (
-                    <p className="cognitive-inspector__muted muted">Nenhum trecho capturado ainda.</p>
-                  )}
-                  <textarea
-                    className="editor-inline-textarea"
-                    onChange={(event) => setCommentDraft(event.target.value)}
-                    placeholder="Ex.: justificar melhor este argumento, inserir fonte primária, rever recorte metodológico..."
-                    rows={4}
-                    value={commentDraft}
-                  />
-                  <div className="cognitive-inspector__review-actions">
-                    <button
-                      className="button button-primary"
-                      disabled={isSavingComment}
-                      onClick={() => void saveComment()}
-                      type="button"
-                    >
-                      {isSavingComment ? "Salvando comentário..." : "Salvar comentário"}
-                    </button>
-                    {commentMessage ? <span className="cognitive-inspector__muted muted">{commentMessage}</span> : null}
-                  </div>
-                </div>
-
-                <div className="cognitive-inspector__section">
-                  <div className="cognitive-inspector__section-head">
-                    <strong>Comentários do manuscrito</strong>
-                    <span className="cognitive-inspector__meta-pill">
-                      {unresolvedComments.length} abertos • {resolvedComments} resolvidos
-                    </span>
-                  </div>
-                  {isLoadingReviewData ? (
-                    <p className="cognitive-inspector__muted muted">Carregando comentários e versões...</p>
-                  ) : comments.length === 0 ? (
-                    <p className="cognitive-inspector__muted muted">Ainda não há comentários nesse manuscrito.</p>
-                  ) : (
-                    <div className="cognitive-inspector__stack cognitive-inspector__comment-list">
-                      {comments.map((comment) => {
-                        const canResolve =
-                          currentUser &&
-                          (canEdit || comment.created_by === currentUser.id || currentUser.role === "coordenador_geral");
-
-                        return (
-                          <article
-                            className="cognitive-inspector__comment-card"
-                            data-status={comment.resolvido_em ? "resolved" : "open"}
-                            key={comment.id}
-                          >
-                              <div className="cognitive-inspector__meta-row">
-                              <strong>{comment.authorName}</strong>
-                              <span>{formatRelativeUpdate(comment.created_at)}</span>
-                            </div>
-                            <blockquote>{comment.trecho || "Trecho não informado."}</blockquote>
-                            <p>{comment.comentario}</p>
-                            {comment.resolvido_em ? (
-                              <small>
-                                Resolvido por {comment.resolverName ?? "membro da equipe"} em {" "}
-                                {formatRelativeUpdate(comment.resolvido_em)}.
-                              </small>
-                            ) : (
-                              <small>Aberto para revisão da equipe.</small>
-                            )}
-                            {canResolve ? (
-                              <div className="cognitive-inspector__review-actions">
-                                <button
-                                  className="button button-secondary"
-                                  onClick={() => void toggleCommentResolution(comment, !comment.resolvido_em)}
-                                  type="button"
-                                >
-                                  {comment.resolvido_em ? "Reabrir" : "Marcar como resolvido"}
-                                </button>
-                              </div>
-                            ) : null}
-                          </article>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div className="cognitive-inspector__section">
-                  <div className="cognitive-inspector__section-head">
-                    <strong>Histórico de versões</strong>
-                    <button
-                      className="button button-secondary"
-                      disabled={isSavingVersion || !canEdit}
-                      onClick={() => void saveVersionSnapshot(versionNote)}
-                      type="button"
-                    >
-                      {isSavingVersion ? "Salvando..." : "Salvar versão atual"}
-                    </button>
-                  </div>
-                  <input
-                    className="editor-inline-input"
-                    disabled={!canEdit}
-                    onChange={(event) => setVersionNote(event.target.value)}
-                    placeholder="Observação opcional da versão (ex.: revisão do resumo, ajuste metodológico...)"
-                    value={versionNote}
-                  />
-                  {versionMessage ? <p className="cognitive-inspector__muted muted">{versionMessage}</p> : null}
-                  {!canEdit ? (
-                    <p className="cognitive-inspector__muted muted">O histórico detalhado de versões fica disponível apenas para a equipe autora.</p>
-                  ) : versions.length === 0 ? (
-                    <p className="cognitive-inspector__muted muted">Ainda não há snapshots salvos deste manuscrito.</p>
-                  ) : (
-                    <div className="cognitive-inspector__stack cognitive-inspector__version-list">
-                      {versions.map((version) => (
-                        <article className="cognitive-inspector__version-card" key={version.id}>
-                          <div className="cognitive-inspector__meta-row">
-                            <strong>{version.observacao || "Versão sem observação"}</strong>
-                            <span>{formatRelativeUpdate(version.created_at)}</span>
-                          </div>
-                          <p>
-                            {version.authorName} • {statusLabels[version.status_snapshot].toLowerCase()} •{" "}
-                            {countArticleWords(version.conteudo_json)} palavras
-                          </p>
-                          <small>{version.titulo_snapshot}</small>
-                          <div className="cognitive-inspector__review-actions">
-                            <button
-                              className="button button-secondary"
-                              disabled={restoringVersionId === version.id}
-                              onClick={() => void restoreVersion(version)}
-                              type="button"
-                            >
-                              {restoringVersionId === version.id ? "Restaurando..." : "Restaurar versão"}
-                            </button>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="cognitive-inspector__body">
-                <div className="cognitive-inspector__section">
-                  <strong>Clareza e argumento</strong>
-                  {manuscriptAnalysis.textDiagnostics.length === 0 ? (
-                    <p className="cognitive-inspector__muted muted">Ainda preciso de mais texto para avaliar o fluxo argumentativo.</p>
-                  ) : (
-                    <div className="cognitive-inspector__stack cognitive-inspector__text-diagnostic-list">
-                      {manuscriptAnalysis.textDiagnostics.map((diagnostic) => (
-                        <article data-severity={diagnostic.severity} key={diagnostic.id}>
-                          <div>
-                            <strong>{diagnostic.title}</strong>
-                            <span>{diagnostic.severity === "warning" ? "revisar" : "ok"}</span>
-                          </div>
-                          <p>{diagnostic.message}</p>
-                          <small>{diagnostic.action}</small>
-                          <div className="cognitive-inspector__inline-actions">
-                            <button
-                              className="button button-secondary"
-                              disabled={!canEdit}
-                              onClick={() =>
-                                insertGuidedBlocks(
-                                  buildTextDiagnosticGuideBlocks(diagnostic),
-                                  `Orientação de texto para ${diagnostic.title.toLowerCase()} inserida no manuscrito.`,
-                                  "texto"
-                                )
-                              }
-                              type="button"
-                            >
-                              Aplicar no texto
-                            </button>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div className="cognitive-inspector__section">
-                  <strong>Conexões conceituais</strong>
-                  {manuscriptAnalysis.conceptSignals.length === 0 ? (
-                    <p className="cognitive-inspector__muted muted">Quando o manuscrito crescer, o WebLab vai destacar conceitos recorrentes entre seções.</p>
-                  ) : (
-                    <div className="cognitive-inspector__stack cognitive-inspector__concept-list">
-                      {manuscriptAnalysis.conceptSignals.map((concept) => (
-                        <article key={concept.id}>
-                          <div>
-                            <strong>{concept.term}</strong>
-                            <span>{concept.count} ocorrências</span>
-                          </div>
-                          <small>
-                            Aparece em {concept.sections.join(", ")}. Use isso para conectar ideias ou cortar repetição.
-                          </small>
-                        </article>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+                ) : null}
+              </section>
             </div>
           </aside>
+        </div>
+
+        <section className="editor-bottom-grid">
+          <article className="editor-summary-card">
+            <div className="editor-summary-card-head"><strong>Radar Editorial</strong></div>
+            <div className="editor-summary-metrics">
+              <div><span>Lacunas estruturais</span><strong>{manuscriptAnalysis.missingSections.length}</strong></div>
+              <div><span>Alertas de cita??o</span><strong>{manuscriptAnalysis.citationGaps.length}</strong></div>
+            </div>
+          </article>
+          <article className="editor-summary-card">
+            <div className="editor-summary-card-head"><strong>Resumo da Revis?o</strong></div>
+            <div className="editor-summary-metrics">
+              <div><span>Coment?rios abertos</span><strong>{unresolvedComments.length}</strong></div>
+              <div><span>Vers?es salvas</span><strong>{versions.length}</strong></div>
+            </div>
+          </article>
         </section>
+
+        {showStructureStudio ? (
+          <section className="editor-structure-studio">
+            <div className="editor-structure-head">
+              <div>
+                <span className="eyebrow">estrutura editorial</span>
+                <strong>Monte o esqueleto do artigo sem poluir a ?rea principal de escrita.</strong>
+              </div>
+              <button className="button button-secondary" onClick={() => setShowStructureStudio(false)} type="button">Fechar</button>
+            </div>
+            <div className="editor-template-panel__chips">
+              {editorTemplates.map((template) => (
+                <button className="editor-template-chip" data-active={selectedTemplateId === template.id ? "true" : "false"} key={template.id} onClick={() => setSelectedTemplateId(template.id)} type="button">{template.name}</button>
+              ))}
+            </div>
+            <div className="editor-structure-grid">
+              <div className="editor-structure-copy">
+                <strong>{activeTemplate.name}</strong>
+                <p>{activeTemplate.description}</p>
+                <div className="editor-template-panel__tips">
+                  {activeTemplate.tips.map((tip) => (<span key={tip}>{tip}</span>))}
+                </div>
+              </div>
+              <div className="editor-structure-actions">
+                <div className="editor-template-panel__selectors">
+                  <select disabled={!canEdit} onChange={(event) => { const nextGroup = sectionGroups.find((group) => group.id === event.target.value) ?? sectionGroups[0]; setSelectedGroupId(nextGroup.id); setSelectedSectionLabel(nextGroup.sections[0]?.label ?? ""); }} value={selectedGroupId}>
+                    {sectionGroups.map((group) => (<option key={group.id} value={group.id}>{group.label}</option>))}
+                  </select>
+                  <select disabled={!canEdit} onChange={(event) => setSelectedSectionLabel(event.target.value)} value={selectedSectionLabel}>
+                    {activeSectionGroup.sections.map((section) => (<option key={section.label} value={section.label}>{section.label}</option>))}
+                  </select>
+                </div>
+                <div className="editor-template-panel__actions">
+                  <button className="button button-primary" disabled={!canEdit} onClick={applyCompleteTemplate} type="button">Montar estrutura completa</button>
+                  <button className="button button-secondary" disabled={!canEdit || !selectedSection} onClick={() => selectedSection && insertScientificSection(selectedSection.content)} type="button">Adicionar se??o</button>
+                  <button className="button button-secondary" disabled={!canEdit} onClick={() => insertScientificSection(activeTemplate.content, "end")} type="button">Inserir no fim do texto</button>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
       </div>
     </main>
   );
