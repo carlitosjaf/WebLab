@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import React from "react";
 
+import { OFFICIAL_EDITORIAL_ROUTE } from "@/lib/article-intelligence";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { UserRole } from "@/lib/types";
 
@@ -73,6 +74,10 @@ function isArticleWorkspace(pathname: string) {
 }
 
 function getWorkspaceChildKey(pathname: string) {
+  if (pathname === `/artigos/${OFFICIAL_EDITORIAL_ROUTE}`) {
+    return "editor";
+  }
+
   if (/^\/artigos\/[^/]+$/.test(pathname)) {
     return "painel";
   }
@@ -218,12 +223,12 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
       return null;
     }
 
-    const panelHref = workspaceArticleId
+    const hasRealWorkspaceArticle =
+      Boolean(workspaceArticleId) && workspaceArticleId !== OFFICIAL_EDITORIAL_ROUTE;
+    const panelHref = hasRealWorkspaceArticle
       ? (`/dashboard/artigos/${workspaceArticleId}` as Route)
       : ("/dashboard/artigos" as Route);
-    const editorHref = workspaceArticleId
-      ? (`/editor/${workspaceArticleId}` as Route)
-      : ("/dashboard/artigos" as Route);
+    const editorHref = `/artigos/${OFFICIAL_EDITORIAL_ROUTE}` as Route;
     const activeKey = getWorkspaceChildKey(pathname);
 
     return {
@@ -235,13 +240,12 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
           href: panelHref,
           label: "Painel do manuscrito",
           key: "painel",
-          disabled: !workspaceArticleId
+          disabled: !hasRealWorkspaceArticle
         },
         {
           href: editorHref,
           label: "Editor vivo",
-          key: "editor",
-          disabled: !workspaceArticleId
+          key: "editor"
         },
         { href: "/dashboard/periodicos" as Route, label: "Radar editorial", key: "radar" },
         { href: "/dashboard/triagem" as Route, label: "Triagem de evidências", key: "triagem" },

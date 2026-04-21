@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
+import { OFFICIAL_EDITORIAL_ROUTE } from "@/lib/article-intelligence";
 import { ArticleEditor } from "@/components/editor/article-editor";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { ArticleRow, UserRole } from "@/lib/types";
@@ -15,11 +16,17 @@ export default function EditorPage() {
   const [readOnlyReason, setReadOnlyReason] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const isOfficialEditorialRoute = params.id === OFFICIAL_EDITORIAL_ROUTE;
 
   useEffect(() => {
     let isMounted = true;
 
     const loadArticle = async () => {
+      if (isOfficialEditorialRoute) {
+        router.replace(`/artigos/${OFFICIAL_EDITORIAL_ROUTE}`);
+        return;
+      }
+
       const supabase = getSupabaseClient();
       setIsLoading(true);
 
@@ -86,7 +93,19 @@ export default function EditorPage() {
     return () => {
       isMounted = false;
     };
-  }, [params.id, router]);
+  }, [isOfficialEditorialRoute, params.id, router]);
+
+  if (isOfficialEditorialRoute) {
+    return (
+      <main className="shell">
+        <div className="container glass-card" style={{ padding: "32px" }}>
+          <p className="muted" style={{ margin: 0 }}>
+            Redirecionando para o editor vivo oficial...
+          </p>
+        </div>
+      </main>
+    );
+  }
 
   if (isLoading) {
     return (

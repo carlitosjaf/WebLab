@@ -6,6 +6,7 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 
 import { PublicPageHero } from "@/components/public/public-layout";
+import { OFFICIAL_EDITORIAL_ROUTE } from "@/lib/article-intelligence";
 import { buildTeamKnowledgeMap } from "@/lib/knowledge-network";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { ArticleRow, Database, EvidenceScreeningSetRow } from "@/lib/types";
@@ -134,8 +135,8 @@ export default function ResearchPage() {
           <div className="research-theme-grid">
             {weblabTools.map((tool) => {
               const toolHref =
-                tool.label === "Editor vivo" && articles[0]
-                  ? (`/dashboard/artigos/${articles[0].id}` as Route)
+                tool.label === "Editor vivo"
+                  ? (`/artigos/${OFFICIAL_EDITORIAL_ROUTE}` as Route)
                   : (tool.href as Route);
 
               return (
