@@ -11,6 +11,16 @@ type ArticleIntelligenceRouteProps = {
   }>;
 };
 
+const OFFICIAL_EDITORIAL_ROUTE = "demo-editorial";
+
+const OFFICIAL_EDITORIAL_ENTRY = {
+  title:
+    "Para além da pandemia: desigualdades estruturais, cuidado e sofrimento psíquico na experiência de mulheres na pós-graduação brasileira",
+  areaLabel: "Saúde coletiva, formação e vida acadêmica",
+  stageLabel: "Leitura editorial em andamento",
+  lastSyncAt: "21 de abr. de 2026, 16:40"
+} as const;
+
 const FALLBACK_MANUSCRIPT = `Resumo: Este manuscrito analisa a experiência de mulheres na pós-graduação brasileira durante e após a pandemia, com foco na articulação entre desigualdade estrutural, trabalho acadêmico e sofrimento psíquico. O estudo busca compreender de que modo a intensificação das exigências institucionais alterou a percepção de permanência, desempenho e reconhecimento no percurso formativo. Metodologicamente, o trabalho combina leitura analítica de literatura recente, observação situada do contexto universitário e discussão conceitual sobre cuidado, precarização e institucionalidade. Os achados sugerem que a sobrecarga não se distribui de forma homogênea e que a gestão ordinária da vida acadêmica permanece atravessada por assimetrias de gênero, classe e suporte institucional. Conclui-se que a permanência qualificada na pós-graduação depende menos de adaptação individual e mais de revisão das condições institucionais de produção da pesquisa.
 
 Introdução
@@ -66,16 +76,34 @@ export default async function ArticleIntelligenceRoute({ params }: ArticleIntell
   const article = await loadArticle(id);
   const manuscriptText = article?.conteudo_json ? extractPlainText(article.conteudo_json) : "";
   const hasUsableText = manuscriptText.trim().length > 140;
+  const isOfficialEditorialEntry = id === OFFICIAL_EDITORIAL_ROUTE && !article;
+
+  const title = article?.titulo ??
+    (isOfficialEditorialEntry
+      ? OFFICIAL_EDITORIAL_ENTRY.title
+      : "Inteligência editorial do manuscrito");
+  const areaLabel = isOfficialEditorialEntry
+    ? OFFICIAL_EDITORIAL_ENTRY.areaLabel
+    : "Pós-graduação e pesquisa";
+  const stageLabel = article?.status
+    ? formatStageLabel(article.status)
+    : isOfficialEditorialEntry
+      ? OFFICIAL_EDITORIAL_ENTRY.stageLabel
+      : "Em revisão editorial";
+  const lastSyncAt =
+    article?.google_last_synced_at ??
+    article?.updated_at ??
+    (isOfficialEditorialEntry ? OFFICIAL_EDITORIAL_ENTRY.lastSyncAt : undefined);
 
   return (
     <SidebarLayout>
       <ArticleIntelligencePage
-        title={article?.titulo ?? "Manuscrito em leitura editorial assistida"}
-        areaLabel="Pós-graduação e pesquisa"
-        stageLabel={formatStageLabel(article?.status)}
+        title={title}
+        areaLabel={areaLabel}
+        stageLabel={stageLabel}
         manuscriptText={hasUsableText ? manuscriptText : FALLBACK_MANUSCRIPT}
         googleDocsUrl={article?.google_doc_url ?? undefined}
-        lastSyncAt={article?.google_last_synced_at ?? article?.updated_at ?? undefined}
+        lastSyncAt={lastSyncAt}
       />
     </SidebarLayout>
   );
