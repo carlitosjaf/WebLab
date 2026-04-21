@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
   const rawState = nextUrl.searchParams.get("state");
   const providerError = nextUrl.searchParams.get("error");
 
-  const fallbackRedirect = new URL("/dashboard/artigos", origin);
+  const fallbackRedirect = new URL("/editor", origin);
 
   try {
     if (!isGoogleDocsConfigured()) {
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
       { onConflict: "user_id" }
     );
 
-    let redirectTo = new URL(state.returnTo ?? "/dashboard/artigos", origin);
+    let redirectTo = new URL(state.returnTo ?? "/editor", origin);
 
     if (state.articleId) {
       const [{ data: profileRow }, { data: article }] = await Promise.all([
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
           })
           .eq("id", article.id);
 
-        redirectTo = new URL(`/dashboard/artigos/${article.id}`, origin);
+        redirectTo = new URL(`/editor/${article.id}`, origin);
         redirectTo.searchParams.set("google", "connected");
       } else {
         redirectTo.searchParams.set("google", "connected");

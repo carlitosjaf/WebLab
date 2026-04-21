@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
         uid: user.id,
         articleId: body.articleId,
         title: body.title ?? (article as ArticleRow).titulo,
-        returnTo: `/dashboard/artigos/${body.articleId}`,
+        returnTo: `/editor/${body.articleId}`,
         createdAt: Date.now(),
       });
 

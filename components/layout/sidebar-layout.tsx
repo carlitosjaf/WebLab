@@ -7,11 +7,10 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import React from "react";
 
 import {
+  getCentralEditorialHref,
   getArticleEditorHref,
-  getManuscriptPanelHref,
-  getOfficialEditorialHref,
-  isOfficialEditorialId,
-  OFFICIAL_EDITORIAL_ROUTE
+  isLegacyEditorialId,
+  LEGACY_EDITORIAL_ROUTE
 } from "@/lib/article-intelligence";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { UserRole } from "@/lib/types";
@@ -33,7 +32,7 @@ type ArticleContextLink = {
 const links: NavLink[] = [
   { href: "/dashboard", label: "Home", icon: "01" },
   { href: "/dashboard/equipe" as Route, label: "Equipe", icon: "02" },
-  { href: "/dashboard/artigos" as Route, label: "Artigos", icon: "03" },
+  { href: getCentralEditorialHref(), label: "Artigos", icon: "03" },
   { href: "/dashboard/triagem" as Route, label: "Triagem", icon: "04" },
   { href: "/dashboard/publicacoes" as Route, label: "Publicações", icon: "05" },
   { href: "/dashboard/avisos" as Route, label: "Avisos", icon: "06" }
@@ -80,20 +79,20 @@ function isArticleWorkspace(pathname: string) {
 }
 
 function getWorkspaceChildKey(pathname: string) {
-  if (pathname === getOfficialEditorialHref()) {
-    return "editor";
-  }
-
   if (/^\/artigos\/[^/]+$/.test(pathname)) {
     return "editor";
   }
 
+  if (pathname === getCentralEditorialHref()) {
+    return "central";
+  }
+
   if (pathname === "/dashboard/artigos") {
-    return "biblioteca";
+    return "central";
   }
 
   if (/^\/dashboard\/artigos\/[^/]+$/.test(pathname)) {
-    return "painel";
+    return "editor";
   }
 
   if (/^\/editor\/[^/]+$/.test(pathname)) {
@@ -121,12 +120,10 @@ function getWorkspaceChildKey(pathname: string) {
 
 function getBreadcrumbLabel(activeKey: string | null) {
   switch (activeKey) {
-    case "biblioteca":
-      return "Biblioteca";
-    case "painel":
-      return "Painel do manuscrito";
+    case "central":
+      return "Central Editorial";
     case "editor":
-      return "Editor vivo";
+      return "Editor";
     case "radar":
       return "Radar editorial";
     case "triagem":
@@ -136,7 +133,7 @@ function getBreadcrumbLabel(activeKey: string | null) {
     case "lattes":
       return "Assistente Lattes";
     default:
-      return "Biblioteca";
+      return "Central Editorial";
   }
 }
 
@@ -184,7 +181,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     const currentArticleId = extractArticleId(pathname);
     const savedArticleId = window.localStorage.getItem("weblab:last-article-id");
 
-    if (currentArticleId && !isOfficialEditorialId(currentArticleId)) {
+    if (currentArticleId && !isLegacyEditorialId(currentArticleId)) {
       setWorkspaceArticleId(currentArticleId);
       window.localStorage.setItem("weblab:last-article-id", currentArticleId);
       return;
@@ -258,11 +255,8 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
 
   const articleContext = useMemo(() => {
     const hasRealWorkspaceArticle =
-      Boolean(workspaceArticleId) && workspaceArticleId !== OFFICIAL_EDITORIAL_ROUTE;
+      Boolean(workspaceArticleId) && workspaceArticleId !== LEGACY_EDITORIAL_ROUTE;
     const realWorkspaceArticleId = hasRealWorkspaceArticle ? workspaceArticleId : null;
-    const panelHref = hasRealWorkspaceArticle
-      ? getManuscriptPanelHref(realWorkspaceArticleId as string)
-      : ("/dashboard/artigos" as Route);
     const editorHref = getArticleEditorHref(realWorkspaceArticleId);
     const activeKey = getWorkspaceChildKey(pathname);
 
@@ -270,17 +264,16 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
       activeKey,
       breadcrumb: getBreadcrumbLabel(activeKey),
       links: [
-        { href: "/dashboard/artigos" as Route, label: "Biblioteca", key: "biblioteca" },
         {
-          href: panelHref,
-          label: "Painel do manuscrito",
-          key: "painel",
-          disabled: !hasRealWorkspaceArticle
+          href: getCentralEditorialHref(),
+          label: "Central Editorial",
+          key: "central"
         },
         {
           href: editorHref,
-          label: "Editor vivo",
-          key: "editor"
+          label: "Editor",
+          key: "editor",
+          disabled: !hasRealWorkspaceArticle
         },
         { href: "/dashboard/periodicos" as Route, label: "Radar editorial", key: "radar" },
         { href: "/dashboard/triagem" as Route, label: "Triagem de evidências", key: "triagem" },
@@ -318,12 +311,12 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             <nav className="app-nav" aria-label="Navegação do laboratório">
             {visibleLinks.map((link) => {
               const isActive =
-                link.href === "/dashboard/artigos"
+                link.href === getCentralEditorialHref()
                   ? articleWorkspaceActive
                   : pathname === link.href ||
                     (pathname.startsWith(link.href + "/") && link.href !== "/dashboard");
 
-              if (link.href === "/dashboard/artigos") {
+              if (link.href === getCentralEditorialHref()) {
                 const navClassName = isActive ? "nav-link nav-link-active" : "nav-link";
 
                 return (

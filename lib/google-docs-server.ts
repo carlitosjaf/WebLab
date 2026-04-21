@@ -61,6 +61,7 @@ function createAuthorizedDocsClient(input: {
   return {
     oauth,
     docs: google.docs({ auth: oauth, version: "v1" }),
+    drive: google.drive({ auth: oauth, version: "v3" }),
   };
 }
 
@@ -338,6 +339,66 @@ export async function createGoogleDocumentFromTemplate(input: {
   return {
     documentId,
     documentUrl: `https://docs.google.com/document/d/${documentId}/edit`,
+    syncedAt: new Date().toISOString(),
+  };
+}
+
+export async function pushArticleContentToGoogleDocument(input: {
+  documentId: string;
+  title: string;
+  content: ArticleContent | null | undefined;
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  expiryDate?: number | null;
+}) {
+  const { docs, drive } = createAuthorizedDocsClient(input);
+  const current = await docs.documents.get({
+    documentId: input.documentId,
+  });
+
+  const documentText = pickInitialDocumentText(input.title, input.content);
+  const lastEndIndex =
+    current.data.body?.content?.[current.data.body.content.length - 1]?.endIndex ?? 1;
+
+  const requests: docs_v1.Schema$Request[] = [];
+
+  if (lastEndIndex > 1) {
+    requests.push({
+      deleteContentRange: {
+        range: {
+          startIndex: 1,
+          endIndex: lastEndIndex - 1,
+        },
+      },
+    });
+  }
+
+  requests.push({
+    insertText: {
+      location: {
+        index: 1,
+      },
+      text: documentText,
+    },
+  });
+
+  await docs.documents.batchUpdate({
+    documentId: input.documentId,
+    requestBody: {
+      requests,
+    },
+  });
+
+  await drive.files.update({
+    fileId: input.documentId,
+    requestBody: {
+      name: input.title,
+    },
+  });
+
+  return {
+    documentId: input.documentId,
+    documentUrl: `https://docs.google.com/document/d/${input.documentId}/edit`,
     syncedAt: new Date().toISOString(),
   };
 }

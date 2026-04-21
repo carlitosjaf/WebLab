@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { Route } from "next";
 import { useEffect, useMemo, useState } from "react";
 
-import { getArticleEditorHref, getManuscriptPanelHref } from "@/lib/article-intelligence";
+import { getArticleEditorHref, getCentralEditorialHref } from "@/lib/article-intelligence";
 import {
   INDEXER_OPTIONS,
   INDEXER_STRATEGY,
@@ -1125,10 +1125,10 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
               <span className="muted">Última edição: {formatRelativeUpdate(selectedArticle?.updated_at ?? null)}</span>
               <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                 <Link
-                  href={selectedArticle ? getManuscriptPanelHref(selectedArticle.id) : ("/dashboard" as Route)}
+                  href={selectedArticle ? getArticleEditorHref(selectedArticle.id) : getCentralEditorialHref()}
                   className="button button-secondary"
                 >
-                  {selectedArticle ? "Abrir painel do artigo" : "Ir para Home"}
+                  {selectedArticle ? "Abrir editor" : "Central Editorial"}
                 </Link>
                 <Link
                   href={selectedArticle ? getArticleEditorHref(selectedArticle.id) : ("/dashboard" as Route)}

@@ -11,6 +11,8 @@ import { Redo2, Undo2 } from "lucide-react";
 
 import { Toolbar } from "@/components/ui/toolbar";
 import { exportArticleToDocx } from "@/lib/docx-export";
+import { getCentralEditorialHref } from "@/lib/article-intelligence";
+import { buildGoogleDocUrl } from "@/lib/google-docs";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type {
   ArticleCommentRow,
@@ -1800,6 +1802,11 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
   const [isLeaving, setIsLeaving] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isExportingDocx, setIsExportingDocx] = useState(false);
+  const [googleDocId, setGoogleDocId] = useState(article.google_doc_id);
+  const [googleDocUrl, setGoogleDocUrl] = useState(article.google_doc_url);
+  const [googleLastSyncedAt, setGoogleLastSyncedAt] = useState(article.google_last_synced_at);
+  const [googleMessage, setGoogleMessage] = useState<string | null>(null);
+  const [isGoogleWorking, setIsGoogleWorking] = useState(false);
   const lastSavedSnapshot = useRef(
     JSON.stringify({
       titulo: article.titulo,
@@ -1812,6 +1819,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   titleRef.current = title;
   statusRef.current = status;
+  const googleDocHref = buildGoogleDocUrl(googleDocId) ?? googleDocUrl;
 
   const loadReviewData = async () => {
     const supabase = getSupabaseClient();
@@ -2019,7 +2027,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     }
 
     if (!editor) {
-      router.replace("/dashboard");
+      router.replace(getCentralEditorialHref());
       return;
     }
 
@@ -2035,7 +2043,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
       await persistDraft(content);
     }
 
-    router.replace("/dashboard");
+    router.replace(getCentralEditorialHref());
   };
 
   const handleStatusChange = async (nextStatus: ArticleStatus) => {
@@ -2056,6 +2064,214 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
 
     await persistDraft(editor.getJSON());
     setIsUpdatingStatus(false);
+  };
+
+  const getSessionToken = async () => {
+    const supabase = getSupabaseClient();
+    const {
+      data: { session }
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      throw new Error("Sua sessao expirou. Entre novamente antes de usar o Google Docs.");
+    }
+
+    return {
+      supabase,
+      token: session.access_token
+    };
+  };
+
+  const handleGooglePrimaryAction = async () => {
+    if (!canEdit) {
+      setGoogleMessage("Somente a equipe autora pode sincronizar este manuscrito com o Google Docs.");
+      return;
+    }
+
+    if (googleDocHref) {
+      window.open(googleDocHref, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    setIsGoogleWorking(true);
+    setGoogleMessage(null);
+
+    try {
+      const { token } = await getSessionToken();
+      const response = await fetch("/api/google/docs/connect", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          articleId: article.id,
+          title: titleRef.current.trim() || article.titulo
+        })
+      });
+
+      const payload = (await response.json()) as
+        | { error?: string; mode?: never }
+        | { mode: "authorize"; authUrl: string }
+        | { mode: "created"; docId: string; docUrl: string; syncedAt: string };
+
+      if (!response.ok) {
+        throw new Error("error" in payload && payload.error ? payload.error : "Nao foi possivel abrir o fluxo do Google Docs.");
+      }
+
+      if ("mode" in payload && payload.mode === "authorize") {
+        window.location.assign(payload.authUrl);
+        return;
+      }
+
+      if ("mode" in payload && payload.mode === "created") {
+        setGoogleDocId(payload.docId);
+        setGoogleDocUrl(payload.docUrl);
+        setGoogleLastSyncedAt(payload.syncedAt);
+        setGoogleMessage("Documento criado e conectado automaticamente.");
+        window.open(payload.docUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (error) {
+      setGoogleMessage(error instanceof Error ? error.message : "Nao foi possivel abrir o fluxo do Google Docs.");
+    } finally {
+      setIsGoogleWorking(false);
+    }
+  };
+
+  const handleSyncFromGoogleDocs = async () => {
+    if (!googleDocId) {
+      setGoogleMessage("Conecte um documento Google antes de importar alteracoes.");
+      return;
+    }
+
+    setIsGoogleWorking(true);
+    setGoogleMessage(null);
+
+    try {
+      const { token } = await getSessionToken();
+      const response = await fetch("/api/google/docs/sync", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          articleId: article.id
+        })
+      });
+
+      const payload = (await response.json()) as {
+        error?: string;
+        article?: ArticleRow;
+        syncedAt?: string;
+      };
+
+      if (!response.ok || !payload.article) {
+        throw new Error(payload.error ?? "Nao foi possivel sincronizar o Google Docs.");
+      }
+
+      const nextArticle = payload.article;
+      const nextTitle = nextArticle.titulo.trim() || "Sem titulo";
+      const nextContent = nextArticle.conteudo_json ?? EMPTY_DOC;
+
+      setTitle(nextTitle);
+      titleRef.current = nextTitle;
+      setStatus(nextArticle.status);
+      statusRef.current = nextArticle.status;
+      setGoogleDocId(nextArticle.google_doc_id);
+      setGoogleDocUrl(nextArticle.google_doc_url);
+      setGoogleLastSyncedAt(nextArticle.google_last_synced_at);
+      editor?.commands.setContent(nextContent);
+      setEditorVersion((current) => current + 1);
+      lastSavedSnapshot.current = JSON.stringify({
+        titulo: nextTitle,
+        conteudo_json: nextContent,
+        status: nextArticle.status
+      });
+      setSaveState("saved");
+      setSaveMessage("Texto sincronizado a partir do Google Docs.");
+      setGoogleMessage("Alteracoes do Google Docs importadas para o WebLab.");
+    } catch (error) {
+      setGoogleMessage(error instanceof Error ? error.message : "Nao foi possivel sincronizar o Google Docs.");
+    } finally {
+      setIsGoogleWorking(false);
+    }
+  };
+
+  const handlePushToGoogleDocs = async () => {
+    if (!canEdit) {
+      setGoogleMessage("Somente a equipe autora pode enviar o manuscrito para o Google Docs.");
+      return;
+    }
+
+    if (!googleDocId || !editor) {
+      setGoogleMessage("Conecte um documento Google antes de enviar alteracoes.");
+      return;
+    }
+
+    setIsGoogleWorking(true);
+    setGoogleMessage(null);
+
+    try {
+      const { supabase, token } = await getSessionToken();
+      const nextTitle = titleRef.current.trim() || "Sem titulo";
+      const nextContent = editor.getJSON() as ArticleContent;
+      const now = new Date().toISOString();
+
+      const { error: persistError } = await supabase
+        .from("artigos")
+        .update({
+          titulo: nextTitle,
+          conteudo_json: nextContent,
+          status: statusRef.current,
+          updated_at: now,
+          last_editor_id: currentUser?.id ?? article.last_editor_id ?? article.autor_id
+        })
+        .eq("id", article.id);
+
+      if (persistError) {
+        throw new Error(persistError.message);
+      }
+
+      lastSavedSnapshot.current = JSON.stringify({
+        titulo: nextTitle,
+        conteudo_json: nextContent,
+        status: statusRef.current
+      });
+
+      const response = await fetch("/api/google/docs/push", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          articleId: article.id
+        })
+      });
+
+      const payload = (await response.json()) as {
+        error?: string;
+        article?: ArticleRow;
+        syncedAt?: string;
+        docUrl?: string;
+      };
+
+      if (!response.ok || !payload.article) {
+        throw new Error(payload.error ?? "Nao foi possivel enviar o manuscrito ao Google Docs.");
+      }
+
+      setGoogleDocId(payload.article.google_doc_id);
+      setGoogleDocUrl(payload.article.google_doc_url);
+      setGoogleLastSyncedAt(payload.article.google_last_synced_at);
+      setSaveState("saved");
+      setSaveMessage("Rascunho salvo e publicado no Google Docs.");
+      setGoogleMessage("Versao atual enviada ao Google Docs da equipe.");
+    } catch (error) {
+      setGoogleMessage(error instanceof Error ? error.message : "Nao foi possivel enviar o manuscrito ao Google Docs.");
+    } finally {
+      setIsGoogleWorking(false);
+    }
   };
 
   const insertScientificSection = (blocks: JSONContent[], placement: "cursor" | "end" = "cursor") => {
@@ -2650,8 +2866,8 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
           }}
         >
           <div style={{ display: "grid", gap: "8px" }}>
-            <Link href="/dashboard" className="muted">
-              {"<- Voltar ao dashboard"}
+            <Link href={getCentralEditorialHref()} className="muted">
+              {"<- Voltar para a Central Editorial"}
             </Link>
             <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
               <span
@@ -2716,7 +2932,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               onClick={handleLeave}
               type="button"
             >
-              {isLeaving ? "Saindo..." : "Voltar e finalizar"}
+              {isLeaving ? "Saindo..." : "Voltar para a central"}
             </button>
 
             <button
@@ -2773,6 +2989,13 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                   </span>
                   <span>Última edição {formatRelativeUpdate(article.updated_at)}</span>
                   <span>
+                    {googleDocId
+                      ? googleLastSyncedAt
+                        ? `Google sincronizado ${formatRelativeUpdate(googleLastSyncedAt)}`
+                        : "Google Docs conectado"
+                      : "Google Docs pendente"}
+                  </span>
+                  <span>
                     {saveState === "saving"
                       ? "Salvando agora"
                       : saveState === "saved"
@@ -2821,6 +3044,15 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                     <strong>Pronto para decidir revista</strong>
                     <small>Quando o texto estiver sólido, o radar cruza escopo, indexadores e shortlist.</small>
                   </article>
+                  <article>
+                    <span>Sync editorial</span>
+                    <strong>{googleDocId ? "Google Docs ativo" : "Conectar Google Docs"}</strong>
+                    <small>
+                      {googleDocId
+                        ? "Publique e importe versões do documento da equipe sem sair do writer."
+                        : "Ative o documento da equipe para manter checkpoint entre WebLab e Google Docs."}
+                    </small>
+                  </article>
                 </div>
               </div>
 
@@ -2860,6 +3092,37 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                     {isExportingDocx ? "Gerando DOCX..." : "Exportar DOCX"}
                   </button>
 
+                  <button
+                    className="button button-secondary"
+                    disabled={isGoogleWorking}
+                    onClick={() => void handleGooglePrimaryAction()}
+                    type="button"
+                  >
+                    {isGoogleWorking
+                      ? "Preparando Google..."
+                      : googleDocHref
+                        ? "Abrir Google Docs"
+                        : "Conectar Google Docs"}
+                  </button>
+
+                  <button
+                    className="button button-secondary"
+                    disabled={isGoogleWorking || !googleDocId}
+                    onClick={() => void handleSyncFromGoogleDocs()}
+                    type="button"
+                  >
+                    {isGoogleWorking ? "Sincronizando..." : "Importar do Google"}
+                  </button>
+
+                  <button
+                    className="button button-secondary"
+                    disabled={isGoogleWorking || !googleDocId || !canEdit}
+                    onClick={() => void handlePushToGoogleDocs()}
+                    type="button"
+                  >
+                    {isGoogleWorking ? "Enviando..." : "Publicar no Google"}
+                  </button>
+
                   <Link className="button editor-radar-link" href={"/dashboard/periodicos" as Route}>
                     Radar editorial
                   </Link>
@@ -2874,10 +3137,12 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                   </button>
 
                   <button className="button button-secondary" disabled={isLeaving} onClick={handleLeave} type="button">
-                    {isLeaving ? "Saindo..." : "Voltar"}
+                    {isLeaving ? "Saindo..." : "Central Editorial"}
                   </button>
                 </div>
               </div>
+
+              {googleMessage ? <p className="editor-google-message">{googleMessage}</p> : null}
             </header>
 
             <Toolbar groups={toolbarGroups} stickyTopClassName="editor-toolbar-floating" />

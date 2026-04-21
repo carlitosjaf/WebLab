@@ -1104,8 +1104,8 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                       <button className="button button-secondary" onClick={downloadCsv} type="button">
                         Baixar CSV
                       </button>
-                      <Link className="button button-secondary" href={`/dashboard/artigos/${activeSet.artigo_id}` as Route}>
-                        Painel do artigo
+                      <Link className="button button-secondary" href={getArticleEditorHref(activeSet.artigo_id)}>
+                        Abrir editor
                       </Link>
                       <Link className="button button-secondary" href={getArticleEditorHref(activeSet.artigo_id)}>
                         Abrir manuscrito

@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import {
-  getOfficialEditorialHref,
-  isOfficialEditorialId,
-  OFFICIAL_EDITORIAL_ROUTE
+  getCentralEditorialHref,
+  isLegacyEditorialId
 } from "@/lib/article-intelligence";
 import { ArticleEditor } from "@/components/editor/article-editor";
 import { getSupabaseClient } from "@/lib/supabaseClient";
@@ -20,14 +19,14 @@ export default function EditorPage() {
   const [readOnlyReason, setReadOnlyReason] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const isOfficialEditorialRoute = isOfficialEditorialId(params.id ?? OFFICIAL_EDITORIAL_ROUTE);
+  const isLegacyEditorialRoute = isLegacyEditorialId(params.id);
 
   useEffect(() => {
     let isMounted = true;
 
     const loadArticle = async () => {
-      if (isOfficialEditorialRoute) {
-        router.replace(getOfficialEditorialHref());
+      if (isLegacyEditorialRoute) {
+        router.replace(getCentralEditorialHref());
         return;
       }
 
@@ -97,14 +96,14 @@ export default function EditorPage() {
     return () => {
       isMounted = false;
     };
-  }, [isOfficialEditorialRoute, params.id, router]);
+  }, [isLegacyEditorialRoute, params.id, router]);
 
-  if (isOfficialEditorialRoute) {
+  if (isLegacyEditorialRoute) {
     return (
       <main className="shell">
         <div className="container glass-card" style={{ padding: "32px" }}>
           <p className="muted" style={{ margin: 0 }}>
-            Redirecionando para o editor vivo oficial...
+            Redirecionando para a Central Editorial...
           </p>
         </div>
       </main>

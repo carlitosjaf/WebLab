@@ -1,9 +1,9 @@
-import { OFFICIAL_EDITORIAL_HREF } from "@/lib/article-intelligence";
+import { getCentralEditorialHref } from "@/lib/article-intelligence";
 
 export const publicNavLinks = [
   { label: "Home", href: "/dashboard" },
   { label: "Equipe", href: "/dashboard/equipe" },
-  { label: "Artigos", href: "/dashboard/artigos" },
+  { label: "Artigos", href: getCentralEditorialHref() },
   { label: "Triagem", href: "/dashboard/triagem" },
   { label: "Publicações", href: "/dashboard/publicacoes" },
   { label: "Avisos", href: "/dashboard/avisos" }
@@ -43,9 +43,9 @@ export const weblabTools = [
   },
   {
     icon: "E",
-    label: "Editor vivo",
-    description: "Escreva, revise, salve e exporte manuscritos científicos em equipe.",
-    href: OFFICIAL_EDITORIAL_HREF
+    label: "Central Editorial",
+    description: "Organize, escreva, sincronize e conduza manuscritos cientificos em um fluxo unico.",
+    href: getCentralEditorialHref()
   }
 ];
 

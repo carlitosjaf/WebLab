@@ -4,7 +4,7 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
-import { getArticleEditorHref } from "@/lib/article-intelligence";
+import { getArticleEditorHref, getCentralEditorialHref } from "@/lib/article-intelligence";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { ArticleRow, TeamNoticeRow, UserRole } from "@/lib/types";
 import {
@@ -260,7 +260,7 @@ export function DashboardShell({
             <div className="lovable-actions">
               <button
                 className="lovable-button lovable-button-primary"
-                onClick={() => router.push("/dashboard/artigos" as Route)}
+                onClick={() => router.push(getCentralEditorialHref())}
                 type="button"
               >
                 Explore os Artigos
@@ -331,10 +331,10 @@ export function DashboardShell({
                       </button>
                       <button
                         className="lovable-small-button"
-                        onClick={() => router.push(`/dashboard/artigos/${article.id}` as Route)}
+                        onClick={() => router.push(getCentralEditorialHref())}
                         type="button"
                       >
-                        Painel de submissão
+                        Central editorial
                       </button>
                       {canDeleteArticle(article) ? (
                         <button
@@ -358,7 +358,7 @@ export function DashboardShell({
                   ✣
                 </span>
                 <h3>Nenhum manuscrito ativo</h3>
-                <p>Crie o primeiro artigo da equipe e leve o texto para o editor vivo do WebLab.</p>
+                <p>Crie o primeiro artigo da equipe e leve o texto para o editor principal do WebLab.</p>
               </div>
             </article>
           )}
@@ -463,7 +463,7 @@ export function DashboardShell({
             <button className="dashboard-home-footer-link" onClick={() => router.push("/dashboard/equipe" as Route)} type="button">
               Equipe
             </button>
-            <button className="dashboard-home-footer-link" onClick={() => router.push("/dashboard/artigos" as Route)} type="button">
+            <button className="dashboard-home-footer-link" onClick={() => router.push(getCentralEditorialHref())} type="button">
               Artigos
             </button>
             <button className="dashboard-home-footer-link" onClick={() => router.push("/dashboard/avisos" as Route)} type="button">

@@ -8565,6 +8565,17 @@ textarea:focus,
   font-family: var(--editor-sans);
 }
 
+.editor-google-message {
+  margin: 4px 0 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(191, 216, 218, 0.9);
+  background: rgba(239, 249, 248, 0.78);
+  color: #37606a;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
 .editor-command-bar {
   display: none !important;
 }
