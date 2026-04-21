@@ -8,19 +8,25 @@ import { EditorContent, JSONContent, useEditor } from "@tiptap/react";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
 import {
+  AlignLeft,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
   Circle,
   Clock3,
+  Link2,
   History,
+  List,
+  ListOrdered,
+  MessageSquareText,
   MoreHorizontal,
+  Pilcrow,
+  Quote,
   Redo2,
   Share2,
   Undo2
 } from "lucide-react";
 
-import { Toolbar } from "@/components/ui/toolbar";
 import { exportArticleToDocx } from "@/lib/docx-export";
 import { getCentralEditorialHref } from "@/lib/article-intelligence";
 import { buildGoogleDocUrl } from "@/lib/google-docs";
@@ -1825,6 +1831,10 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
   const [isGoogleWorking, setIsGoogleWorking] = useState(false);
   const [showStructureStudio, setShowStructureStudio] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("analysis");
+  const [activeStructureId, setActiveStructureId] = useState("title");
+  const [expandedOutlineIds, setExpandedOutlineIds] = useState<Record<string, boolean>>({
+    summary: true
+  });
   const lastSavedSnapshot = useRef(
     JSON.stringify({
       titulo: article.titulo,
@@ -1835,6 +1845,8 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
   const titleRef = useRef(article.titulo);
   const statusRef = useRef<ArticleStatus>(article.status);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
+  const inspectorRef = useRef<HTMLDivElement | null>(null);
   titleRef.current = title;
   statusRef.current = status;
   const googleDocHref = buildGoogleDocUrl(googleDocId) ?? googleDocUrl;
@@ -2561,6 +2573,38 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
       { id: "appendix", label: "Anexos", done: hasSection("Anexos") }
     ];
   }, [manuscriptAnalysis.headings, title]);
+  const structureState = useMemo(() => {
+    const normalizeOutlineTarget = (label: string) => normalizeSectionName(label.replace(/^\d+\.\s*/, ""));
+
+    const activeNormalized = normalizeOutlineTarget(activeStructureId);
+    const parentMap: Record<string, string> = {
+      "Resumo em português": "Resumo",
+      Abstract: "Resumo"
+    };
+
+    const activeParentId = parentMap[activeStructureId] ?? activeStructureId;
+
+    return manuscriptMapItems.map((item) => {
+      const itemActive =
+        item.id === activeStructureId ||
+        item.label === activeStructureId ||
+        normalizeOutlineTarget(item.label) === activeNormalized ||
+        item.label === activeParentId;
+
+      return {
+        ...item,
+        active: itemActive,
+        expanded: item.children ? expandedOutlineIds[item.id] ?? itemActive : false,
+        children: item.children?.map((child) => ({
+          ...child,
+          active:
+            child.id === activeStructureId ||
+            child.label === activeStructureId ||
+            normalizeOutlineTarget(child.label) === activeNormalized
+        }))
+      };
+    });
+  }, [activeStructureId, expandedOutlineIds, manuscriptMapItems]);
   const journalSuggestion = useMemo(() => {
     if (thematicTag === "Saúde pública") {
       return {
@@ -2656,110 +2700,126 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
       target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
-  const toolbarGroups = useMemo(
-    () => [
-      {
-        id: "history",
-        label: "Historico",
-        items: [
-          {
-            id: "undo",
-            label: "Desfazer",
-            icon: Undo2,
-            variant: "icon" as const,
-            onClick: () => editor?.chain().focus().undo().run(),
-            disabled: !editor?.can().chain().focus().undo().run() || !canEdit
-          },
-          {
-            id: "redo",
-            label: "Refazer",
-            icon: Redo2,
-            variant: "icon" as const,
-            onClick: () => editor?.chain().focus().redo().run(),
-            disabled: !editor?.can().chain().focus().redo().run() || !canEdit
-          }
-        ]
-      },
-      {
-        id: "formatting",
-        label: "Formatacao principal",
-        items: [
-          {
-            id: "bold",
-            label: "Negrito",
-            variant: "text" as const,
-            onClick: () => editor?.chain().focus().toggleBold().run(),
-            isActive: !!editor?.isActive("bold"),
-            disabled: !canEdit
-          },
-          {
-            id: "italic",
-            label: "Italico",
-            variant: "text" as const,
-            onClick: () => editor?.chain().focus().toggleItalic().run(),
-            isActive: !!editor?.isActive("italic"),
-            disabled: !canEdit
-          },
-          {
-            id: "paragraph",
-            label: "Texto",
-            variant: "text" as const,
-            onClick: () => editor?.chain().focus().setParagraph().run(),
-            isActive: !!editor?.isActive("paragraph"),
-            disabled: !canEdit
-          },
-          {
-            id: "h2",
-            label: "H2",
-            variant: "text" as const,
-            onClick: () => editor?.chain().focus().toggleHeading({ level: 2 }).run(),
-            isActive: !!editor?.isActive("heading", { level: 2 }),
-            disabled: !canEdit
-          },
-          {
-            id: "h3",
-            label: "H3",
-            variant: "text" as const,
-            onClick: () => editor?.chain().focus().toggleHeading({ level: 3 }).run(),
-            isActive: !!editor?.isActive("heading", { level: 3 }),
-            disabled: !canEdit
-          },
-          {
-            id: "bulletList",
-            label: "Lista",
-            variant: "text" as const,
-            onClick: () => editor?.chain().focus().toggleBulletList().run(),
-            isActive: !!editor?.isActive("bulletList"),
-            disabled: !canEdit
-          },
-          {
-            id: "orderedList",
-            label: "1.",
-            variant: "text" as const,
-            onClick: () => editor?.chain().focus().toggleOrderedList().run(),
-            isActive: !!editor?.isActive("orderedList"),
-            disabled: !canEdit
-          },
-          {
-            id: "blockquote",
-            label: "Citar",
-            variant: "text" as const,
-            onClick: () => editor?.chain().focus().toggleBlockquote().run(),
-            isActive: !!editor?.isActive("blockquote"),
-            disabled: !canEdit
-          },
-          {
-            id: "comment",
-            label: "Comentar",
-            variant: "text" as const,
-            onClick: () => captureSelectedExcerpt(),
-            disabled: !editor
-          }
-        ]
+  const revealInspector = (tab: InspectorTab) => {
+    setInspectorTab(tab);
+    inspectorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const toggleOutline = (itemId: string) => {
+    setExpandedOutlineIds((current) => ({
+      ...current,
+      [itemId]: !current[itemId]
+    }));
+  };
+
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+
+    const resolveActiveStructure = () => {
+      const { from } = editor.state.selection;
+      let currentSection = "Título";
+
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name !== "heading") {
+          return;
+        }
+
+        if (pos <= from) {
+          currentSection = getNodeText(node.toJSON() as Record<string, unknown>) || currentSection;
+        }
+      });
+
+      const normalized = normalizeSectionName(currentSection);
+
+      if (normalized.includes("abstract")) {
+        setActiveStructureId("Abstract");
+        setExpandedOutlineIds((current) => ({ ...current, summary: true }));
+        return;
       }
-    ],
-    [canEdit, editor]
-  );
+
+      if (normalized.includes("resumo")) {
+        setActiveStructureId("Resumo em português");
+        setExpandedOutlineIds((current) => ({ ...current, summary: true }));
+        return;
+      }
+
+      if (normalized.includes("introducao")) {
+        setActiveStructureId("1. Introdução");
+        return;
+      }
+
+      if (normalized.includes("metodologia") || normalized.includes("metodos")) {
+        setActiveStructureId("2. Metodologia");
+        return;
+      }
+
+      if (normalized.includes("resultados")) {
+        setActiveStructureId("3. Resultados");
+        return;
+      }
+
+      if (normalized.includes("discussao")) {
+        setActiveStructureId("4. Discussão");
+        return;
+      }
+
+      if (normalized.includes("conclusao")) {
+        setActiveStructureId("5. Conclusão");
+        return;
+      }
+
+      if (normalized.includes("referencias")) {
+        setActiveStructureId("Referências");
+        return;
+      }
+
+      if (normalized.includes("agradecimentos")) {
+        setActiveStructureId("Agradecimentos");
+        return;
+      }
+
+      if (normalized.includes("anexos")) {
+        setActiveStructureId("Anexos");
+        return;
+      }
+
+      setActiveStructureId("Título");
+    };
+
+    resolveActiveStructure();
+    editor.on("selectionUpdate", resolveActiveStructure);
+    editor.on("update", resolveActiveStructure);
+
+    return () => {
+      editor.off("selectionUpdate", resolveActiveStructure);
+      editor.off("update", resolveActiveStructure);
+    };
+  }, [editor]);
+
+  const currentTextModeLabel = useMemo(() => {
+    if (editor?.isActive("heading", { level: 2 })) {
+      return "Título secundário";
+    }
+
+    if (editor?.isActive("heading", { level: 3 })) {
+      return "Subtítulo";
+    }
+
+    if (editor?.isActive("blockquote")) {
+      return "Citação";
+    }
+
+    if (editor?.isActive("bulletList")) {
+      return "Lista";
+    }
+
+    if (editor?.isActive("orderedList")) {
+      return "Lista numerada";
+    }
+
+    return "Texto normal";
+  }, [editor, editorVersion]);
 
   const runDeepManuscriptAnalysis = async () => {
     setIsAnalyzingManuscript(true);
@@ -3153,28 +3213,42 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               </div>
 
               <div className="editor-premium-outline-list">
-                {manuscriptMapItems.map((item) => (
+                {structureState.map((item) => (
                   <div className="editor-premium-outline-item" key={item.id}>
                     <button
                       className="editor-premium-outline-button"
-                      onClick={() => scrollToSection(item.label)}
+                      data-active={item.active ? "true" : "false"}
+                      onClick={() => {
+                        setActiveStructureId(item.label);
+                        if (item.children) {
+                          toggleOutline(item.id);
+                        }
+                        scrollToSection(item.label);
+                      }}
                       type="button"
                     >
                       <div className="editor-premium-outline-label">
-                        {item.children ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                        {item.children ? (
+                          item.expanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />
+                        ) : (
+                          <ChevronRight size={15} />
+                        )}
                         <span>{item.label}</span>
                       </div>
                       {item.done ? <CheckCircle2 size={16} /> : <Circle size={16} />}
                     </button>
 
-                    {item.children ? (
+                    {item.children && item.expanded ? (
                       <div className="editor-premium-outline-children">
                         {item.children.map((child) => (
                           <button
                             className="editor-premium-outline-child"
                             data-active={child.active ? "true" : "false"}
                             key={child.id}
-                            onClick={() => scrollToSection(child.label)}
+                            onClick={() => {
+                              setActiveStructureId(child.label);
+                              scrollToSection(child.label);
+                            }}
                             type="button"
                           >
                             <span>{child.label}</span>
@@ -3215,7 +3289,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               </div>
               <button
                 className="editor-premium-subtle-button"
-                onClick={() => setInspectorTab("analysis")}
+                onClick={() => revealInspector("analysis")}
                 type="button"
               >
                 Ver recomendações
@@ -3227,7 +3301,137 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
             <div className="editor-premium-card editor-premium-editor-card">
               <div className="editor-premium-toolbar-row">
                 <div className="editor-premium-toolbar-wrap">
-                  <Toolbar groups={toolbarGroups} stickyTopClassName="editor-toolbar-floating" />
+                  <div className="editor-premium-toolbar-shell">
+                    <button className="editor-premium-toolbar-select" type="button">
+                      <span>{currentTextModeLabel}</span>
+                      <ChevronDown size={15} />
+                    </button>
+
+                    <div className="editor-premium-toolbar-divider" />
+
+                    <div className="editor-premium-toolbar-buttons">
+                      <button
+                        className="editor-premium-toolbar-button editor-premium-toolbar-button--glyph"
+                        data-active={editor?.isActive("bold") ? "true" : "false"}
+                        disabled={!canEdit}
+                        onClick={() => editor?.chain().focus().toggleBold().run()}
+                        type="button"
+                      >
+                        B
+                      </button>
+                      <button
+                        className="editor-premium-toolbar-button editor-premium-toolbar-button--glyph editor-premium-toolbar-button--italic"
+                        data-active={editor?.isActive("italic") ? "true" : "false"}
+                        disabled={!canEdit}
+                        onClick={() => editor?.chain().focus().toggleItalic().run()}
+                        type="button"
+                      >
+                        I
+                      </button>
+                      <button
+                        className="editor-premium-toolbar-button"
+                        data-active={editor?.isActive("paragraph") ? "true" : "false"}
+                        disabled={!canEdit}
+                        onClick={() => editor?.chain().focus().setParagraph().run()}
+                        type="button"
+                      >
+                        <Pilcrow size={15} />
+                      </button>
+                      <button
+                        className="editor-premium-toolbar-button"
+                        data-active={editor?.isActive("bulletList") ? "true" : "false"}
+                        disabled={!canEdit}
+                        onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                        type="button"
+                      >
+                        <List size={15} />
+                      </button>
+                      <button
+                        className="editor-premium-toolbar-button"
+                        data-active={editor?.isActive("orderedList") ? "true" : "false"}
+                        disabled={!canEdit}
+                        onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+                        type="button"
+                      >
+                        <ListOrdered size={15} />
+                      </button>
+                      <button
+                        className="editor-premium-toolbar-button"
+                        data-active={editor?.isActive("blockquote") ? "true" : "false"}
+                        disabled={!canEdit}
+                        onClick={() => editor?.chain().focus().toggleBlockquote().run()}
+                        type="button"
+                      >
+                        <Quote size={15} />
+                      </button>
+                      <button
+                        className="editor-premium-toolbar-button"
+                        disabled={!canEdit}
+                        onClick={() => captureSelectedExcerpt()}
+                        type="button"
+                      >
+                        <MessageSquareText size={15} />
+                      </button>
+                    </div>
+
+                    <div className="editor-premium-toolbar-divider" />
+
+                    <button
+                      className="editor-premium-toolbar-select"
+                      onClick={() => setShowStructureStudio(true)}
+                      type="button"
+                    >
+                      <span>Estilo</span>
+                      <ChevronDown size={15} />
+                    </button>
+                    <button
+                      className="editor-premium-toolbar-select"
+                      onClick={() =>
+                        selectedSection && insertScientificSection(selectedSection.content)
+                      }
+                      type="button"
+                    >
+                      <span>Inserir</span>
+                      <ChevronDown size={15} />
+                    </button>
+
+                    <div className="editor-premium-toolbar-divider editor-premium-toolbar-divider--spacer" />
+
+                    <div className="editor-premium-toolbar-buttons">
+                      <button
+                        className="editor-premium-toolbar-button"
+                        disabled={!editor?.can().chain().focus().undo().run() || !canEdit}
+                        onClick={() => editor?.chain().focus().undo().run()}
+                        type="button"
+                      >
+                        <Undo2 size={15} />
+                      </button>
+                      <button
+                        className="editor-premium-toolbar-button"
+                        disabled={!editor?.can().chain().focus().redo().run() || !canEdit}
+                        onClick={() => editor?.chain().focus().redo().run()}
+                        type="button"
+                      >
+                        <Redo2 size={15} />
+                      </button>
+                      <button
+                        className="editor-premium-toolbar-button"
+                        disabled={!canEdit}
+                        onClick={() => revealInspector("references")}
+                        type="button"
+                      >
+                        <Link2 size={15} />
+                      </button>
+                      <button
+                        className="editor-premium-toolbar-button"
+                        disabled={!canEdit}
+                        onClick={() => revealInspector("analysis")}
+                        type="button"
+                      >
+                        <AlignLeft size={15} />
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <div className="editor-premium-toolbar-meta">
                   <span>
@@ -3254,8 +3458,10 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                 <input
                   className="editor-title-input editor-premium-title-input"
                   disabled={!canEdit}
+                  onFocus={() => setActiveStructureId("Título")}
                   onChange={(event) => setTitle(event.target.value)}
                   placeholder="Título do manuscrito"
+                  ref={titleInputRef}
                   value={title}
                 />
 

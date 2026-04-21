@@ -8806,6 +8806,14 @@ textarea:focus,
   font-weight: 700;
 }
 
+.editor-premium-outline-button[data-active="true"] {
+  color: #0f766e;
+}
+
+.editor-premium-outline-button[data-active="true"] .editor-premium-outline-label {
+  color: #0f766e;
+}
+
 .editor-premium-outline-button svg,
 .editor-premium-outline-child svg {
   color: #0f8a7c;
@@ -8895,7 +8903,7 @@ textarea:focus,
 }
 
 .editor-premium-toolbar-row {
-  padding: 14px 16px;
+  padding: 14px 18px;
   border-bottom: 1px solid #e6edf2;
   background: #fff;
 }
@@ -8905,23 +8913,94 @@ textarea:focus,
   flex: 1;
 }
 
-.editor-premium-toolbar-wrap .toolbar-shell {
-  border: none;
-  box-shadow: none;
+.editor-premium-toolbar-shell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
   padding: 0;
+  overflow-x: auto;
 }
 
-.editor-premium-toolbar-wrap .toolbar {
-  padding-inline: 0;
+.editor-premium-toolbar-shell::-webkit-scrollbar {
+  height: 0;
 }
 
-.editor-premium-toolbar-wrap .toolbar-group__label {
-  display: none;
+.editor-premium-toolbar-select,
+.editor-premium-toolbar-button {
+  border: 1px solid #d9e3ea;
+  background: #fff;
+  color: #183b56;
+  transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
+}
+
+.editor-premium-toolbar-select {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.editor-premium-toolbar-buttons {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.editor-premium-toolbar-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.editor-premium-toolbar-button--glyph {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 1.05rem;
+}
+
+.editor-premium-toolbar-button--italic {
+  font-style: italic;
+}
+
+.editor-premium-toolbar-button[data-active="true"],
+.editor-premium-toolbar-select:hover,
+.editor-premium-toolbar-button:hover:not(:disabled) {
+  background: #f1faf8;
+  border-color: #b7dfd7;
+  color: #0f766e;
+}
+
+.editor-premium-toolbar-button:disabled,
+.editor-premium-toolbar-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.editor-premium-toolbar-divider {
+  width: 1px;
+  height: 26px;
+  background: #dce5eb;
+  flex: 0 0 auto;
+}
+
+.editor-premium-toolbar-divider--spacer {
+  margin-left: auto;
 }
 
 .editor-premium-toolbar-meta {
-  color: #6b7f93;
-  font-size: 0.82rem;
+  color: #72859a;
+  font-size: 0.8rem;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -9097,7 +9176,7 @@ textarea:focus,
 }
 
 .editor-premium-inspector-body {
-  padding: 16px;
+  padding: 14px;
 }
 
 .editor-premium-panel {
@@ -9105,7 +9184,7 @@ textarea:focus,
   border-radius: 16px;
   padding: 16px;
   display: grid;
-  gap: 14px;
+  gap: 12px;
 }
 
 .editor-premium-score-layout {
@@ -9124,8 +9203,8 @@ textarea:focus,
 
 .editor-premium-score-copy p {
   margin: 0 0 8px;
-  font-size: 0.95rem;
-  line-height: 1.55;
+  font-size: 0.92rem;
+  line-height: 1.48;
   font-weight: 700;
 }
 
@@ -9136,7 +9215,7 @@ textarea:focus,
 
 .editor-premium-check-row,
 .editor-premium-next-row {
-  padding-bottom: 12px;
+  padding-bottom: 10px;
   border-bottom: 1px solid #edf2f6;
 }
 
@@ -9149,6 +9228,7 @@ textarea:focus,
 .editor-premium-check-row small {
   color: #f08c2e;
   font-weight: 700;
+  font-size: 0.84rem;
 }
 
 .editor-premium-next-row {
@@ -9197,6 +9277,13 @@ textarea:focus,
   padding: 12px 14px;
   background: #fff;
   text-align: left;
+}
+
+.editor-premium-reference-gap:hover,
+.editor-premium-suggestion-card:hover,
+.editor-premium-note-card:hover {
+  border-color: #cbd8e3;
+  background: #fbfdff;
 }
 
 .editor-premium-reference-gap[data-active="true"] {
@@ -9273,6 +9360,15 @@ textarea:focus,
 
   .editor-premium-document {
     padding: 20px;
+  }
+
+  .editor-premium-toolbar-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .editor-premium-toolbar-shell {
+    width: 100%;
   }
 
   .editor-premium-title-input {
