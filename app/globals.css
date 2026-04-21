@@ -8552,6 +8552,11 @@ textarea:focus,
     radial-gradient(circle at top left, rgba(34, 211, 238, 0.18), transparent 26%),
     radial-gradient(circle at 92% 12%, rgba(8, 145, 178, 0.12), transparent 22%),
     linear-gradient(180deg, #f6fbfd 0%, #eef6fb 46%, #f8fbfd 100%);
+  padding-inline: 18px;
+}
+
+.editor-workspace .container {
+  width: min(1540px, calc(100vw - 36px));
 }
 
 .editor-workspace .muted,
@@ -8578,8 +8583,8 @@ textarea:focus,
 
 .editor-premium-page {
   display: grid;
-  gap: 18px;
-  padding-top: 8px;
+  gap: 16px;
+  padding-top: 6px;
 }
 
 .editor-premium-topbar,
@@ -8726,8 +8731,8 @@ textarea:focus,
 
 .editor-premium-layout {
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr) 320px;
-  gap: 16px;
+  grid-template-columns: 220px minmax(0, 1fr) 290px;
+  gap: 14px;
   align-items: start;
 }
 
@@ -8750,7 +8755,7 @@ textarea:focus,
 }
 
 .editor-premium-card {
-  padding: 16px;
+  padding: 14px;
 }
 
 .editor-premium-card-head,
@@ -8903,7 +8908,7 @@ textarea:focus,
 }
 
 .editor-premium-toolbar-row {
-  padding: 14px 18px;
+  padding: 14px 16px;
   border-bottom: 1px solid #e6edf2;
   background: #fff;
 }
@@ -9005,9 +9010,9 @@ textarea:focus,
 }
 
 .editor-premium-document {
-  padding: 26px 28px 22px;
+  padding: 20px 22px 18px;
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
 .editor-premium-document-tags span {
@@ -9032,7 +9037,7 @@ textarea:focus,
   min-height: auto !important;
   color: #162c4d !important;
   font-family: var(--font-serif), Georgia, serif !important;
-  font-size: clamp(2.7rem, 4vw, 4.15rem) !important;
+  font-size: clamp(2.85rem, 4.15vw, 4.3rem) !important;
   font-weight: 700 !important;
   line-height: 1.02 !important;
   letter-spacing: -0.05em !important;
@@ -9055,7 +9060,7 @@ textarea:focus,
 }
 
 .editor-premium-surface {
-  min-height: 980px;
+  min-height: 1040px;
   border: none !important;
   border-radius: 0 !important;
   padding: 0 !important;
@@ -9067,8 +9072,8 @@ textarea:focus,
   max-width: none;
   margin: 0;
   color: #173451;
-  font-size: 1.08rem;
-  line-height: 1.72;
+  font-size: 1.05rem;
+  line-height: 1.67;
   font-family: Inter, var(--font-sans), system-ui, sans-serif;
 }
 
@@ -9328,7 +9333,7 @@ textarea:focus,
 
 @media (max-width: 1320px) {
   .editor-premium-layout {
-    grid-template-columns: 240px minmax(0, 1fr) 300px;
+    grid-template-columns: 208px minmax(0, 1fr) 274px;
   }
 }
 
