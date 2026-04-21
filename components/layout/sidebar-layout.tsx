@@ -16,10 +16,11 @@ type NavLink = {
   coordinatorOnly?: boolean;
 };
 
-type WorkspaceTreeLink = {
+type ArticleContextLink = {
   href: Route;
   label: string;
   key: string;
+  disabled?: boolean;
 };
 
 const links: NavLink[] = [
@@ -107,6 +108,27 @@ function getWorkspaceChildKey(pathname: string) {
   return null;
 }
 
+function getBreadcrumbLabel(activeKey: string | null) {
+  switch (activeKey) {
+    case "biblioteca":
+      return "Biblioteca";
+    case "painel":
+      return "Painel do manuscrito";
+    case "editor":
+      return "Editor vivo";
+    case "radar":
+      return "Radar editorial";
+    case "triagem":
+      return "Triagem de evidências";
+    case "plataforma":
+      return "Plataforma Brasil";
+    case "lattes":
+      return "Assistente Lattes";
+    default:
+      return "Biblioteca";
+  }
+}
+
 export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -191,45 +213,43 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const articleWorkspaceLinks = useMemo<WorkspaceTreeLink[]>(() => {
-    const links: WorkspaceTreeLink[] = [
-      { href: "/dashboard/artigos" as Route, label: "Biblioteca", key: "biblioteca" },
-      { href: "/dashboard/periodicos" as Route, label: "Radar editorial", key: "radar" },
-      { href: "/dashboard/triagem" as Route, label: "Triagem de evidências", key: "triagem" },
-      { href: "/dashboard/plataforma-brasil" as Route, label: "Plataforma Brasil", key: "plataforma" },
-      { href: "/dashboard/assistente-lattes" as Route, label: "Assistente Lattes", key: "lattes" }
-    ];
-
-    if (workspaceArticleId) {
-      links.splice(1, 0, {
-        href: `/dashboard/artigos/${workspaceArticleId}` as Route,
-        label: "Painel do manuscrito",
-        key: "painel"
-      });
-      links.splice(2, 0, {
-        href: `/editor/${workspaceArticleId}` as Route,
-        label: "Editor vivo",
-        key: "editor"
-      });
-    }
-
-    return links;
-  }, [workspaceArticleId]);
-
-  const workspaceTree = useMemo(() => {
+  const articleContext = useMemo(() => {
     if (!isArticleWorkspace(pathname)) {
       return null;
     }
 
+    const panelHref = workspaceArticleId
+      ? (`/dashboard/artigos/${workspaceArticleId}` as Route)
+      : ("/dashboard/artigos" as Route);
+    const editorHref = workspaceArticleId
+      ? (`/editor/${workspaceArticleId}` as Route)
+      : ("/dashboard/artigos" as Route);
+    const activeKey = getWorkspaceChildKey(pathname);
+
     return {
-      label: "Artigos",
-      helper: workspaceArticleId
-        ? "Navegue entre o manuscrito atual e as ferramentas conectadas sem voltar para a biblioteca."
-        : "Abra um manuscrito para habilitar o painel e o editor vivo dentro desta árvore.",
-      activeChildKey: getWorkspaceChildKey(pathname),
-      links: articleWorkspaceLinks
+      activeKey,
+      breadcrumb: getBreadcrumbLabel(activeKey),
+      links: [
+        { href: "/dashboard/artigos" as Route, label: "Biblioteca", key: "biblioteca" },
+        {
+          href: panelHref,
+          label: "Painel do manuscrito",
+          key: "painel",
+          disabled: !workspaceArticleId
+        },
+        {
+          href: editorHref,
+          label: "Editor vivo",
+          key: "editor",
+          disabled: !workspaceArticleId
+        },
+        { href: "/dashboard/periodicos" as Route, label: "Radar editorial", key: "radar" },
+        { href: "/dashboard/triagem" as Route, label: "Triagem de evidências", key: "triagem" },
+        { href: "/dashboard/plataforma-brasil" as Route, label: "Plataforma Brasil", key: "plataforma" },
+        { href: "/dashboard/assistente-lattes" as Route, label: "Assistente Lattes", key: "lattes" }
+      ] satisfies ArticleContextLink[]
     };
-  }, [articleWorkspaceLinks, pathname, workspaceArticleId]);
+  }, [pathname, workspaceArticleId]);
 
   return (
     <div className="app-frame">
@@ -285,41 +305,49 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
 
-          {workspaceTree ? (
-            <div className="app-workspace-tree" aria-label="Árvore de ferramentas do módulo atual">
-              <div className="app-workspace-tree__head">
-                <div>
-                  <span className="app-workspace-tree__eyebrow">Árvore ativa</span>
-                  <strong>{workspaceTree.label}</strong>
-                </div>
-                <p>{workspaceTree.helper}</p>
-              </div>
+          {articleContext ? (
+            <div className="app-context-shell" aria-label="Ferramentas do módulo Artigos">
+              <nav className="app-context-nav" aria-label="Submenu contextual de Artigos">
+                {articleContext.links.map((link) => {
+                  const className =
+                    articleContext.activeKey === link.key
+                      ? "app-context-link active"
+                      : link.disabled
+                        ? "app-context-link disabled"
+                        : "app-context-link";
 
-              <div className="app-workspace-tree__branch">
-                <span className="app-workspace-tree__root">Artigos</span>
-                <div className="app-workspace-tree__children">
-                  {workspaceTree.links.map((link) => (
-                    <Link
-                      key={link.key}
-                      href={link.href}
-                      className={
-                        workspaceTree.activeChildKey === link.key
-                          ? "app-workspace-tree__link active"
-                          : "app-workspace-tree__link"
-                      }
-                    >
-                      <span className="app-workspace-tree__bullet" aria-hidden="true" />
-                      <span>{link.label}</span>
+                  if (link.disabled) {
+                    return (
+                      <span key={link.key} className={className} aria-disabled="true">
+                        {link.label}
+                      </span>
+                    );
+                  }
+
+                  return (
+                    <Link key={link.key} href={link.href} className={className}>
+                      {link.label}
                     </Link>
-                  ))}
-                </div>
-              </div>
+                  );
+                })}
+              </nav>
             </div>
           ) : null}
         </div>
       </header>
 
-      <main className="app-main">{children}</main>
+      <main className="app-main">
+        {articleContext ? (
+          <div className="app-context-breadcrumb-shell">
+            <div className="app-context-breadcrumb" aria-label="Breadcrumb">
+              <span>Artigos</span>
+              <span aria-hidden="true">/</span>
+              <strong>{articleContext.breadcrumb}</strong>
+            </div>
+          </div>
+        ) : null}
+        {children}
+      </main>
     </div>
   );
 }
