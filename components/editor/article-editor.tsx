@@ -1847,9 +1847,17 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const inspectorRef = useRef<HTMLDivElement | null>(null);
+  const analysisOverviewRef = useRef<HTMLElement | null>(null);
+  const analysisChecksRef = useRef<HTMLElement | null>(null);
+  const analysisJournalRef = useRef<HTMLElement | null>(null);
+  const notesCommentsRef = useRef<HTMLElement | null>(null);
+  const notesVersionsRef = useRef<HTMLElement | null>(null);
+  const structureStudioRef = useRef<HTMLElement | null>(null);
   titleRef.current = title;
   statusRef.current = status;
   const googleDocHref = buildGoogleDocUrl(googleDocId) ?? googleDocUrl;
+  const radarEditorialHref = "/dashboard/periodicos" as Route;
+  const triagemWorkspaceHref = "/dashboard/triagem" as Route;
 
   const loadReviewData = async () => {
     const supabase = getSupabaseClient();
@@ -2674,6 +2682,68 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
       done: unresolvedComments.length === 0
     }
   ];
+  const scheduleElementReveal = (ref: { current: HTMLElement | null }) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.setTimeout(() => {
+      ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 90);
+  };
+
+  const revealInspector = (
+    tab: InspectorTab,
+    targetRef?: { current: HTMLElement | null }
+  ) => {
+    setInspectorTab(tab);
+    scheduleElementReveal(targetRef ?? inspectorRef);
+  };
+
+  const openStructureStudio = () => {
+    setShowStructureStudio(true);
+    scheduleElementReveal(structureStudioRef);
+  };
+
+  const openReviewHistory = () => {
+    revealInspector("notes", notesCommentsRef);
+  };
+
+  const openVersionHistory = () => {
+    revealInspector("notes", notesVersionsRef);
+  };
+
+  const openEditorialChecks = () => {
+    revealInspector("analysis", analysisChecksRef);
+  };
+
+  const openEditorialOverview = () => {
+    revealInspector("analysis", analysisOverviewRef);
+  };
+
+  const openJournalRationale = () => {
+    revealInspector("analysis", analysisJournalRef);
+    router.push(radarEditorialHref);
+  };
+
+  const handlePrimaryTextModeAction = () => {
+    if (!editor || !canEdit) {
+      return;
+    }
+
+    if (editor.isActive("heading", { level: 2 })) {
+      editor.chain().focus().toggleHeading({ level: 3 }).run();
+      return;
+    }
+
+    if (editor.isActive("heading", { level: 3 })) {
+      editor.chain().focus().setParagraph().run();
+      return;
+    }
+
+    editor.chain().focus().toggleHeading({ level: 2 }).run();
+  };
+
   const scrollToSection = (label: string) => {
     if (typeof document === "undefined") {
       return;
@@ -2699,10 +2769,6 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     if (target instanceof HTMLElement) {
       target.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  };
-  const revealInspector = (tab: InspectorTab) => {
-    setInspectorTab(tab);
-    inspectorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
   const toggleOutline = (itemId: string) => {
     setExpandedOutlineIds((current) => ({
@@ -3113,7 +3179,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
           <div className="editor-premium-topbar-actions">
             <button
               className="editor-premium-topbar-button"
-              onClick={() => setInspectorTab("notes")}
+              onClick={openReviewHistory}
               type="button"
             >
               <History size={16} />
@@ -3121,7 +3187,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
             </button>
             <button
               className="editor-premium-topbar-button"
-              onClick={() => setInspectorTab("notes")}
+              onClick={openVersionHistory}
               type="button"
             >
               <Clock3 size={16} />
@@ -3179,7 +3245,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
           >
             {abntMode ? "Modo ABNT ativo" : "Modo ABNT"}
           </button>
-          <Link className="editor-premium-utility-chip" href={"/dashboard/periodicos" as Route}>
+          <Link className="editor-premium-utility-chip" href={radarEditorialHref}>
             Radar editorial
           </Link>
           <button
@@ -3205,7 +3271,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                 <span>Estrutura do manuscrito</span>
                 <button
                   className="editor-premium-icon-button"
-                  onClick={() => setShowStructureStudio(true)}
+                  onClick={openStructureStudio}
                   type="button"
                 >
                   <MoreHorizontal size={16} />
@@ -3264,7 +3330,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               <button
                 className="editor-premium-add-section"
                 disabled={!canEdit}
-                onClick={() => setShowStructureStudio(true)}
+                onClick={openStructureStudio}
                 type="button"
               >
                 + Adicionar seção
@@ -3289,7 +3355,12 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               </div>
               <button
                 className="editor-premium-subtle-button"
-                onClick={() => revealInspector("analysis")}
+                onClick={() => {
+                  if (!deepAnalysis) {
+                    void runDeepManuscriptAnalysis();
+                  }
+                  openEditorialChecks();
+                }}
                 type="button"
               >
                 Ver recomendações
@@ -3302,7 +3373,12 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               <div className="editor-premium-toolbar-row">
                 <div className="editor-premium-toolbar-wrap">
                   <div className="editor-premium-toolbar-shell">
-                    <button className="editor-premium-toolbar-select" type="button">
+                    <button
+                      className="editor-premium-toolbar-select"
+                      disabled={!canEdit}
+                      onClick={handlePrimaryTextModeAction}
+                      type="button"
+                    >
                       <span>{currentTextModeLabel}</span>
                       <ChevronDown size={15} />
                     </button>
@@ -3378,7 +3454,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
 
                     <button
                       className="editor-premium-toolbar-select"
-                      onClick={() => setShowStructureStudio(true)}
+                      onClick={openStructureStudio}
                       type="button"
                     >
                       <span>Estilo</span>
@@ -3425,7 +3501,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                       <button
                         className="editor-premium-toolbar-button"
                         disabled={!canEdit}
-                        onClick={() => revealInspector("analysis")}
+                        onClick={openEditorialOverview}
                         type="button"
                       >
                         <AlignLeft size={15} />
@@ -3470,14 +3546,17 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                 <div className="editor-premium-inline-actions">
                   <button
                     className="editor-premium-inline-button"
-                    onClick={() => void runDeepManuscriptAnalysis()}
+                    onClick={() => {
+                      openEditorialOverview();
+                      void runDeepManuscriptAnalysis();
+                    }}
                     type="button"
                   >
                     Melhorar texto
                   </button>
                   <button
                     className="editor-premium-inline-button"
-                    onClick={() => setInspectorTab("analysis")}
+                    onClick={openEditorialChecks}
                     type="button"
                   >
                     Verificar ortografia
@@ -3492,7 +3571,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                   </button>
                   <button
                     className="editor-premium-inline-button"
-                    onClick={() => setShowStructureStudio(true)}
+                    onClick={openStructureStudio}
                     type="button"
                   >
                     Expandir estrutura
@@ -3515,7 +3594,11 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               <article className="editor-premium-card editor-premium-bottom-card">
                 <div className="editor-premium-bottom-head">
                   <strong>Radar editorial</strong>
-                  <button className="editor-premium-icon-button" type="button">
+                  <button
+                    className="editor-premium-icon-button"
+                    onClick={() => router.push(radarEditorialHref)}
+                    type="button"
+                  >
                     <MoreHorizontal size={16} />
                   </button>
                 </div>
@@ -3534,7 +3617,11 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               <article className="editor-premium-card editor-premium-bottom-card">
                 <div className="editor-premium-bottom-head">
                   <strong>Resumo da triagem</strong>
-                  <button className="editor-premium-icon-button" type="button">
+                  <button
+                    className="editor-premium-icon-button"
+                    onClick={() => router.push(triagemWorkspaceHref)}
+                    type="button"
+                  >
                     <MoreHorizontal size={16} />
                   </button>
                 </div>
@@ -3557,21 +3644,21 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               <div className="editor-premium-inspector-tabs" role="tablist" aria-label="Painel do pesquisador">
                 <button
                   className={inspectorTab === "analysis" ? "active" : ""}
-                  onClick={() => setInspectorTab("analysis")}
+                  onClick={openEditorialOverview}
                   type="button"
                 >
                   Análise editorial
                 </button>
                 <button
                   className={inspectorTab === "references" ? "active" : ""}
-                  onClick={() => setInspectorTab("references")}
+                  onClick={() => revealInspector("references")}
                   type="button"
                 >
                   Referências
                 </button>
                 <button
                   className={inspectorTab === "notes" ? "active" : ""}
-                  onClick={() => setInspectorTab("notes")}
+                  onClick={openReviewHistory}
                   type="button"
                 >
                   Notas
@@ -3580,10 +3667,14 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
 
               {inspectorTab === "analysis" ? (
                 <div className="editor-premium-inspector-body">
-                  <section className="editor-premium-panel">
+                  <section className="editor-premium-panel" ref={analysisOverviewRef}>
                     <div className="editor-premium-panel-head">
                       <strong>Leitura cognitiva</strong>
-                      <button className="editor-premium-icon-button" type="button">
+                      <button
+                        className="editor-premium-icon-button"
+                        onClick={openEditorialChecks}
+                        type="button"
+                      >
                         <MoreHorizontal size={16} />
                       </button>
                     </div>
@@ -3601,16 +3692,22 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                         <small>{cognitiveSnapshot.description}</small>
                         <button
                           className="editor-premium-subtle-button"
-                          onClick={() => void runDeepManuscriptAnalysis()}
+                          onClick={() => {
+                            openEditorialOverview();
+                            void runDeepManuscriptAnalysis();
+                          }}
                           type="button"
                         >
                           {isAnalyzingManuscript ? "Analisando..." : "Ver detalhes"}
                         </button>
                       </div>
                     </div>
+                    {deepAnalysisMessage ? (
+                      <p className="editor-premium-panel-message">{deepAnalysisMessage}</p>
+                    ) : null}
                   </section>
 
-                  <section className="editor-premium-panel">
+                  <section className="editor-premium-panel" ref={analysisChecksRef}>
                     <div className="editor-premium-panel-head">
                       <strong>Verificações</strong>
                     </div>
@@ -3650,7 +3747,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                     </div>
                   </section>
 
-                  <section className="editor-premium-panel">
+                  <section className="editor-premium-panel" ref={analysisJournalRef}>
                     <div className="editor-premium-panel-head">
                       <strong>Sugestão de periódico</strong>
                     </div>
@@ -3662,7 +3759,11 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                       </div>
                       <span>{journalSuggestion.fit}%</span>
                     </div>
-                    <button className="editor-premium-subtle-button" type="button">
+                    <button
+                      className="editor-premium-subtle-button"
+                      onClick={openJournalRationale}
+                      type="button"
+                    >
                       Ver justificativa
                     </button>
                   </section>
@@ -3744,7 +3845,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
 
               {inspectorTab === "notes" ? (
                 <div className="editor-premium-inspector-body">
-                  <section className="editor-premium-panel">
+                  <section className="editor-premium-panel" ref={notesCommentsRef}>
                     <div className="editor-premium-panel-head">
                       <strong>Comentários editoriais</strong>
                     </div>
@@ -3775,16 +3876,31 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                     {commentMessage ? <p className="editor-premium-panel-message">{commentMessage}</p> : null}
 
                     <div className="editor-premium-note-list">
-                      {comments.slice(0, 3).map((comment) => (
-                        <article className="editor-premium-note-card" key={comment.id}>
-                          <strong>{comment.authorName}</strong>
-                          <small>{comment.comentario}</small>
-                        </article>
-                      ))}
+                      {isLoadingReviewData ? (
+                        <div className="editor-premium-empty-state">Carregando revisao editorial...</div>
+                      ) : comments.length === 0 ? (
+                        <div className="editor-premium-empty-state">Nenhum comentario registrado ainda.</div>
+                      ) : (
+                        comments.slice(0, 3).map((comment) => (
+                          <article className="editor-premium-note-card" key={comment.id}>
+                            <div>
+                              <strong>{comment.authorName}</strong>
+                              <small>{comment.comentario}</small>
+                            </div>
+                            <button
+                              className="editor-premium-inline-button"
+                              onClick={() => void toggleCommentResolution(comment, !comment.resolvido_em)}
+                              type="button"
+                            >
+                              {comment.resolvido_em ? "Reabrir" : "Resolver"}
+                            </button>
+                          </article>
+                        ))
+                      )}
                     </div>
                   </section>
 
-                  <section className="editor-premium-panel">
+                  <section className="editor-premium-panel" ref={notesVersionsRef}>
                     <div className="editor-premium-panel-head">
                       <strong>Versões salvas</strong>
                     </div>
@@ -3802,23 +3918,30 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                     >
                       {isSavingVersion ? "Salvando versão..." : "Salvar versão"}
                     </button>
+                    {versionMessage ? <p className="editor-premium-panel-message">{versionMessage}</p> : null}
 
                     <div className="editor-premium-note-list">
-                      {versions.slice(0, 3).map((version) => (
-                        <article className="editor-premium-note-card" key={version.id}>
-                          <div>
-                            <strong>{version.observacao || "Marco editorial"}</strong>
-                            <small>{version.authorName}</small>
-                          </div>
-                          <button
-                            className="editor-premium-inline-button"
-                            onClick={() => void restoreVersion(version)}
-                            type="button"
-                          >
-                            Restaurar
-                          </button>
-                        </article>
-                      ))}
+                      {isLoadingReviewData ? (
+                        <div className="editor-premium-empty-state">Carregando historico de versoes...</div>
+                      ) : versions.length === 0 ? (
+                        <div className="editor-premium-empty-state">Nenhuma versao salva por enquanto.</div>
+                      ) : (
+                        versions.slice(0, 3).map((version) => (
+                          <article className="editor-premium-note-card" key={version.id}>
+                            <div>
+                              <strong>{version.observacao || "Marco editorial"}</strong>
+                              <small>{version.authorName}</small>
+                            </div>
+                            <button
+                              className="editor-premium-inline-button"
+                              onClick={() => void restoreVersion(version)}
+                              type="button"
+                            >
+                              Restaurar
+                            </button>
+                          </article>
+                        ))
+                      )}
                     </div>
                   </section>
                 </div>
@@ -3828,7 +3951,10 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
         </div>
 
         {showStructureStudio ? (
-          <section className="editor-premium-card editor-premium-structure-card">
+          <section
+            className="editor-premium-card editor-premium-structure-card"
+            ref={structureStudioRef}
+          >
             <div className="editor-premium-panel-head">
               <div>
                 <span className="eyebrow">Estrutura editorial</span>
