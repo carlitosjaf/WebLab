@@ -61,6 +61,13 @@ const STOPWORDS = new Set([
   "pesquisas",
   "literatura",
   "dados",
+  "resultado",
+  "resultados",
+  "saude",
+  "academica",
+  "academico",
+  "pos",
+  "graduacao",
   "mostra",
   "mostram",
   "mostrou",
@@ -160,7 +167,48 @@ function extractKeywords(claim: string, context: string) {
 }
 
 function buildSearchQuery(claim: string, keywords: string[]) {
-  return keywords.length > 0 ? keywords.join(" ") : claim;
+  const compactKeywords = keywords.filter((keyword) => keyword.length >= 4).slice(0, 4);
+  if (compactKeywords.length > 0) {
+    return compactKeywords.join(" ");
+  }
+
+  const claimTerms = extractKeywords(claim, "").filter((keyword) => keyword.length >= 4).slice(0, 4);
+  if (claimTerms.length > 0) {
+    return claimTerms.join(" ");
+  }
+
+  return claim.slice(0, 140);
+}
+
+function buildSearchQueries(claim: string, keywords: string[], sectionSignal: string) {
+  const compactKeywords = keywords.filter((keyword) => keyword.length >= 4);
+  const claimTerms = extractKeywords(claim, "").filter((keyword) => keyword.length >= 4);
+  const sectionTerms =
+    sectionSignal === "trecho geral" ? [] : extractKeywords(sectionSignal, "").filter((keyword) => keyword.length >= 4);
+
+  const candidates = [
+    buildSearchQuery(claim, compactKeywords),
+    [...compactKeywords.slice(0, 3), ...claimTerms.slice(0, 2)].join(" ").trim(),
+    [...sectionTerms.slice(0, 1), ...compactKeywords.slice(0, 3)].join(" ").trim(),
+    claimTerms.slice(0, 4).join(" ").trim(),
+    compactKeywords.slice(0, 2).join(" ").trim()
+  ];
+
+  return candidates.filter(Boolean).filter((query, index, allQueries) => allQueries.indexOf(query) === index);
+}
+
+function mergeUniqueWorks(existing: OpenAlexWork[], incoming: OpenAlexWork[]) {
+  const seen = new Set(existing.map((work) => work.id));
+  const merged = [...existing];
+
+  incoming.forEach((work) => {
+    if (!seen.has(work.id)) {
+      seen.add(work.id);
+      merged.push(work);
+    }
+  });
+
+  return merged;
 }
 
 function buildSectionSignal(section: string) {
@@ -313,6 +361,14 @@ function computeConfidence(work: OpenAlexWork, matchedTerms: string[]) {
   return Math.min(95, Math.round(score));
 }
 
+function isStrongEnoughSuggestion(work: EnrichedOpenAlexWork, keywords: string[]) {
+  if (keywords.length <= 2) {
+    return work.matched_terms.length >= 1;
+  }
+
+  return work.matched_terms.length >= 2;
+}
+
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
     claim?: unknown;
@@ -335,9 +391,10 @@ export async function POST(request: Request) {
   const contextualText = [sectionContext, context].filter(Boolean).join(" ").trim();
   const keywords = extractKeywords(claim, contextualText);
   const sectionSignal = buildSectionSignal(section);
-  let query = buildSearchQuery(claim, keywords);
+  const searchQueries = buildSearchQueries(claim, keywords, sectionSignal);
+  let query = searchQueries[0] ?? buildSearchQuery(claim, keywords);
   let rawWorks: OpenAlexWork[] = [];
-  const cacheKey = `${query}::${keywords.join(",")}::${usedReferences.join("||")}`;
+  const cacheKey = `${searchQueries.join("||")}::${usedReferences.join("||")}`;
   const cached = CACHE.get(cacheKey);
   if (cached && Date.now() - cached.created < TTL_MS) {
     const cachedPayload = cached.payload as { results?: OpenAlexWork[] };
@@ -346,23 +403,21 @@ export async function POST(request: Request) {
 
   try {
     if (!rawWorks.length) {
-      rawWorks = await fetchOpenAlexWorks(query);
-      // store raw response into cache for TTL_MS
+      for (const candidateQuery of searchQueries) {
+        const works = await fetchOpenAlexWorks(candidateQuery);
+        rawWorks = mergeUniqueWorks(rawWorks, works);
+        query = candidateQuery;
+
+        if (rawWorks.length >= 5) {
+          break;
+        }
+      }
+
       try {
         CACHE.set(cacheKey, { created: Date.now(), payload: { results: rawWorks } });
-      } catch (err) {
+      } catch {
         // ignore cache set errors
       }
-    }
-
-    if (rawWorks.length === 0 && claim !== query) {
-      query = claim;
-      rawWorks = await fetchOpenAlexWorks(query);
-    }
-
-    if (rawWorks.length === 0 && contextualText) {
-      query = `${claim} ${contextualText}`.slice(0, 260);
-      rawWorks = await fetchOpenAlexWorks(query);
     }
   } catch (error) {
     return NextResponse.json(
@@ -376,8 +431,10 @@ export async function POST(request: Request) {
 
   const works = rawWorks
     .filter((work) => !isWorkAlreadyUsed(work, usedReferences))
-    .slice(0, 5)
-    .map((work) => enrichWork(work, keywords, query, sectionSignal));
+    .map((work) => enrichWork(work, keywords, query, sectionSignal))
+    .filter((work) => isStrongEnoughSuggestion(work, keywords))
+    .sort((left, right) => (right.confidence ?? 0) - (left.confidence ?? 0))
+    .slice(0, 5);
 
   return NextResponse.json({
     works,

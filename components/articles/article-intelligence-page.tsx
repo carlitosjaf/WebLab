@@ -57,6 +57,19 @@ function splitIntoSentences(text: string) {
     .filter(Boolean);
 }
 
+function finalizeSentence(text: string) {
+  const cleaned = normalizeWhitespace(text).replace(/[;,:-]+$/, "");
+  if (!cleaned) {
+    return "";
+  }
+
+  return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
+}
+
+function findFirstMatchingSentence(text: string, pattern: RegExp) {
+  return splitIntoSentences(text).find((sentence) => pattern.test(sentence)) ?? "";
+}
+
 function detectInitialAbstract(text: string) {
   const paragraphs = splitIntoParagraphs(text);
   const explicitAbstract = paragraphs.find((paragraph) =>
@@ -227,6 +240,40 @@ function improveAbstractFromText(text: string) {
     .join(" ");
 
   return improved.length > 120 ? improved : abstract;
+}
+
+function improveAbstractConservatively(text: string) {
+  const abstract = detectInitialAbstract(text);
+  const objectiveSentence =
+    findFirstMatchingSentence(text, /\b(objetivo|objetivou|visa|pretende|busca analisar|analisa)\b/i) ||
+    "O objetivo do estudo ainda nao aparece de forma suficientemente explicita no manuscrito.";
+  const methodSentence =
+    findFirstMatchingSentence(
+      text,
+      /\b(mÃ©todo|metodo|metodologia|amostra|participantes|anÃ¡lise|analise|procedimento|delineamento|coleta)\b/i
+    ) || "O metodo ainda precisa ser descrito com maior precisao no texto.";
+  const resultSentence =
+    findFirstMatchingSentence(
+      text,
+      /\b(resultado|resultados|achados|evidenciou|indicou|apontou|revelou|mostrou|sugere|sugerem)\b/i
+    ) || "Os achados principais ainda nao estao suficientemente explicitos no manuscrito.";
+  const conclusionSentence =
+    findFirstMatchingSentence(
+      text,
+      /\b(conclusÃ£o|conclusao|conclui|contribui|implicaÃ§Ãµes|implicacoes|sÃ­ntese|sintese)\b/i
+    ) || "A conclusao ainda precisa declarar com mais nitidez a contribuicao central do estudo.";
+
+  const improved = [
+    finalizeSentence(objectiveSentence),
+    finalizeSentence(methodSentence),
+    finalizeSentence(resultSentence),
+    finalizeSentence(conclusionSentence)
+  ]
+    .filter(Boolean)
+    .filter((sentence, index, allSentences) => allSentences.indexOf(sentence) === index)
+    .join(" ");
+
+  return improved.length > 120 ? improved : finalizeSentence(abstract);
 }
 
 function computeReadiness(scores: Scores, weakClaims: WeakClaim[], abstractText: string) {
@@ -508,7 +555,7 @@ export function ArticleIntelligencePage({
   ];
 
   function handleGenerateAbstract() {
-    setGeneratedAbstract(improveAbstractFromText(manuscriptText));
+    setGeneratedAbstract(improveAbstractConservatively(manuscriptText));
   }
 
   function handleScrollToDiagnostics() {

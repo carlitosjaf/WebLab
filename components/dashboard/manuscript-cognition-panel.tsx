@@ -366,7 +366,7 @@ export function ManuscriptCognitionPanel({
       setReferenceSuggestions(payload.works ?? []);
       setReferenceMessage(
         payload.works?.length
-          ? "Sugestoes carregadas a partir de fonte verificavel."
+          ? "Sugestoes bibliograficas localizadas em base indexadora. Valide aderencia antes de citar."
           : "Nao encontrei sugestoes fortes para esse trecho. Vale refinar o argumento ou ampliar o contexto."
       );
     } catch (error) {
