@@ -7,7 +7,18 @@ import type { Route } from "next";
 import { EditorContent, JSONContent, useEditor } from "@tiptap/react";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
-import { Redo2, Undo2 } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Circle,
+  Clock3,
+  History,
+  MoreHorizontal,
+  Redo2,
+  Share2,
+  Undo2
+} from "lucide-react";
 
 import { Toolbar } from "@/components/ui/toolbar";
 import { exportArticleToDocx } from "@/lib/docx-export";
@@ -50,7 +61,7 @@ type SectionGroup = {
 };
 
 type CognitiveTab = "referencias" | "estrutura" | "texto" | "revisao";
-type ResearchPanelKey = "cognition" | "references" | "submission" | "next";
+type InspectorTab = "analysis" | "references" | "notes";
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -1813,12 +1824,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
   const [googleMessage, setGoogleMessage] = useState<string | null>(null);
   const [isGoogleWorking, setIsGoogleWorking] = useState(false);
   const [showStructureStudio, setShowStructureStudio] = useState(false);
-  const [openResearchPanels, setOpenResearchPanels] = useState<Record<ResearchPanelKey, boolean>>({
-    cognition: true,
-    references: true,
-    submission: true,
-    next: true
-  });
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>("analysis");
   const lastSavedSnapshot = useRef(
     JSON.stringify({
       titulo: article.titulo,
@@ -2515,6 +2521,77 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
 
     return "Pesquisa acadêmica";
   }, [manuscriptAnalysis.headings, title]);
+  const manuscriptMapItems = useMemo(() => {
+    const hasSection = (sectionLabel: string) =>
+      manuscriptAnalysis.headings.some((heading) =>
+        normalizeSectionName(heading.title).includes(normalizeSectionName(sectionLabel))
+      );
+
+    return [
+      {
+        id: "title",
+        label: "Título",
+        done: title.trim().length > 0
+      },
+      {
+        id: "summary",
+        label: "Resumo",
+        done: hasSection("Resumo"),
+        children: [
+          {
+            id: "summary-pt",
+            label: "Resumo em português",
+            done: hasSection("Resumo"),
+            active: hasSection("Resumo")
+          },
+          {
+            id: "abstract",
+            label: "Abstract",
+            done: hasSection("Abstract")
+          }
+        ]
+      },
+      { id: "intro", label: "1. Introdução", done: hasSection("Introdução") },
+      { id: "method", label: "2. Metodologia", done: hasSection("Metodologia") || hasSection("Métodos") },
+      { id: "results", label: "3. Resultados", done: hasSection("Resultados") },
+      { id: "discussion", label: "4. Discussão", done: hasSection("Discussão") },
+      { id: "conclusion", label: "5. Conclusão", done: hasSection("Conclusão") },
+      { id: "references", label: "Referências", done: hasSection("Referências") },
+      { id: "thanks", label: "Agradecimentos", done: hasSection("Agradecimentos") },
+      { id: "appendix", label: "Anexos", done: hasSection("Anexos") }
+    ];
+  }, [manuscriptAnalysis.headings, title]);
+  const journalSuggestion = useMemo(() => {
+    if (thematicTag === "Saúde pública") {
+      return {
+        name: "Cadernos de Saúde Pública",
+        detail: "Saúde coletiva · aderência estimada",
+        fit: clamp(editorialReadiness + 8, 64, 96)
+      };
+    }
+
+    if (thematicTag === "Psicologia") {
+      return {
+        name: "Psicologia & Sociedade",
+        detail: "Psicologia social · aderência estimada",
+        fit: clamp(editorialReadiness + 6, 62, 94)
+      };
+    }
+
+    if (thematicTag === "Educação") {
+      return {
+        name: "Revista Brasileira de Educação",
+        detail: "Educação · aderência estimada",
+        fit: clamp(editorialReadiness + 5, 60, 93)
+      };
+    }
+
+    return {
+      name: "Periódico interdisciplinar",
+      detail: "Escopo amplo · aderência estimada",
+      fit: clamp(editorialReadiness + 4, 58, 91)
+    };
+  }, [editorialReadiness, thematicTag]);
   const nextEditorialActions = deepAnalysis?.priorities.length
     ? deepAnalysis.priorities.slice(0, 3).map((priority) => ({
         id: `${priority.section}-${priority.action}`,
@@ -2553,11 +2630,31 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
       done: unresolvedComments.length === 0
     }
   ];
-  const toggleResearchPanel = (panel: ResearchPanelKey) => {
-    setOpenResearchPanels((current) => ({
-      ...current,
-      [panel]: !current[panel]
-    }));
+  const scrollToSection = (label: string) => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const root = document.querySelector(".editor-premium-surface .ProseMirror");
+    if (!root) {
+      return;
+    }
+
+    if (label === "Título") {
+      const titleField = document.querySelector(".editor-premium-title-input");
+      if (titleField instanceof HTMLElement) {
+        titleField.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      return;
+    }
+
+    const target = Array.from(root.querySelectorAll("h1, h2, h3")).find((node) =>
+      normalizeSectionName(node.textContent ?? "").includes(normalizeSectionName(label))
+    );
+
+    if (target instanceof HTMLElement) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   };
   const toolbarGroups = useMemo(
     () => [
@@ -2938,200 +3035,691 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
 
   return (
     <main className="shell editor-workspace">
-      <div className="container editor-studio-page">
-        <div className="editor-studio-layout">
-          <section className="editor-studio-main">
-            <div className="editor-studio-card">
-              <div className="editor-studio-head">
-                <div className="editor-studio-head-left">
-                  <span className="eyebrow">editor</span>
-                  <span className="editor-studio-status-chip">{statusLabels[status]}</span>
+      <div className="container editor-premium-page">
+        <header className="editor-premium-topbar">
+          <div className="editor-premium-breadcrumbs">
+            <Link href={getCentralEditorialHref()}>Artigos</Link>
+            <span>/</span>
+            <span>Editor</span>
+            <span>/</span>
+            <strong>{title || "Novo manuscrito"}</strong>
+          </div>
+
+          <div className="editor-premium-save-pill">
+            <CheckCircle2 size={16} />
+            <span>{saveMessage}</span>
+          </div>
+
+          <div className="editor-premium-topbar-actions">
+            <button
+              className="editor-premium-topbar-button"
+              onClick={() => setInspectorTab("notes")}
+              type="button"
+            >
+              <History size={16} />
+              <span>Histórico</span>
+            </button>
+            <button
+              className="editor-premium-topbar-button"
+              onClick={() => setInspectorTab("notes")}
+              type="button"
+            >
+              <Clock3 size={16} />
+              <span>Versões</span>
+            </button>
+            <button
+              className="editor-premium-topbar-button"
+              disabled={isExportingDocx}
+              onClick={() => void exportToDocx()}
+              type="button"
+            >
+              <span>{isExportingDocx ? "Exportando..." : "Exportar"}</span>
+              <ChevronDown size={16} />
+            </button>
+            <button
+              className="editor-premium-share-button"
+              disabled={isGoogleWorking}
+              onClick={() => void handleGooglePrimaryAction()}
+              type="button"
+            >
+              <Share2 size={16} />
+              <span>
+                {isGoogleWorking
+                  ? "Preparando..."
+                  : googleDocHref
+                    ? "Compartilhar"
+                    : "Conectar Google"}
+              </span>
+            </button>
+          </div>
+        </header>
+
+        <div className="editor-premium-utility-row">
+          <button
+            className="editor-premium-utility-chip"
+            disabled={isGoogleWorking || !googleDocId}
+            onClick={() => void handleSyncFromGoogleDocs()}
+            type="button"
+          >
+            {isGoogleWorking ? "Sincronizando..." : "Importar do Google"}
+          </button>
+          <button
+            className="editor-premium-utility-chip"
+            disabled={isGoogleWorking || !googleDocId || !canEdit}
+            onClick={() => void handlePushToGoogleDocs()}
+            type="button"
+          >
+            {isGoogleWorking ? "Enviando..." : "Publicar no Google"}
+          </button>
+          <button
+            className="editor-premium-utility-chip"
+            disabled={!canEdit}
+            onClick={() => setAbntMode((current) => !current)}
+            type="button"
+          >
+            {abntMode ? "Modo ABNT ativo" : "Modo ABNT"}
+          </button>
+          <Link className="editor-premium-utility-chip" href={"/dashboard/periodicos" as Route}>
+            Radar editorial
+          </Link>
+          <button
+            className="editor-premium-utility-chip"
+            disabled={isLeaving}
+            onClick={handleLeave}
+            type="button"
+          >
+            {isLeaving ? "Saindo..." : "Voltar"}
+          </button>
+        </div>
+
+        {(googleMessage || !canEdit) && (
+          <div className="editor-premium-message-strip">
+            <p>{googleMessage ?? readOnlyReason ?? "Modo leitura compartilhada."}</p>
+          </div>
+        )}
+
+        <div className="editor-premium-layout">
+          <aside className="editor-premium-left-column" aria-label="Estrutura do manuscrito">
+            <section className="editor-premium-card editor-premium-outline-card">
+              <div className="editor-premium-card-head">
+                <span>Estrutura do manuscrito</span>
+                <button
+                  className="editor-premium-icon-button"
+                  onClick={() => setShowStructureStudio(true)}
+                  type="button"
+                >
+                  <MoreHorizontal size={16} />
+                </button>
+              </div>
+
+              <div className="editor-premium-outline-list">
+                {manuscriptMapItems.map((item) => (
+                  <div className="editor-premium-outline-item" key={item.id}>
+                    <button
+                      className="editor-premium-outline-button"
+                      onClick={() => scrollToSection(item.label)}
+                      type="button"
+                    >
+                      <div className="editor-premium-outline-label">
+                        {item.children ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+                        <span>{item.label}</span>
+                      </div>
+                      {item.done ? <CheckCircle2 size={16} /> : <Circle size={16} />}
+                    </button>
+
+                    {item.children ? (
+                      <div className="editor-premium-outline-children">
+                        {item.children.map((child) => (
+                          <button
+                            className="editor-premium-outline-child"
+                            data-active={child.active ? "true" : "false"}
+                            key={child.id}
+                            onClick={() => scrollToSection(child.label)}
+                            type="button"
+                          >
+                            <span>{child.label}</span>
+                            {child.done ? <CheckCircle2 size={15} /> : <Circle size={15} />}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+
+              <button
+                className="editor-premium-add-section"
+                disabled={!canEdit}
+                onClick={() => setShowStructureStudio(true)}
+                type="button"
+              >
+                + Adicionar seção
+              </button>
+            </section>
+
+            <section className="editor-premium-card editor-premium-progress-card">
+              <div className="editor-premium-card-head">
+                <span>Progresso geral</span>
+              </div>
+              <div className="editor-premium-progress-body">
+                <div
+                  className="editor-premium-progress-ring"
+                  style={{ ["--editor-progress" as any]: `${sectionCoveragePercent}%` }}
+                >
+                  <strong>{sectionCoveragePercent}%</strong>
                 </div>
-                <div className="editor-studio-head-meta">
-                  <span className="editor-studio-meta-pill">{editor ? countArticleWords(editor.getJSON() as ArticleContent) : countArticleWords(article.conteudo_json)}{" "}palavras</span>
-                  <span className="editor-studio-meta-pill">?ltima edi??o {formatRelativeUpdate(article.updated_at)}</span>
-                  <span className="editor-studio-meta-pill">{saveState === "saving" ? "Salvando" : saveState === "saved" ? "Tudo salvo" : saveState === "error" ? "Erro ao salvar" : "Pronto"}</span>
+                <div className="editor-premium-progress-copy">
+                  <strong>do manuscrito concluído</strong>
+                  <p>Faltam {manuscriptAnalysis.missingSections.length} seções obrigatórias.</p>
+                </div>
+              </div>
+              <button
+                className="editor-premium-subtle-button"
+                onClick={() => setInspectorTab("analysis")}
+                type="button"
+              >
+                Ver recomendações
+              </button>
+            </section>
+          </aside>
+
+          <section className="editor-premium-center-column">
+            <div className="editor-premium-card editor-premium-editor-card">
+              <div className="editor-premium-toolbar-row">
+                <div className="editor-premium-toolbar-wrap">
+                  <Toolbar groups={toolbarGroups} stickyTopClassName="editor-toolbar-floating" />
+                </div>
+                <div className="editor-premium-toolbar-meta">
+                  <span>
+                    {editor
+                      ? countArticleWords(editor.getJSON() as ArticleContent)
+                      : countArticleWords(article.conteudo_json)}{" "}
+                    palavras
+                  </span>
                 </div>
               </div>
 
-              <div className="editor-studio-document-card">
-                <input className="editor-title-input editor-title-input--studio" disabled={!canEdit} onChange={(event) => setTitle(event.target.value)} placeholder="T?tulo do manuscrito" value={title} />
-
-                <div className="editor-studio-tags">
+              <div className="editor-premium-document">
+                <div className="editor-premium-document-tags">
                   <span>{activeTemplate.name}</span>
                   <span>{thematicTag}</span>
-                  <span>PT-BR</span>
+                  <span>{statusLabels[status]}</span>
+                  <span>
+                    {googleLastSyncedAt
+                      ? `Última sync ${formatRelativeUpdate(googleLastSyncedAt)}`
+                      : "Sincronização ainda não registrada"}
+                  </span>
                 </div>
 
-                <div className="editor-studio-actions">
-                  <button className="button button-primary" disabled={isSavingVersion || !canEdit} onClick={() => void saveVersionSnapshot(versionNote)} type="button">{isSavingVersion ? "Salvando..." : "Salvar vers?o"}</button>
-                  <button className="button button-secondary" disabled={isExportingDocx} onClick={() => void exportToDocx()} type="button">{isExportingDocx ? "Gerando DOCX..." : "Exportar DOCX"}</button>
-                  <button className="button button-secondary" disabled={isGoogleWorking} onClick={() => void handleGooglePrimaryAction()} type="button">{isGoogleWorking ? "Preparando Google..." : googleDocHref ? "Abrir Google Docs" : "Conectar Google Docs"}</button>
-                  <button className="button button-secondary" disabled={isGoogleWorking || !googleDocId} onClick={() => void handleSyncFromGoogleDocs()} type="button">{isGoogleWorking ? "Sincronizando..." : "Importar do Google"}</button>
-                  <button className="button button-secondary" disabled={isGoogleWorking || !googleDocId || !canEdit} onClick={() => void handlePushToGoogleDocs()} type="button">{isGoogleWorking ? "Enviando..." : "Publicar no Google"}</button>
-                  <button className="button button-secondary" onClick={() => setShowStructureStudio((current) => !current)} type="button">{showStructureStudio ? "Ocultar estrutura" : "Estrutura"}</button>
-                  <Link className="button editor-radar-link" href={"/dashboard/periodicos" as Route}>Radar editorial</Link>
-                  <button className="button button-secondary" disabled={!canEdit} onClick={() => setAbntMode((current) => !current)} type="button">{abntMode ? "Modo ABNT ativo" : "Modo ABNT"}</button>
-                  <button className="button button-secondary" disabled={isLeaving} onClick={handleLeave} type="button">{isLeaving ? "Saindo..." : "Voltar"}</button>
+                <input
+                  className="editor-title-input editor-premium-title-input"
+                  disabled={!canEdit}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="Título do manuscrito"
+                  value={title}
+                />
+
+                <div className="editor-premium-title-rule" />
+
+                <div className="editor-premium-inline-actions">
+                  <button
+                    className="editor-premium-inline-button"
+                    onClick={() => void runDeepManuscriptAnalysis()}
+                    type="button"
+                  >
+                    Melhorar texto
+                  </button>
+                  <button
+                    className="editor-premium-inline-button"
+                    onClick={() => setInspectorTab("analysis")}
+                    type="button"
+                  >
+                    Verificar ortografia
+                  </button>
+                  <button
+                    className="editor-premium-inline-button"
+                    disabled={!activeGap}
+                    onClick={() => activeGap && void loadReferenceSuggestions(activeGap)}
+                    type="button"
+                  >
+                    Sugerir referências
+                  </button>
+                  <button
+                    className="editor-premium-inline-button"
+                    onClick={() => setShowStructureStudio(true)}
+                    type="button"
+                  >
+                    Expandir estrutura
+                  </button>
                 </div>
 
-                {googleMessage ? <p className="editor-google-message">{googleMessage}</p> : null}
-                {!canEdit ? <p className="editor-google-message">{readOnlyReason ?? "Modo leitura compartilhada."}</p> : null}
-
-                <div className="editor-studio-toolbar-shell">
-                  <Toolbar groups={toolbarGroups} stickyTopClassName="editor-toolbar-floating" />
-                </div>
-
-                <div className={abntMode ? "editor-surface editor-page abnt-mode" : "editor-surface editor-page"}>
+                <div
+                  className={
+                    abntMode
+                      ? "editor-surface editor-page editor-premium-surface abnt-mode"
+                      : "editor-surface editor-page editor-premium-surface"
+                  }
+                >
                   <EditorContent editor={editor} />
                 </div>
               </div>
             </div>
+
+            <section className="editor-premium-bottom-grid">
+              <article className="editor-premium-card editor-premium-bottom-card">
+                <div className="editor-premium-bottom-head">
+                  <strong>Radar editorial</strong>
+                  <button className="editor-premium-icon-button" type="button">
+                    <MoreHorizontal size={16} />
+                  </button>
+                </div>
+                <div className="editor-premium-bottom-metrics">
+                  <div>
+                    <span>Novas tendências</span>
+                    <strong>{manuscriptAnalysis.missingSections.length}</strong>
+                  </div>
+                  <div>
+                    <span>Alertas de citação</span>
+                    <strong>{manuscriptAnalysis.citationGaps.length}</strong>
+                  </div>
+                </div>
+              </article>
+
+              <article className="editor-premium-card editor-premium-bottom-card">
+                <div className="editor-premium-bottom-head">
+                  <strong>Resumo da triagem</strong>
+                  <button className="editor-premium-icon-button" type="button">
+                    <MoreHorizontal size={16} />
+                  </button>
+                </div>
+                <div className="editor-premium-bottom-metrics">
+                  <div>
+                    <span>Comentários abertos</span>
+                    <strong>{unresolvedComments.length}</strong>
+                  </div>
+                  <div>
+                    <span>Em análise</span>
+                    <strong>{triageSummary.revisar}</strong>
+                  </div>
+                </div>
+              </article>
+            </section>
           </section>
 
-          <aside className="editor-research-column" aria-label="Painel do Pesquisador">
-            <div className="editor-research-card">
-              <div className="editor-research-header">
-                <strong>Painel do Pesquisador</strong>
-                <p>Leitura editorial cont?nua do manuscrito, com foco em estrutura, sustenta??o e prontid?o.</p>
+          <aside className="editor-premium-right-column" aria-label="Painel do pesquisador">
+            <div className="editor-premium-card editor-premium-inspector-card">
+              <div className="editor-premium-inspector-tabs" role="tablist" aria-label="Painel do pesquisador">
+                <button
+                  className={inspectorTab === "analysis" ? "active" : ""}
+                  onClick={() => setInspectorTab("analysis")}
+                  type="button"
+                >
+                  Análise editorial
+                </button>
+                <button
+                  className={inspectorTab === "references" ? "active" : ""}
+                  onClick={() => setInspectorTab("references")}
+                  type="button"
+                >
+                  Referências
+                </button>
+                <button
+                  className={inspectorTab === "notes" ? "active" : ""}
+                  onClick={() => setInspectorTab("notes")}
+                  type="button"
+                >
+                  Notas
+                </button>
               </div>
 
-              <section className="editor-research-section">
-                <button className="editor-research-toggle" onClick={() => toggleResearchPanel("cognition")} type="button">
-                  <span>Leitura Cognitiva</span>
-                  <small>{openResearchPanels.cognition ? "?" : "+"}</small>
-                </button>
-                {openResearchPanels.cognition ? (
-                  <div className="editor-research-body">
-                    <button className="editor-research-item" onClick={() => void runDeepManuscriptAnalysis()} type="button">
-                      <span>An?lise cr?tica do texto</span>
-                      <small>{isAnalyzingManuscript ? "em andamento" : `${textWarningCount} alerta(s)`}</small>
-                    </button>
-                    <button className="editor-research-item" onClick={() => setShowStructureStudio(true)} type="button">
-                      <span>Resumos autom?ticos</span>
-                      <small>{activeTemplate.name}</small>
-                    </button>
-                  </div>
-                ) : null}
-              </section>
-
-              <section className="editor-research-section">
-                <button className="editor-research-toggle" onClick={() => toggleResearchPanel("references")} type="button">
-                  <span>Refer?ncias Inteligentes</span>
-                  <small>{openResearchPanels.references ? "?" : "+"}</small>
-                </button>
-                {openResearchPanels.references ? (
-                  <div className="editor-research-body">
-                    <button className="editor-research-item" disabled={!activeGap} onClick={() => activeGap && void loadReferenceSuggestions(activeGap)} type="button">
-                      <span>{manuscriptAnalysis.citationGaps.length} cita??es relevantes</span>
-                      <small>{activeGap ? activeGap.section : "sem foco ativo"}</small>
-                    </button>
-                    <div className="editor-research-item editor-research-item--static">
-                      <span>{manuscriptAnalysis.usedReferences.length} refer?ncias j? reconhecidas</span>
-                      <small>{triageSummary.revisar} marcada(s) para revis?o</small>
+              {inspectorTab === "analysis" ? (
+                <div className="editor-premium-inspector-body">
+                  <section className="editor-premium-panel">
+                    <div className="editor-premium-panel-head">
+                      <strong>Leitura cognitiva</strong>
+                      <button className="editor-premium-icon-button" type="button">
+                        <MoreHorizontal size={16} />
+                      </button>
                     </div>
-                  </div>
-                ) : null}
-              </section>
 
-              <section className="editor-research-section">
-                <button className="editor-research-toggle" onClick={() => toggleResearchPanel("submission")} type="button">
-                  <span>Pronto para Submiss?o</span>
-                  <small>{openResearchPanels.submission ? "?" : "+"}</small>
-                </button>
-                {openResearchPanels.submission ? (
-                  <div className="editor-research-body">
-                    <div className="editor-submission-progress">
-                      <div className="editor-submission-progress-bar"><span style={{ width: `${editorialReadiness}%` }} /></div>
-                      <div className="editor-submission-progress-meta">
-                        <strong>{editorialReadiness}%</strong>
-                        <small>{editorialReadiness >= 75 ? "em revis?o final" : "ainda em amadurecimento"}</small>
+                    <div className="editor-premium-score-layout">
+                      <div
+                        className="editor-premium-score-ring"
+                        style={{ ["--editor-progress" as any]: `${editorialReadiness}%` }}
+                      >
+                        <strong>{editorialReadiness}</strong>
+                        <small>/100</small>
+                      </div>
+                      <div className="editor-premium-score-copy">
+                        <p>{cognitiveSnapshot.title}</p>
+                        <small>{cognitiveSnapshot.description}</small>
+                        <button
+                          className="editor-premium-subtle-button"
+                          onClick={() => void runDeepManuscriptAnalysis()}
+                          type="button"
+                        >
+                          {isAnalyzingManuscript ? "Analisando..." : "Ver detalhes"}
+                        </button>
                       </div>
                     </div>
-                    <div className="editor-research-checklist">
-                      {reviewChecklist.map((item) => (
-                        <div className="editor-research-check" key={item.label}>
-                          <span>{item.done ? "?" : "?"}</span>
-                          <small>{item.label}</small>
+                  </section>
+
+                  <section className="editor-premium-panel">
+                    <div className="editor-premium-panel-head">
+                      <strong>Verificações</strong>
+                    </div>
+
+                    <div className="editor-premium-check-list">
+                      <div className="editor-premium-check-row">
+                        <span>Ortografia e gramática</span>
+                        <small>{Math.max(1, textWarningCount)} sugestão{Math.max(1, textWarningCount) > 1 ? "es" : ""}</small>
+                      </div>
+                      <div className="editor-premium-check-row">
+                        <span>Clareza e estilo</span>
+                        <small>{manuscriptAnalysis.textDiagnostics.length} alerta(s)</small>
+                      </div>
+                      <div className="editor-premium-check-row">
+                        <span>Coesão e coerência</span>
+                        <small>{structureAlertCount} ponto(s)</small>
+                      </div>
+                      <div className="editor-premium-check-row">
+                        <span>Conformidade ABNT</span>
+                        <small>{abntMode ? "modo ativo" : "disponível"}</small>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="editor-premium-panel">
+                    <div className="editor-premium-panel-head">
+                      <strong>Próximos passos</strong>
+                    </div>
+
+                    <div className="editor-premium-next-list">
+                      {reviewChecklist.slice(0, 4).map((item) => (
+                        <div className="editor-premium-next-row" key={item.label}>
+                          {item.done ? <CheckCircle2 size={16} /> : <Circle size={16} />}
+                          <span>{item.label}</span>
                         </div>
                       ))}
                     </div>
-                  </div>
-                ) : null}
-              </section>
+                  </section>
 
-              <section className="editor-research-section">
-                <button className="editor-research-toggle" onClick={() => toggleResearchPanel("next")} type="button">
-                  <span>Pr?xima A??o</span>
-                  <small>{openResearchPanels.next ? "?" : "+"}</small>
-                </button>
-                {openResearchPanels.next ? (
-                  <div className="editor-research-body">
-                    {(nextEditorialActions.length > 0 ? nextEditorialActions : [{ id: "default", title: "Seguir escrevendo", description: "O texto j? est? est?vel o bastante para avan?ar no pr?ximo bloco." }]).map((action) => (
-                      <div className="editor-research-item editor-research-item--static" key={action.id}>
-                        <span>{action.title}</span>
-                        <small>{action.description}</small>
+                  <section className="editor-premium-panel">
+                    <div className="editor-premium-panel-head">
+                      <strong>Sugestão de periódico</strong>
+                    </div>
+
+                    <div className="editor-premium-journal-card">
+                      <div>
+                        <strong>{journalSuggestion.name}</strong>
+                        <small>{journalSuggestion.detail}</small>
                       </div>
-                    ))}
-                  </div>
-                ) : null}
-              </section>
+                      <span>{journalSuggestion.fit}%</span>
+                    </div>
+                    <button className="editor-premium-subtle-button" type="button">
+                      Ver justificativa
+                    </button>
+                  </section>
+                </div>
+              ) : null}
+
+              {inspectorTab === "references" ? (
+                <div className="editor-premium-inspector-body">
+                  <section className="editor-premium-panel">
+                    <div className="editor-premium-panel-head">
+                      <strong>Lacunas de citação</strong>
+                    </div>
+                    <div className="editor-premium-reference-list">
+                      {manuscriptAnalysis.citationGaps.slice(0, 4).map((gap) => (
+                        <button
+                          className="editor-premium-reference-gap"
+                          data-active={activeGapId === gap.id ? "true" : "false"}
+                          key={gap.id}
+                          onClick={() => void loadReferenceSuggestions(gap)}
+                          type="button"
+                        >
+                          <strong>{gap.section}</strong>
+                          <small>{gap.signal}</small>
+                        </button>
+                      ))}
+                    </div>
+                    {referenceMessage ? <p className="editor-premium-panel-message">{referenceMessage}</p> : null}
+                  </section>
+
+                  <section className="editor-premium-panel">
+                    <div className="editor-premium-panel-head">
+                      <strong>Sugestões para o trecho atual</strong>
+                    </div>
+                    <div className="editor-premium-suggestion-list">
+                      {referenceSuggestions.length === 0 ? (
+                        <div className="editor-premium-empty-state">
+                          Selecione uma lacuna para buscar referências mais aderentes.
+                        </div>
+                      ) : (
+                        referenceSuggestions.slice(0, 3).map((work) => (
+                          <article
+                            className="editor-premium-suggestion-card"
+                            data-status={referenceTriage[work.id] ?? "revisar"}
+                            key={work.id}
+                          >
+                            <div>
+                              <strong>{work.title ?? "Referência sem título"}</strong>
+                              <small>{work.match_reason ?? "Sugestão localizada por aderência temática."}</small>
+                            </div>
+                            <div className="editor-premium-suggestion-actions">
+                              <button
+                                className="editor-premium-inline-button"
+                                disabled={!canEdit}
+                                onClick={() => insertReferenceSuggestion(work)}
+                                type="button"
+                              >
+                                Inserir
+                              </button>
+                              <button
+                                className="editor-premium-inline-button"
+                                onClick={() =>
+                                  setReferenceTriage((current) => ({
+                                    ...current,
+                                    [work.id]: "revisar"
+                                  }))
+                                }
+                                type="button"
+                              >
+                                Revisar
+                              </button>
+                            </div>
+                          </article>
+                        ))
+                      )}
+                    </div>
+                  </section>
+                </div>
+              ) : null}
+
+              {inspectorTab === "notes" ? (
+                <div className="editor-premium-inspector-body">
+                  <section className="editor-premium-panel">
+                    <div className="editor-premium-panel-head">
+                      <strong>Comentários editoriais</strong>
+                    </div>
+                    <button
+                      className="editor-premium-subtle-button"
+                      onClick={captureSelectedExcerpt}
+                      type="button"
+                    >
+                      Capturar trecho selecionado
+                    </button>
+                    {selectedExcerpt ? (
+                      <blockquote className="editor-premium-excerpt">{selectedExcerpt}</blockquote>
+                    ) : null}
+                    <textarea
+                      className="editor-premium-textarea"
+                      onChange={(event) => setCommentDraft(event.target.value)}
+                      placeholder="Registre aqui uma orientação editorial para o trecho selecionado."
+                      value={commentDraft}
+                    />
+                    <button
+                      className="editor-premium-subtle-button"
+                      disabled={isSavingComment}
+                      onClick={() => void saveComment()}
+                      type="button"
+                    >
+                      {isSavingComment ? "Salvando comentário..." : "Salvar comentário"}
+                    </button>
+                    {commentMessage ? <p className="editor-premium-panel-message">{commentMessage}</p> : null}
+
+                    <div className="editor-premium-note-list">
+                      {comments.slice(0, 3).map((comment) => (
+                        <article className="editor-premium-note-card" key={comment.id}>
+                          <strong>{comment.authorName}</strong>
+                          <small>{comment.comentario}</small>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="editor-premium-panel">
+                    <div className="editor-premium-panel-head">
+                      <strong>Versões salvas</strong>
+                    </div>
+                    <input
+                      className="editor-premium-input"
+                      onChange={(event) => setVersionNote(event.target.value)}
+                      placeholder="Ex.: revisão antes do envio ao periódico"
+                      value={versionNote}
+                    />
+                    <button
+                      className="editor-premium-subtle-button"
+                      disabled={isSavingVersion || !canEdit}
+                      onClick={() => void saveVersionSnapshot(versionNote)}
+                      type="button"
+                    >
+                      {isSavingVersion ? "Salvando versão..." : "Salvar versão"}
+                    </button>
+
+                    <div className="editor-premium-note-list">
+                      {versions.slice(0, 3).map((version) => (
+                        <article className="editor-premium-note-card" key={version.id}>
+                          <div>
+                            <strong>{version.observacao || "Marco editorial"}</strong>
+                            <small>{version.authorName}</small>
+                          </div>
+                          <button
+                            className="editor-premium-inline-button"
+                            onClick={() => void restoreVersion(version)}
+                            type="button"
+                          >
+                            Restaurar
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+              ) : null}
             </div>
           </aside>
         </div>
 
-        <section className="editor-bottom-grid">
-          <article className="editor-summary-card">
-            <div className="editor-summary-card-head"><strong>Radar Editorial</strong></div>
-            <div className="editor-summary-metrics">
-              <div><span>Lacunas estruturais</span><strong>{manuscriptAnalysis.missingSections.length}</strong></div>
-              <div><span>Alertas de cita??o</span><strong>{manuscriptAnalysis.citationGaps.length}</strong></div>
-            </div>
-          </article>
-          <article className="editor-summary-card">
-            <div className="editor-summary-card-head"><strong>Resumo da Revis?o</strong></div>
-            <div className="editor-summary-metrics">
-              <div><span>Coment?rios abertos</span><strong>{unresolvedComments.length}</strong></div>
-              <div><span>Vers?es salvas</span><strong>{versions.length}</strong></div>
-            </div>
-          </article>
-        </section>
-
         {showStructureStudio ? (
-          <section className="editor-structure-studio">
-            <div className="editor-structure-head">
+          <section className="editor-premium-card editor-premium-structure-card">
+            <div className="editor-premium-panel-head">
               <div>
-                <span className="eyebrow">estrutura editorial</span>
-                <strong>Monte o esqueleto do artigo sem poluir a ?rea principal de escrita.</strong>
+                <span className="eyebrow">Estrutura editorial</span>
+                <strong>Monte o esqueleto do artigo sem poluir a área principal de escrita.</strong>
               </div>
-              <button className="button button-secondary" onClick={() => setShowStructureStudio(false)} type="button">Fechar</button>
+              <button
+                className="editor-premium-subtle-button"
+                onClick={() => setShowStructureStudio(false)}
+                type="button"
+              >
+                Fechar
+              </button>
             </div>
+
             <div className="editor-template-panel__chips">
               {editorTemplates.map((template) => (
-                <button className="editor-template-chip" data-active={selectedTemplateId === template.id ? "true" : "false"} key={template.id} onClick={() => setSelectedTemplateId(template.id)} type="button">{template.name}</button>
+                <button
+                  className="editor-template-chip"
+                  data-active={selectedTemplateId === template.id ? "true" : "false"}
+                  key={template.id}
+                  onClick={() => setSelectedTemplateId(template.id)}
+                  type="button"
+                >
+                  {template.name}
+                </button>
               ))}
             </div>
+
             <div className="editor-structure-grid">
               <div className="editor-structure-copy">
                 <strong>{activeTemplate.name}</strong>
                 <p>{activeTemplate.description}</p>
                 <div className="editor-template-panel__tips">
-                  {activeTemplate.tips.map((tip) => (<span key={tip}>{tip}</span>))}
+                  {activeTemplate.tips.map((tip) => (
+                    <span key={tip}>{tip}</span>
+                  ))}
                 </div>
               </div>
+
               <div className="editor-structure-actions">
                 <div className="editor-template-panel__selectors">
-                  <select disabled={!canEdit} onChange={(event) => { const nextGroup = sectionGroups.find((group) => group.id === event.target.value) ?? sectionGroups[0]; setSelectedGroupId(nextGroup.id); setSelectedSectionLabel(nextGroup.sections[0]?.label ?? ""); }} value={selectedGroupId}>
-                    {sectionGroups.map((group) => (<option key={group.id} value={group.id}>{group.label}</option>))}
+                  <select
+                    disabled={!canEdit}
+                    onChange={(event) => {
+                      const nextGroup =
+                        sectionGroups.find((group) => group.id === event.target.value) ??
+                        sectionGroups[0];
+                      setSelectedGroupId(nextGroup.id);
+                      setSelectedSectionLabel(nextGroup.sections[0]?.label ?? "");
+                    }}
+                    value={selectedGroupId}
+                  >
+                    {sectionGroups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.label}
+                      </option>
+                    ))}
                   </select>
-                  <select disabled={!canEdit} onChange={(event) => setSelectedSectionLabel(event.target.value)} value={selectedSectionLabel}>
-                    {activeSectionGroup.sections.map((section) => (<option key={section.label} value={section.label}>{section.label}</option>))}
+                  <select
+                    disabled={!canEdit}
+                    onChange={(event) => setSelectedSectionLabel(event.target.value)}
+                    value={selectedSectionLabel}
+                  >
+                    {activeSectionGroup.sections.map((section) => (
+                      <option key={section.label} value={section.label}>
+                        {section.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="editor-template-panel__actions">
-                  <button className="button button-primary" disabled={!canEdit} onClick={applyCompleteTemplate} type="button">Montar estrutura completa</button>
-                  <button className="button button-secondary" disabled={!canEdit || !selectedSection} onClick={() => selectedSection && insertScientificSection(selectedSection.content)} type="button">Adicionar se??o</button>
-                  <button className="button button-secondary" disabled={!canEdit} onClick={() => insertScientificSection(activeTemplate.content, "end")} type="button">Inserir no fim do texto</button>
+                  <button
+                    className="button button-primary"
+                    disabled={!canEdit}
+                    onClick={applyCompleteTemplate}
+                    type="button"
+                  >
+                    Montar estrutura completa
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    disabled={!canEdit || !selectedSection}
+                    onClick={() =>
+                      selectedSection && insertScientificSection(selectedSection.content)
+                    }
+                    type="button"
+                  >
+                    Adicionar seção
+                  </button>
+                  <button
+                    className="button button-secondary"
+                    disabled={!canEdit}
+                    onClick={() => insertScientificSection(activeTemplate.content, "end")}
+                    type="button"
+                  >
+                    Inserir no fim do texto
+                  </button>
                 </div>
               </div>
             </div>
