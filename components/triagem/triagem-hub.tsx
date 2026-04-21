@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 
+import { getArticleEditorHref } from "@/lib/article-intelligence";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import { parseEvidenceImport } from "@/lib/triagem-import";
 import type {
@@ -1106,7 +1107,7 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                       <Link className="button button-secondary" href={`/dashboard/artigos/${activeSet.artigo_id}` as Route}>
                         Painel do artigo
                       </Link>
-                      <Link className="button button-secondary" href={`/editor/${activeSet.artigo_id}` as Route}>
+                      <Link className="button button-secondary" href={getArticleEditorHref(activeSet.artigo_id)}>
                         Abrir manuscrito
                       </Link>
                     </div>

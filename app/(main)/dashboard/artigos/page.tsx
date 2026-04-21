@@ -6,7 +6,7 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 
 import { PublicPageHero } from "@/components/public/public-layout";
-import { getClassicEditorHref } from "@/lib/article-intelligence";
+import { getArticleEditorHref, getClassicEditorHref } from "@/lib/article-intelligence";
 import { buildTeamKnowledgeMap } from "@/lib/knowledge-network";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { ArticleRow, Database, EvidenceScreeningSetRow } from "@/lib/types";
@@ -195,8 +195,8 @@ export default function ResearchPage() {
                         </strong>
                         <small>{connection.sharedTerms.join(", ")}</small>
                         <div>
-                          <Link href={`/dashboard/artigos/${connection.leftArticle.id}` as Route}>Abrir primeiro</Link>
-                          <Link href={`/dashboard/artigos/${connection.rightArticle.id}` as Route}>Abrir segundo</Link>
+                          <Link href={getArticleEditorHref(connection.leftArticle.id)}>Abrir primeiro</Link>
+                          <Link href={getArticleEditorHref(connection.rightArticle.id)}>Abrir segundo</Link>
                         </div>
                       </div>
                     ))}
@@ -346,7 +346,7 @@ export default function ResearchPage() {
                           : "Artigo compartilhado para leitura entre as equipes do WebLab."}
                       </p>
                       <div className="project-public-actions">
-                        <Link href={`/dashboard/artigos/${article.id}` as Route}>Abrir manuscrito</Link>
+                        <Link href={getArticleEditorHref(article.id)}>Abrir manuscrito</Link>
                         <Link href={getClassicEditorHref(article.id)}>Editor clássico</Link>
                         <Link href="/dashboard/periodicos">Radar editorial</Link>
                       </div>

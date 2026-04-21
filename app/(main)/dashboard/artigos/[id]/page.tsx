@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { GoogleDocsWorkspaceCard } from "@/components/dashboard/google-docs-workspace-card";
 import { ManuscriptCognitionPanel } from "@/components/dashboard/manuscript-cognition-panel";
-import { getClassicEditorHref } from "@/lib/article-intelligence";
+import { getArticleEditorHref, getClassicEditorHref } from "@/lib/article-intelligence";
 import { buildGoogleDocCreateUrl, buildGoogleDocUrl } from "@/lib/google-docs";
 import { getSubmissionAlignment } from "@/lib/manuscript-submission";
 import { formatRecommendationLevel } from "@/lib/periodicos";
@@ -536,7 +536,7 @@ export default function ArticleSubmissionPage() {
                   </p>
                   <div className="project-public-actions">
                     <Link href="/dashboard/periodicos">Abrir shortlist →</Link>
-                    <Link href={getClassicEditorHref(article.id)}>Voltar ao manuscrito →</Link>
+                    <Link href={getArticleEditorHref(article.id)}>Voltar ao manuscrito →</Link>
                   </div>
                 </div>
               ) : (

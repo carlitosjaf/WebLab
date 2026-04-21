@@ -44,6 +44,10 @@ export function getOfficialEditorialHref() {
   return OFFICIAL_EDITORIAL_HREF;
 }
 
+export function getArticleEditorHref(articleId?: string | null) {
+  return `/artigos/${articleId || OFFICIAL_EDITORIAL_ROUTE}` as Route;
+}
+
 export function getClassicEditorHref(articleId: string) {
   return `/editor/${articleId}` as Route;
 }

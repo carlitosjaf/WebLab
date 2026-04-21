@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import React from "react";
 
 import {
+  getArticleEditorHref,
   getManuscriptPanelHref,
   getOfficialEditorialHref,
   isOfficialEditorialId,
@@ -84,7 +85,7 @@ function getWorkspaceChildKey(pathname: string) {
   }
 
   if (/^\/artigos\/[^/]+$/.test(pathname)) {
-    return "painel";
+    return "editor";
   }
 
   if (pathname === "/dashboard/artigos") {
@@ -262,7 +263,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     const panelHref = hasRealWorkspaceArticle
       ? getManuscriptPanelHref(realWorkspaceArticleId as string)
       : ("/dashboard/artigos" as Route);
-    const editorHref = getOfficialEditorialHref();
+    const editorHref = getArticleEditorHref(realWorkspaceArticleId);
     const activeKey = getWorkspaceChildKey(pathname);
 
     return {

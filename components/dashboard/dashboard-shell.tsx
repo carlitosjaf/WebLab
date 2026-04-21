@@ -4,6 +4,7 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
+import { getArticleEditorHref } from "@/lib/article-intelligence";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 import type { ArticleRow, TeamNoticeRow, UserRole } from "@/lib/types";
 import {
@@ -194,7 +195,7 @@ export function DashboardShell({
       }
 
       setTitle("");
-      router.push(`/dashboard/artigos/${data.id}` as Route);
+      router.push(getArticleEditorHref(data.id));
       router.refresh();
     });
   };
@@ -323,7 +324,7 @@ export function DashboardShell({
                     <div className="dashboard-home-card-actions">
                       <button
                         className="lovable-small-button"
-                        onClick={() => router.push(`/dashboard/artigos/${article.id}` as Route)}
+                        onClick={() => router.push(getArticleEditorHref(article.id))}
                         type="button"
                       >
                         Abrir manuscrito

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type ArticleIntelligencePageProps = {
   title: string;
@@ -29,10 +29,10 @@ type JournalSuggestion = {
   rationale: string;
 };
 
-type CognitiveSignal = {
-  title: string;
-  detail: string;
-  tone: "stable" | "watch" | "critical";
+type ToolbarButton = {
+  label: string;
+  onClick: () => void;
+  accent?: boolean;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -55,19 +55,6 @@ function splitIntoSentences(text: string) {
     .split(/(?<=[.!?])\s+/)
     .map((sentence) => normalizeWhitespace(sentence))
     .filter(Boolean);
-}
-
-function finalizeSentence(text: string) {
-  const cleaned = normalizeWhitespace(text).replace(/[;,:-]+$/, "");
-  if (!cleaned) {
-    return "";
-  }
-
-  return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
-}
-
-function findFirstMatchingSentence(text: string, pattern: RegExp) {
-  return splitIntoSentences(text).find((sentence) => pattern.test(sentence)) ?? "";
 }
 
 function detectInitialAbstract(text: string) {
@@ -93,7 +80,7 @@ function detectWeakClaims(text: string): WeakClaim[] {
   const citationRegex =
     /\(([^)]*(19|20)\d{2}[^)]*)\)|\[[0-9,\s\-]+\]|(?:et al\.?,?\s*(19|20)\d{2})/i;
   const strongClaimRegex =
-    /\b(comprova|demonstra|evidencia|prova|sem dúvida|inegavelmente|claramente|todos|sempre|nunca|necessariamente|definitivamente|revela de forma inequívoca)\b/i;
+    /\b(comprova|demonstra|evidencia|prova|sem duvida|inegavelmente|claramente|todos|sempre|nunca|necessariamente|definitivamente)\b/i;
   const numericClaimRegex = /\b\d+(?:[.,]\d+)?%|\b\d+(?:[.,]\d+)?\b/;
 
   const weakClaims: WeakClaim[] = [];
@@ -108,8 +95,8 @@ function detectWeakClaims(text: string): WeakClaim[] {
         sentence,
         severity: hasNumericClaim ? "elevada" : "moderada",
         reason: hasNumericClaim
-          ? "O trecho contém dado quantitativo sem sinal explícito de fonte ou ancoragem bibliográfica."
-          : "A formulação assume tom assertivo forte sem sustentação aparente no próprio período."
+          ? "O trecho traz dado quantitativo sem fonte explicitada no proprio periodo."
+          : "A formulacao assume tom assertivo forte sem sustentacao aparente no trecho."
       });
     }
   }
@@ -125,25 +112,28 @@ function calculateScores(text: string, weakClaims: WeakClaim[]): Scores {
       ? sentences.reduce((accumulator, sentence) => accumulator + sentence.split(/\s+/).length, 0) /
         sentences.length
       : 0;
+
   const transitionCount = (
     text.match(
-      /\b(portanto|além disso|por outro lado|nesse sentido|assim|contudo|todavia|desse modo|em contrapartida|logo|por fim|ademais|de outro lado|em seguida)\b/gi
-    ) ?? []
-  ).length;
-  const citationCount = (
-    text.match(/\(([^)]*(19|20)\d{2}[^)]*)\)|\[[0-9,\s\-]+\]|et al\.?/gi) ?? []
-  ).length;
-  const methodologySignals = (
-    text.match(
-      /\b(método|metodologia|amostra|participantes|análise|analise|procedimento|instrumento|coleta|dados|resultados|discussão|discussao|delineamento)\b/gi
+      /\b(portanto|alem disso|por outro lado|nesse sentido|assim|contudo|todavia|desse modo|em contrapartida|logo|por fim|ademais)\b/gi
     ) ?? []
   ).length;
 
-  let clarity = 7.3;
+  const citationCount = (
+    text.match(/\(([^)]*(19|20)\d{2}[^)]*)\)|\[[0-9,\s\-]+\]|et al\.?/gi) ?? []
+  ).length;
+
+  const methodologySignals = (
+    text.match(
+      /\b(metodo|metodologia|amostra|participantes|analise|procedimento|instrumento|coleta|dados|resultados|discussao|delineamento)\b/gi
+    ) ?? []
+  ).length;
+
+  let clarity = 7.4;
   if (averageSentenceLength > 30) {
     clarity -= 1.2;
   } else if (averageSentenceLength > 24) {
-    clarity -= 0.6;
+    clarity -= 0.55;
   }
 
   if (paragraphs.length >= 5) {
@@ -151,21 +141,21 @@ function calculateScores(text: string, weakClaims: WeakClaim[]): Scores {
   }
 
   if (text.length < 2500) {
-    clarity -= 0.5;
+    clarity -= 0.45;
   }
 
   let cohesion = 6.7;
-  cohesion += Math.min(transitionCount * 0.13, 1.1);
+  cohesion += Math.min(transitionCount * 0.12, 1.1);
   if (paragraphs.length < 4) {
-    cohesion -= 0.6;
+    cohesion -= 0.55;
   }
   if (paragraphs.length > 10) {
-    cohesion += 0.3;
+    cohesion += 0.25;
   }
 
   let argumentation = 6.2;
   argumentation += Math.min(citationCount * 0.08, 1.2);
-  argumentation += Math.min(methodologySignals * 0.05, 0.7);
+  argumentation += Math.min(methodologySignals * 0.05, 0.65);
   argumentation -= weakClaims.length * 0.3;
 
   return {
@@ -175,93 +165,39 @@ function calculateScores(text: string, weakClaims: WeakClaim[]): Scores {
   };
 }
 
-function improveAbstractFromText(text: string) {
-  const paragraphs = splitIntoParagraphs(text);
-  const abstract = detectInitialAbstract(text);
-  const lowerCaseText = text.toLowerCase();
-  const objectiveHint =
-    paragraphs.find((paragraph) =>
-      /\b(objetivo|objetivou|visa|pretende|busca analisar|analisa)\b/i.test(paragraph)
-    ) ?? "";
-  const methodHint =
-    paragraphs.find((paragraph) =>
-      /\b(método|metodologia|amostra|participantes|análise|analise|procedimento|estudo)\b/i.test(
-        paragraph
-      )
-    ) ?? "";
-  const resultHint =
-    paragraphs.find((paragraph) =>
-      /\b(resultado|resultados|evidenciou|indicou|apontou|revelou|mostrou)\b/i.test(paragraph)
-    ) ?? "";
-  const discussionHint =
-    paragraphs.find((paragraph) =>
-      /\b(conclusão|conclusao|implicações|implicacoes|discussão|discussao|sugere)\b/i.test(
-        paragraph
-      )
-    ) ?? "";
+function finalizeSentence(text: string) {
+  const cleaned = normalizeWhitespace(text).replace(/[;,:-]+$/, "");
+  if (!cleaned) {
+    return "";
+  }
 
-  const area =
-    /\bsaúde|saude|pandemia|psicologia|epidemiologia|cuidado\b/i.test(lowerCaseText)
-      ? "no campo da saúde e das ciências humanas"
-      : "no campo acadêmico em questão";
+  return /[.!?]$/.test(cleaned) ? cleaned : `${cleaned}.`;
+}
 
-  const objectiveSentence = objectiveHint
-    ? `O presente estudo tem por objetivo ${normalizeWhitespace(
-        objectiveHint
-          .replace(/^.*?\b(objetivo|objetivou|visa|pretende|busca analisar|analisa)\b/i, "")
-          .replace(/\.+$/, "")
-      ).toLowerCase()}.`
-    : `O presente manuscrito examina um problema relevante ${area}, buscando delimitar seu objeto, sua inscrição institucional e suas implicações analíticas.`;
-
-  const methodSentence = methodHint
-    ? `Do ponto de vista metodológico, o manuscrito mobiliza ${normalizeWhitespace(
-        methodHint.replace(/\.+$/, "")
-      ).toLowerCase()}.`
-    : "Em termos metodológicos, o texto articula leitura analítica e base empírica com atenção à consistência entre objetivo, método e discussão.";
-
-  const resultSentence = resultHint
-    ? `Os achados indicam que ${normalizeWhitespace(
-        resultHint
-          .replace(/^.*?\b(resultado|resultados|evidenciou|indicou|apontou|revelou|mostrou)\b/i, "")
-          .replace(/\.+$/, "")
-      ).toLowerCase()}.`
-    : "Os resultados sugerem que o fenômeno investigado exige leitura contextual, relacional e teoricamente sustentada para evitar simplificações interpretativas.";
-
-  const finalSentence = discussionHint
-    ? `Em síntese, ${normalizeWhitespace(
-        discussionHint
-          .replace(/^.*?\b(conclusão|conclusao|implicações|implicacoes|discussão|discussao|sugere)\b/i, "")
-          .replace(/\.+$/, "")
-      ).toLowerCase()}.`
-    : "Conclui-se que o estudo contribui para qualificar o debate, oferecendo elementos consistentes para aprofundamento teórico, metodológico e institucional.";
-
-  const improved = [objectiveSentence, methodSentence, resultSentence, finalSentence]
-    .map((sentence) => sentence.replace(/\s+/g, " ").trim())
-    .join(" ");
-
-  return improved.length > 120 ? improved : abstract;
+function findFirstMatchingSentence(text: string, pattern: RegExp) {
+  return splitIntoSentences(text).find((sentence) => pattern.test(sentence)) ?? "";
 }
 
 function improveAbstractConservatively(text: string) {
-  const abstract = detectInitialAbstract(text);
+  const detectedAbstract = detectInitialAbstract(text);
   const objectiveSentence =
     findFirstMatchingSentence(text, /\b(objetivo|objetivou|visa|pretende|busca analisar|analisa)\b/i) ||
-    "O objetivo do estudo ainda nao aparece de forma suficientemente explicita no manuscrito.";
+    "O objetivo central do estudo ainda nao aparece com nitidez suficiente no manuscrito.";
   const methodSentence =
     findFirstMatchingSentence(
       text,
-      /\b(mÃ©todo|metodo|metodologia|amostra|participantes|anÃ¡lise|analise|procedimento|delineamento|coleta)\b/i
-    ) || "O metodo ainda precisa ser descrito com maior precisao no texto.";
+      /\b(metodo|metodologia|amostra|participantes|analise|procedimento|delineamento|coleta)\b/i
+    ) || "O metodo ainda precisa ser descrito com mais precisao para sustentar a leitura editorial.";
   const resultSentence =
     findFirstMatchingSentence(
       text,
       /\b(resultado|resultados|achados|evidenciou|indicou|apontou|revelou|mostrou|sugere|sugerem)\b/i
-    ) || "Os achados principais ainda nao estao suficientemente explicitos no manuscrito.";
+    ) || "Os achados principais ainda nao estao suficientemente explicitos no corpo do manuscrito.";
   const conclusionSentence =
     findFirstMatchingSentence(
       text,
-      /\b(conclusÃ£o|conclusao|conclui|contribui|implicaÃ§Ãµes|implicacoes|sÃ­ntese|sintese)\b/i
-    ) || "A conclusao ainda precisa declarar com mais nitidez a contribuicao central do estudo.";
+      /\b(conclusao|conclui|contribui|implicacoes|sintese)\b/i
+    ) || "A conclusao ainda pede um fechamento mais nitido sobre a contribuicao do estudo.";
 
   const improved = [
     finalizeSentence(objectiveSentence),
@@ -273,7 +209,7 @@ function improveAbstractConservatively(text: string) {
     .filter((sentence, index, allSentences) => allSentences.indexOf(sentence) === index)
     .join(" ");
 
-  return improved.length > 120 ? improved : finalizeSentence(abstract);
+  return improved.length > 120 ? improved : finalizeSentence(detectedAbstract);
 }
 
 function computeReadiness(scores: Scores, weakClaims: WeakClaim[], abstractText: string) {
@@ -290,7 +226,7 @@ function computeReadiness(scores: Scores, weakClaims: WeakClaim[], abstractText:
     readiness -= 7;
   }
 
-  if (!/\b(objetivo|método|metodologia|resultado|resultados|conclui|conclusão|conclusao)\b/i.test(abstractText)) {
+  if (!/\b(objetivo|metodo|metodologia|resultado|resultados|conclui|conclusao)\b/i.test(abstractText)) {
     readiness -= 6;
   }
 
@@ -302,7 +238,7 @@ function getRiskLabel(readiness: number) {
     return "alto";
   }
   if (readiness < 75) {
-    return "médio";
+    return "medio";
   }
   return "baixo";
 }
@@ -310,19 +246,19 @@ function getRiskLabel(readiness: number) {
 function getNextStep(readiness: number, weakClaims: WeakClaim[], abstractText: string) {
   if (abstractText.length < 450) {
     return {
-      title: "Consolidar um resumo com densidade editorial",
+      title: "Consolidar um resumo mais forte",
       description:
-        "A entrada do texto ainda não traduz, com segurança, a qualidade do manuscrito. Reescrever o resumo costuma melhorar de imediato a leitura da triagem editorial.",
-      action: "Gerar nova versão do resumo"
+        "A entrada do texto ainda nao traduz toda a qualidade do manuscrito. Melhorar o resumo costuma alterar a percepcao editorial imediatamente.",
+      action: "Gerar nova versao do resumo"
     };
   }
 
   if (weakClaims.length > 0) {
     return {
-      title: "Reforçar trechos com sustentação insuficiente",
+      title: "Reforcar trechos com sustentacao insuficiente",
       description:
-        "Há afirmações relevantes que ainda pedem marca mais explícita de fonte, prudência argumentativa ou densidade metodológica.",
-      action: "Revisar trechos frágeis"
+        "Ha afirmacoes relevantes que ainda pedem fonte, prudencia formular ou explicacao metodologica mais clara.",
+      action: "Revisar trechos frageis"
     };
   }
 
@@ -330,161 +266,93 @@ function getNextStep(readiness: number, weakClaims: WeakClaim[], abstractText: s
     return {
       title: "Refinar a costura argumentativa",
       description:
-        "O manuscrito já possui base consistente, mas ainda pode ganhar em progressão analítica, transição entre blocos e fechamento das seções centrais.",
+        "O texto ja tem base consistente, mas ainda pode ganhar em progressao entre secoes e fechamento interpretativo.",
       action: "Revisar estrutura final"
     };
   }
 
   return {
-    title: "Preparar a submissão",
+    title: "Preparar submissao",
     description:
-      "O manuscrito se encontra em faixa competitiva para avaliação inicial. O próximo passo é validar escopo, consistência formal e checklist de envio.",
-    action: "Entrar no modo submissão"
+      "O manuscrito ja se encontra em faixa competitiva para avaliacao inicial. O proximo passo e conferir aderencia formal e checklist final.",
+    action: "Entrar no modo submissao"
   };
 }
 
 function suggestJournals(text: string): JournalSuggestion[] {
   const lowerCaseText = text.toLowerCase();
 
-  if (/\bsaúde|saude|pandemia|política pública|politica publica|epidemiologia|cuidado\b/.test(lowerCaseText)) {
+  if (/\bsaude|pandemia|politica publica|epidemiologia|cuidado\b/.test(lowerCaseText)) {
     return [
       {
-        name: "Saúde em Debate",
+        name: "Saude em Debate",
         fit: "alto",
         rationale:
-          "Boa aderência a discussões críticas, institucionais e de política em saúde."
+          "Boa aderencia a discussoes criticas, institucionais e de politica em saude."
       },
       {
-        name: "Interface – Comunicação, Saúde, Educação",
+        name: "Interface - Comunicacao, Saude, Educacao",
         fit: "medio",
         rationale:
-          "Compatível com manuscritos interdisciplinares que articulam saúde, educação e experiência social."
+          "Compatibilidade alta com manuscritos interdisciplinares que articulam saude, educacao e experiencia social."
       },
       {
-        name: "Physis: Revista de Saúde Coletiva",
+        name: "Physis: Revista de Saude Coletiva",
         fit: "reserva",
         rationale:
-          "Alternativa consistente para uma versão mais amadurecida e teoricamente densificada."
+          "Alternativa consistente para uma versao mais amadurecida e teoricamente densificada."
       }
     ];
   }
 
-  if (/\bpsicologia|subjetividade|saúde mental|sofrimento psíquico\b/.test(lowerCaseText)) {
+  if (/\bpsicologia|subjetividade|saude mental|sofrimento psiquico\b/.test(lowerCaseText)) {
     return [
       {
         name: "Psicologia & Sociedade",
         fit: "alto",
         rationale:
-          "Aderente a análises psicossociais e críticas sobre experiência, desigualdade e instituições."
+          "Aderente a analises psicossociais e criticas sobre experiencia, desigualdade e instituicoes."
       },
       {
         name: "Estudos de Psicologia",
         fit: "medio",
         rationale:
-          "Boa possibilidade, desde que o texto apresente amarração metodológica bastante clara."
+          "Boa possibilidade se o texto apresentar costura metodologica bastante clara."
       },
       {
         name: "Fractal: Revista de Psicologia",
         fit: "reserva",
         rationale:
-          "Pode funcionar bem em versão mais lapidada do ponto de vista discursivo."
+          "Pode funcionar bem em versao mais lapidada do ponto de vista discursivo."
       }
     ];
   }
 
   return [
     {
-      name: "Revista interdisciplinar de escopo analítico",
+      name: "Revista interdisciplinar de escopo analitico",
       fit: "alto",
       rationale:
-        "Boa compatibilidade com manuscritos de abordagem ampla, problema bem delimitado e articulação entre áreas."
+        "Boa compatibilidade com manuscritos de abordagem ampla, objeto bem delimitado e articulacao entre areas."
     },
     {
-      name: "Periódico temático com foco metodológico",
+      name: "Periodico tematico com foco metodologico",
       fit: "medio",
       rationale:
-        "Viável caso o artigo explicite com maior precisão desenho analítico, corpus e trajetória argumentativa."
+        "Viavel se o artigo explicitar melhor desenho analitico, corpus e percurso argumentativo."
     },
     {
-      name: "Revista de reserva estratégica",
+      name: "Revista de reserva estrategica",
       fit: "reserva",
       rationale:
-        "Alternativa prudente para segunda rodada, após ganho de densidade textual e revisão dirigida."
+        "Alternativa prudente para uma segunda rodada, apos ganho de densidade textual."
     }
   ];
-}
-
-function getCognitiveSignals(text: string, abstractText: string, weakClaims: WeakClaim[], scores: Scores) {
-  const paragraphs = splitIntoParagraphs(text);
-  const sentences = splitIntoSentences(text);
-  const averageSentenceLength =
-    sentences.length > 0
-      ? sentences.reduce((accumulator, sentence) => accumulator + sentence.split(/\s+/).length, 0) /
-        sentences.length
-      : 0;
-  const methodologyPresence = /\b(método|metodologia|amostra|participantes|delineamento|procedimento)\b/i.test(
-    text
-  );
-  const conclusionPresence = /\b(conclusão|conclusao|conclui|sugere|implicações|implicacoes)\b/i.test(
-    text
-  );
-
-  const signals: CognitiveSignal[] = [
-    {
-      title: "Entrada editorial",
-      detail:
-        abstractText.length >= 450
-          ? "O resumo já apresenta densidade suficiente para apoiar triagem inicial sem perda imediata de contexto."
-          : "O resumo ainda resume demais. Há risco de o manuscrito parecer menos robusto do que realmente é na primeira leitura.",
-      tone: abstractText.length >= 450 ? "stable" : "critical"
-    },
-    {
-      title: "Respiração sintática",
-      detail:
-        averageSentenceLength <= 24
-          ? "As sentenças permanecem em faixa legível e favorecem absorção progressiva do argumento."
-          : "Os períodos estão mais longos do que o ideal e podem reduzir clareza em leitura editorial acelerada.",
-      tone: averageSentenceLength <= 24 ? "stable" : "watch"
-    },
-    {
-      title: "Ancoragem metodológica",
-      detail: methodologyPresence
-        ? "O texto já oferece sinais metodológicos suficientes para sustentar a leitura da proposta."
-        : "A camada metodológica ainda aparece de forma tímida e tende a enfraquecer a confiança na argumentação.",
-      tone: methodologyPresence ? "stable" : "critical"
-    },
-    {
-      title: "Fechamento analítico",
-      detail: conclusionPresence
-        ? "Há sinal de fechamento interpretativo e implicação analítica reconhecível no corpo do manuscrito."
-        : "O manuscrito ainda pede fechamento mais explícito entre resultados, interpretação e implicações.",
-      tone: conclusionPresence ? "stable" : "watch"
-    },
-    {
-      title: "Pressão de sustentação",
-      detail:
-        weakClaims.length === 0
-          ? "Nenhum trecho crítico foi sinalizado pela leitura heurística local."
-          : `Foram localizados ${weakClaims.length} trechos com provável necessidade de prudência formular, citação ou reforço argumentativo.`,
-      tone: weakClaims.length === 0 ? "stable" : weakClaims.length >= 4 ? "critical" : "watch"
-    }
-  ];
-
-  if (paragraphs.length < 4 || scores.cohesion < 6.5) {
-    signals.push({
-      title: "Encadeamento entre blocos",
-      detail:
-        "A progressão entre seções ainda parece comprimida. Vale reforçar transições e explicitar como cada parte empurra a tese adiante.",
-      tone: "watch"
-    });
-  }
-
-  return signals.slice(0, 6);
 }
 
 function formatSyncLabel(value?: string) {
   if (!value) {
-    return "Sincronização ainda não registrada";
+    return "Sincronizacao ainda nao registrada";
   }
 
   const date = new Date(value);
@@ -498,68 +366,213 @@ function formatSyncLabel(value?: string) {
   }).format(date);
 }
 
+function inferTags(text: string, areaLabel: string) {
+  const lowerCaseText = text.toLowerCase();
+  const tags = new Set<string>();
+
+  if (/\brevisao sistematica\b/.test(lowerCaseText)) {
+    tags.add("Revisao sistematica");
+  }
+
+  if (/\bepidemiologia|saude publica|saude coletiva\b/.test(lowerCaseText) || /saude/i.test(areaLabel)) {
+    tags.add("Saude coletiva");
+  }
+
+  if (/\bqualitativ|analitico|experiencia|subjetividade\b/.test(lowerCaseText)) {
+    tags.add("Analise qualitativa");
+  }
+
+  tags.add("PT-BR");
+
+  return Array.from(tags).slice(0, 4);
+}
+
+function escapeHtml(text: string) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function isHeadingParagraph(paragraph: string) {
+  const normalized = paragraph
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+  return [
+    "introducao",
+    "metodo",
+    "metodos",
+    "materiais e metodos",
+    "resultados",
+    "discussao",
+    "conclusao",
+    "objetivo",
+    "referencias"
+  ].includes(normalized);
+}
+
+function buildEditorMarkup(text: string) {
+  const paragraphs = splitIntoParagraphs(text);
+
+  return paragraphs
+    .map((paragraph) => {
+      const safe = escapeHtml(paragraph);
+
+      if (isHeadingParagraph(paragraph) || (paragraph.length < 72 && !/[.!?]/.test(paragraph))) {
+        return `<h2>${safe}</h2>`;
+      }
+
+      if (/^resumo[:\s]/i.test(paragraph)) {
+        return `<p class="lead-paragraph">${safe}</p>`;
+      }
+
+      return `<p>${safe}</p>`;
+    })
+    .join("");
+}
+
+function getWordCount(text: string) {
+  return normalizeWhitespace(text).split(/\s+/).filter(Boolean).length;
+}
+
+function getSectionCount(text: string) {
+  return splitIntoParagraphs(text).filter((paragraph) => isHeadingParagraph(paragraph)).length;
+}
+
+type AccordionKey = "cognition" | "references" | "submission" | "actions";
+
 export function ArticleIntelligencePage({
   title,
-  areaLabel = "Pós-graduação e pesquisa",
-  stageLabel = "Em revisão editorial",
+  areaLabel = "Pos-graduacao e pesquisa",
+  stageLabel = "Em revisao editorial",
   manuscriptText,
   googleDocsUrl,
   lastSyncAt
 }: ArticleIntelligencePageProps) {
-  const diagnosticsRef = useRef<HTMLDivElement | null>(null);
-  const initialAbstract = useMemo(() => detectInitialAbstract(manuscriptText), [manuscriptText]);
-  const weakClaims = useMemo(() => detectWeakClaims(manuscriptText), [manuscriptText]);
-  const scores = useMemo(() => calculateScores(manuscriptText, weakClaims), [manuscriptText, weakClaims]);
-  const journals = useMemo(() => suggestJournals(manuscriptText), [manuscriptText]);
-  const [generatedAbstract, setGeneratedAbstract] = useState(initialAbstract);
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const weakClaimsRef = useRef<HTMLDivElement | null>(null);
+  const [editorText, setEditorText] = useState(manuscriptText);
+  const [generatedAbstract, setGeneratedAbstract] = useState(detectInitialAbstract(manuscriptText));
   const [showWeakClaims, setShowWeakClaims] = useState(false);
   const [submissionMode, setSubmissionMode] = useState(false);
+  const [openAccordions, setOpenAccordions] = useState<Record<AccordionKey, boolean>>({
+    cognition: true,
+    references: true,
+    submission: true,
+    actions: true
+  });
 
+  useEffect(() => {
+    setEditorText(manuscriptText);
+    setGeneratedAbstract(detectInitialAbstract(manuscriptText));
+
+    if (editorRef.current) {
+      editorRef.current.innerHTML = buildEditorMarkup(manuscriptText);
+    }
+  }, [manuscriptText]);
+
+  const weakClaims = useMemo(() => detectWeakClaims(editorText), [editorText]);
+  const scores = useMemo(() => calculateScores(editorText, weakClaims), [editorText, weakClaims]);
+  const journals = useMemo(() => suggestJournals(editorText), [editorText]);
   const readiness = useMemo(
     () => computeReadiness(scores, weakClaims, generatedAbstract),
     [generatedAbstract, scores, weakClaims]
   );
+  const risk = useMemo(() => getRiskLabel(readiness), [readiness]);
   const nextStep = useMemo(
     () => getNextStep(readiness, weakClaims, generatedAbstract),
     [generatedAbstract, readiness, weakClaims]
   );
-  const risk = useMemo(() => getRiskLabel(readiness), [readiness]);
-  const readinessTone = readiness >= 75 ? "ready" : readiness >= 60 ? "steady" : "fragile";
-  const lastSyncLabel = useMemo(() => formatSyncLabel(lastSyncAt), [lastSyncAt]);
-  const cognitiveSignals = useMemo(
-    () => getCognitiveSignals(manuscriptText, generatedAbstract, weakClaims, scores),
-    [generatedAbstract, manuscriptText, scores, weakClaims]
-  );
+  const tags = useMemo(() => inferTags(editorText, areaLabel), [areaLabel, editorText]);
+  const syncLabel = useMemo(() => formatSyncLabel(lastSyncAt), [lastSyncAt]);
+  const wordCount = useMemo(() => getWordCount(editorText), [editorText]);
+  const sectionCount = useMemo(() => getSectionCount(editorText), [editorText]);
 
   const summaryChecklist = [
     {
       done: generatedAbstract.length >= 450,
-      label: "Resumo com densidade compatível com leitura editorial inicial."
+      label: "Resumo com densidade minima para triagem editorial."
     },
     {
       done: /\b(objetivo|objetiv)/i.test(generatedAbstract),
-      label: "Objetivo explicitado com precisão."
+      label: "Objetivo explicitado com precisao."
     },
     {
-      done: /\b(método|metodologia|procedimento|amostra|participantes)\b/i.test(generatedAbstract),
-      label: "Método ou delineamento minimamente indicado."
+      done: /\b(metodo|metodologia|procedimento|amostra|participantes)\b/i.test(generatedAbstract),
+      label: "Metodo ou delineamento indicado."
     },
     {
       done: /\b(resultado|resultados|achados|indicam|sugerem)\b/i.test(generatedAbstract),
-      label: "Achados ou direção interpretativa apresentados."
+      label: "Achados ou direcao interpretativa apresentados."
     },
     {
-      done: /\b(conclui|conclusão|conclusao|contribui)\b/i.test(generatedAbstract),
-      label: "Fechamento com implicação analítica ou institucional."
+      done: /\b(conclui|conclusao|contribui)\b/i.test(generatedAbstract),
+      label: "Fechamento com implicacao analitica."
     }
   ];
 
-  function handleGenerateAbstract() {
-    setGeneratedAbstract(improveAbstractConservatively(manuscriptText));
+  const submissionChecklist = [
+    {
+      done: generatedAbstract.length >= 450,
+      label: "Resumo pronto para leitura de triagem."
+    },
+    {
+      done: weakClaims.length <= 1,
+      label: "Trechos de maior impacto revisados quanto a sustentacao."
+    },
+    {
+      done: scores.argumentation >= 6.8,
+      label: "Eixo argumentativo suficientemente robusto."
+    },
+    {
+      done: readiness >= 75,
+      label: "Patamar geral do manuscrito adequado para submissao."
+    }
+  ];
+
+  const toolbarButtons: ToolbarButton[] = [
+    { label: "Desfazer", onClick: () => runEditorCommand("undo", editorRef) },
+    { label: "Refazer", onClick: () => runEditorCommand("redo", editorRef) },
+    { label: "Negrito", onClick: () => runEditorCommand("bold", editorRef) },
+    { label: "Italico", onClick: () => runEditorCommand("italic", editorRef) },
+    { label: "Texto", onClick: () => runEditorCommand("formatBlock", editorRef, "p"), accent: true },
+    { label: "H2", onClick: () => runEditorCommand("formatBlock", editorRef, "h2") },
+    { label: "H3", onClick: () => runEditorCommand("formatBlock", editorRef, "h3") },
+    { label: "Lista", onClick: () => runEditorCommand("insertUnorderedList", editorRef) },
+    { label: "1.", onClick: () => runEditorCommand("insertOrderedList", editorRef) },
+    {
+      label: "Citar",
+      onClick: () => {
+        const reference = window.prompt("Cole a citacao ou referencia que deseja inserir:");
+        if (reference) {
+          runEditorCommand("insertText", editorRef, ` (${reference})`);
+        }
+      }
+    },
+    {
+      label: "Comentar",
+      onClick: () => {
+        const comment = window.prompt("Registre o comentario editorial para este ponto:");
+        if (comment) {
+          runEditorCommand("insertText", editorRef, ` [Comentario editorial: ${comment}] `);
+        }
+      }
+    }
+  ];
+
+  function syncEditorText() {
+    if (!editorRef.current) {
+      return;
+    }
+
+    setEditorText(editorRef.current.innerText.replace(/\n{3,}/g, "\n\n").trim());
   }
 
-  function handleScrollToDiagnostics() {
-    diagnosticsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  function handleGenerateAbstract() {
+    setGeneratedAbstract(improveAbstractConservatively(editorText));
   }
 
   function handleNextStep() {
@@ -570,1039 +583,993 @@ export function ArticleIntelligencePage({
 
     if (nextStep.action.includes("trechos")) {
       setShowWeakClaims(true);
+      weakClaimsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
 
-    if (nextStep.action.includes("submissão")) {
+    if (nextStep.action.includes("submissao")) {
       setSubmissionMode(true);
+      setOpenAccordions((current) => ({ ...current, submission: true }));
       return;
     }
 
-    handleScrollToDiagnostics();
+    weakClaimsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function toggleAccordion(key: AccordionKey) {
+    setOpenAccordions((current) => ({ ...current, [key]: !current[key] }));
   }
 
   return (
     <div className="page">
-      <section className="hero">
-        <div className="hero-content">
-          <div className="eyebrow-row">
-            <span className="pill pill-primary">Inteligência editorial</span>
-            <span className="pill pill-soft">{areaLabel}</span>
-            <span className="pill pill-success">{stageLabel}</span>
-          </div>
-
-          <h1>{title}</h1>
-
-          <p className="lead">
-            Uma mesa editorial assistiva para leitura técnica, diagnóstico argumentativo e
-            preparação de submissão. Em vez de distribuir métricas vazias, esta interface
-            procura tornar visível o que já está sólido, o que ainda fragiliza o manuscrito e
-            qual intervenção tende a gerar avanço real agora.
-          </p>
-
-          <div className="hero-actions">
-            {googleDocsUrl ? (
-              <a className="button button-primary" href={googleDocsUrl} target="_blank" rel="noreferrer">
-                Abrir documento vinculado
-              </a>
-            ) : (
-              <button className="button button-primary" type="button">
-                Documento ainda não vinculado
-              </button>
-            )}
-
-            <button className="button button-secondary" type="button" onClick={handleGenerateAbstract}>
-              Gerar resumo editorialmente fortalecido
-            </button>
-
-            <button className="button button-secondary" type="button" onClick={handleScrollToDiagnostics}>
-              Ver diagnóstico do manuscrito
-            </button>
-
-            <button
-              className="button button-soft"
-              type="button"
-              onClick={() => setSubmissionMode((currentValue) => !currentValue)}
-            >
-              {submissionMode ? "Sair do modo submissão" : "Entrar no modo submissão"}
-            </button>
-          </div>
-
-          <div className="sync-row">
-            <span className="sync-label">Última sincronização registrada</span>
-            <strong>{lastSyncLabel}</strong>
-          </div>
+      <div className="status-rail">
+        <div className="status-rail__left">
+          <span className="context-pill context-pill-primary">{stageLabel}</span>
+          <span className="context-pill">{areaLabel}</span>
+          <span className="context-pill">Ultima leitura: {syncLabel}</span>
         </div>
-
-        <aside className="hero-aside">
-          <div className="hero-aside__top">
-            <span className={`tone-badge tone-${readinessTone}`}>Prontidão para submissão</span>
-            <div className="readiness-value">{readiness}%</div>
-            <p className="readiness-copy">
-              {readiness >= 75
-                ? "O manuscrito já se apresenta em faixa competitiva para triagem inicial, com necessidade de conferência final rigorosa."
-                : readiness >= 60
-                  ? "Há base consistente para prosseguir, mas ainda com pontos que interferem diretamente na recepção editorial."
-                  : "O texto ainda transmite fragilidades visíveis na entrada, na sustentação ou na costura argumentativa."}
-            </p>
-          </div>
-
-          <div className="meter">
-            <span style={{ width: `${readiness}%` }} />
-          </div>
-
-          <div className="hero-stats">
-            <article className="mini-stat">
-              <strong>{weakClaims.length}</strong>
-              <span>trechos frágeis</span>
-            </article>
-            <article className="mini-stat">
-              <strong>{risk}</strong>
-              <span>risco editorial</span>
-            </article>
-            <article className="mini-stat">
-              <strong>{journals.length}</strong>
-              <span>rotas possíveis</span>
-            </article>
-          </div>
-        </aside>
-      </section>
-
-      <section className="next-step">
-        <div className="next-step__copy">
-          <span className="pill pill-dark">Próximo passo recomendado</span>
-          <h2>{nextStep.title}</h2>
-          <p>{nextStep.description}</p>
+        <div className="status-rail__right">
+          <span className={`readiness-chip readiness-chip-${risk}`}>{readiness}% de prontidao</span>
+          {googleDocsUrl ? (
+            <a className="ghost-link" href={googleDocsUrl} rel="noreferrer" target="_blank">
+              Abrir Google Docs
+            </a>
+          ) : null}
         </div>
+      </div>
 
-        <div className="next-step__actions">
-          <button className="button button-white" type="button" onClick={handleNextStep}>
-            {nextStep.action}
-          </button>
-          <button className="button button-outline-light" type="button" onClick={handleScrollToDiagnostics}>
-            Analisar fundamentos
-          </button>
-        </div>
-      </section>
-
-      <div className="layout">
-        <main className="main-column">
-          <section className="panel" ref={diagnosticsRef}>
-            <div className="panel-header">
-              <div>
-                <span className="panel-kicker">Diagnóstico técnico</span>
-                <h3>Diagnóstico do manuscrito</h3>
-                <p>
-                  O foco aqui é oferecer uma leitura rápida, mas intelectualmente útil, sobre
-                  legibilidade, progressão argumentativa e força de sustentação.
-                </p>
+      <div className="workspace">
+        <main className="document-column">
+          <section className="document-stage">
+            <div className="document-header">
+              <div className="document-header__copy">
+                <h1>{title}</h1>
+                <div className="tag-row">
+                  {tags.map((tag) => (
+                    <span className="tag" key={tag}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
-              <span className="pill pill-primary">Leitura estrutural</span>
-            </div>
 
-            <div className="score-grid">
-              <article className="score-card">
-                <span className="score-label">Clareza</span>
-                <strong>{scores.clarity.toFixed(1)}</strong>
-                <p>Mede legibilidade global, extensão dos períodos e inteligibilidade da tese.</p>
-              </article>
-
-              <article className="score-card">
-                <span className="score-label">Coesão</span>
-                <strong>{scores.cohesion.toFixed(1)}</strong>
-                <p>Estima progressão entre blocos, costura lógica e presença de conectores analíticos.</p>
-              </article>
-
-              <article className="score-card">
-                <span className="score-label">Argumentação</span>
-                <strong>{scores.argumentation.toFixed(1)}</strong>
-                <p>Considera densidade de sustentação, sinais metodológicos e fragilidade de afirmações.</p>
-              </article>
-            </div>
-          </section>
-
-          <section className="panel">
-            <div className="panel-header">
-              <div>
-                <span className="panel-kicker">Leitura cognitiva</span>
-                <h3>Painel de leitura cognitiva</h3>
-                <p>
-                  Em vez de apenas listar pendências, este painel resume como o manuscrito tende a
-                  ser percebido por uma leitura editorial exigente.
-                </p>
-              </div>
-              <span className="pill pill-soft">Mapa de atenção</span>
-            </div>
-
-            <div className="cognition-grid">
-              {cognitiveSignals.map((signal) => (
-                <article key={signal.title} className={`signal-card signal-${signal.tone}`}>
-                  <div className="signal-head">
-                    <strong>{signal.title}</strong>
-                    <span>{signal.tone === "stable" ? "estável" : signal.tone === "watch" ? "vigiar" : "crítico"}</span>
-                  </div>
-                  <p>{signal.detail}</p>
+              <div className="hero-metrics">
+                <article>
+                  <strong>{wordCount}</strong>
+                  <span>palavras</span>
                 </article>
+                <article>
+                  <strong>{sectionCount || 1}</strong>
+                  <span>blocos</span>
+                </article>
+                <article>
+                  <strong>{weakClaims.length}</strong>
+                  <span>alertas</span>
+                </article>
+              </div>
+            </div>
+
+            <div className="next-step">
+              <div>
+                <span className="section-kicker">Proximo passo recomendado</span>
+                <strong>{nextStep.title}</strong>
+                <p>{nextStep.description}</p>
+              </div>
+              <div className="next-step__actions">
+                <button className="button button-primary" onClick={handleNextStep} type="button">
+                  {nextStep.action}
+                </button>
+                <button
+                  className="button button-secondary"
+                  onClick={() => setSubmissionMode((current) => !current)}
+                  type="button"
+                >
+                  {submissionMode ? "Sair do modo submissao" : "Entrar no modo submissao"}
+                </button>
+              </div>
+            </div>
+
+            <div className="toolbar">
+              {toolbarButtons.map((button) => (
+                <button
+                  className={`toolbar-button ${button.accent ? "toolbar-button-accent" : ""}`}
+                  key={button.label}
+                  onClick={button.onClick}
+                  type="button"
+                >
+                  {button.label}
+                </button>
               ))}
             </div>
-          </section>
 
-          <section className="panel">
-            <div className="panel-header">
-              <div>
-                <span className="panel-kicker">Resumo</span>
-                <h3>Resumo editorialmente fortalecido</h3>
-                <p>
-                  A versão abaixo pode ser usada como base de reescrita. O objetivo da heurística é
-                  melhorar entrada, método, achados e fechamento sem transformar o texto em peça genérica.
-                </p>
-              </div>
-              <span className="pill pill-success">Versão assistida</span>
-            </div>
+            <article className="document-shell">
+              <div className="document-shell__guide" />
+              <div
+                className="document-editor"
+                contentEditable
+                onInput={syncEditorText}
+                ref={editorRef}
+                suppressContentEditableWarning
+              />
+            </article>
 
-            <div className="abstract-box">{generatedAbstract || "Nenhum resumo detectado."}</div>
-
-            <div className="panel-actions">
-              <button className="button button-secondary" type="button" onClick={handleGenerateAbstract}>
-                Regerar versão do resumo
-              </button>
-            </div>
-
-            <div className="checklist">
-              {summaryChecklist.map((item) => (
-                <div key={item.label} className="check-item">
-                  <span className={`check-bullet ${item.done ? "done" : "todo"}`}>{item.done ? "✓" : "•"}</span>
-                  <span>{item.label}</span>
+            <section className="support-grid">
+              <article className="surface-card">
+                <div className="surface-card__head">
+                  <div>
+                    <span className="section-kicker">Resumo fortalecido</span>
+                    <h2>Versao assistida do resumo</h2>
+                  </div>
+                  <button className="button button-secondary" onClick={handleGenerateAbstract} type="button">
+                    Regerar
+                  </button>
                 </div>
-              ))}
-            </div>
-          </section>
 
-          <section className="panel">
-            <div className="panel-header">
-              <div>
-                <span className="panel-kicker">Sustentação</span>
-                <h3>Trechos potencialmente frágeis</h3>
-                <p>
-                  Esta leitura não substitui revisão acadêmica criteriosa. Ela apenas antecipa pontos em
-                  que a formulação pode soar assertiva demais ou quantitativamente carregada sem apoio explícito.
-                </p>
-              </div>
-              <span className="pill pill-warning">Pontos de atenção</span>
-            </div>
+                <p className="abstract-box">{generatedAbstract || "Nenhum resumo detectado."}</p>
 
-            <div className="panel-actions">
-              <button
-                className="button button-secondary"
-                type="button"
-                onClick={() => setShowWeakClaims((currentValue) => !currentValue)}
-              >
-                {showWeakClaims ? "Ocultar trechos" : `Exibir ${weakClaims.length} trechos`}
-              </button>
-            </div>
+                <div className="checklist">
+                  {summaryChecklist.map((item) => (
+                    <div className="check-item" key={item.label}>
+                      <span className={`check-bullet ${item.done ? "done" : "todo"}`}>{item.done ? "✓" : "•"}</span>
+                      <span>{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </article>
 
-            {showWeakClaims ? (
-              <div className="weak-claims">
-                {weakClaims.length === 0 ? (
-                  <article className="weak-card weak-card-ok">
-                    <strong>Nenhum trecho crítico foi sinalizado pela leitura heurística local.</strong>
-                    <p>
-                      Isso não elimina a necessidade de revisão acadêmica, mas sugere um nível razoável de prudência
-                      formular no estado atual do texto.
-                    </p>
-                  </article>
+              <article className="surface-card" ref={weakClaimsRef}>
+                <div className="surface-card__head">
+                  <div>
+                    <span className="section-kicker">Trechos frageis</span>
+                    <h2>Leitura critica do texto</h2>
+                  </div>
+                  <button
+                    className="button button-secondary"
+                    onClick={() => setShowWeakClaims((current) => !current)}
+                    type="button"
+                  >
+                    {showWeakClaims ? "Ocultar" : `Exibir ${weakClaims.length}`}
+                  </button>
+                </div>
+
+                {showWeakClaims ? (
+                  <div className="weak-claims">
+                    {weakClaims.length === 0 ? (
+                      <article className="weak-card weak-card-ok">
+                        <strong>Nenhum trecho critico foi sinalizado pela leitura local.</strong>
+                        <p>
+                          Isso nao substitui revisao academica criteriosa, mas sugere um nivel razoavel de prudencia
+                          formular no estado atual do texto.
+                        </p>
+                      </article>
+                    ) : (
+                      weakClaims.map((claim, index) => (
+                        <article className="weak-card" key={`${claim.sentence.slice(0, 32)}-${index}`}>
+                          <div className="weak-card__head">
+                            <strong>Trecho {index + 1}</strong>
+                            <span className={`severity severity-${claim.severity}`}>{claim.severity}</span>
+                          </div>
+                          <p className="weak-card__sentence">"{claim.sentence}"</p>
+                          <p className="weak-card__reason">{claim.reason}</p>
+                        </article>
+                      ))
+                    )}
+                  </div>
                 ) : (
-                  weakClaims.map((claim, index) => (
-                    <article key={`${claim.sentence.slice(0, 48)}-${index}`} className="weak-card">
-                      <div className="weak-card__head">
-                        <strong>Trecho {index + 1}</strong>
-                        <span className={`severity severity-${claim.severity}`}>{claim.severity}</span>
-                      </div>
-                      <p className="sentence">“{claim.sentence}”</p>
-                      <p className="reason">{claim.reason}</p>
-                    </article>
-                  ))
+                  <div className="collapsed-state">
+                    Os alertas ficam recolhidos por padrao para preservar foco na escrita e abrir somente quando necessario.
+                  </div>
                 )}
-              </div>
-            ) : (
-              <div className="muted-box">
-                Os trechos críticos ficam recolhidos por padrão para manter o foco na leitura global do manuscrito.
-              </div>
-            )}
-          </section>
-
-          <section className="panel">
-            <div className="panel-header">
-              <div>
-                <span className="panel-kicker">Submissão</span>
-                <h3>Modo submissão</h3>
-                <p>
-                  Quando ativado, o painel passa a enfatizar apenas critérios de fechamento e elegibilidade editorial.
-                </p>
-              </div>
-              <span className="pill pill-soft">{submissionMode ? "Ativado" : "Disponível"}</span>
-            </div>
-
-            {submissionMode ? (
-              <div className="submission-box">
-                <div className="submission-checklist">
-                  <div className="check-item">
-                    <span className={`check-bullet ${generatedAbstract.length >= 450 ? "done" : "todo"}`}>
-                      {generatedAbstract.length >= 450 ? "✓" : "•"}
-                    </span>
-                    <span>Resumo com densidade e fechamento compatíveis com triagem editorial.</span>
-                  </div>
-                  <div className="check-item">
-                    <span className={`check-bullet ${weakClaims.length <= 1 ? "done" : "todo"}`}>
-                      {weakClaims.length <= 1 ? "✓" : "•"}
-                    </span>
-                    <span>Afirmações de maior impacto revisadas quanto à sustentação.</span>
-                  </div>
-                  <div className="check-item">
-                    <span className={`check-bullet ${scores.argumentation >= 6.8 ? "done" : "todo"}`}>
-                      {scores.argumentation >= 6.8 ? "✓" : "•"}
-                    </span>
-                    <span>Eixo argumentativo suficientemente robusto para avaliação inicial.</span>
-                  </div>
-                  <div className="check-item">
-                    <span className={`check-bullet ${readiness >= 75 ? "done" : "todo"}`}>
-                      {readiness >= 75 ? "✓" : "•"}
-                    </span>
-                    <span>Patamar geral do manuscrito adequado para submissão.</span>
-                  </div>
-                </div>
-
-                <div className="submission-decision">
-                  <strong>Recomendação atual</strong>
-                  <p>
-                    {readiness >= 75
-                      ? "A submissão já pode ser considerada, desde que haja conferência final de forma, referências e aderência ao periódico-alvo."
-                      : "Ainda não é o melhor momento para enviar. Uma revisão dirigida do resumo, dos trechos frágeis e do fechamento analítico tende a elevar bastante a recepção editorial do manuscrito."}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="muted-box">
-                O modo submissão ainda não está ativo. Ao acioná-lo, a interface passa a enfatizar critérios finais de consistência e elegibilidade.
-              </div>
-            )}
+              </article>
+            </section>
           </section>
         </main>
 
-        <aside className="side-column">
-          <section className="panel side-panel">
-            <div className="panel-header">
-              <div>
-                <span className="panel-kicker">Decisão editorial</span>
-                <h3>Painel lateral de decisão</h3>
-                <p>
-                  Esta área concentra o que interessa do ponto de vista prático: revisar, submeter ou interromper o fluxo para fortalecer o texto.
-                </p>
-              </div>
-            </div>
-
-            <div className="decision-card">
-              <strong>Se o texto for enviado agora</strong>
-              <p>
-                {risk === "alto"
-                  ? "A chance de recepção negativa é significativa, sobretudo por fragilidade de entrada e sustentação parcial."
-                  : risk === "médio"
-                    ? "Há base para avaliação inicial, mas ainda com pontos que tendem a reduzir a força do manuscrito perante a triagem."
-                    : "O texto já se encontra em faixa mais segura, embora ainda dependa de revisão final rigorosa."}
-              </p>
-            </div>
-
-            <div className="decision-card">
-              <strong>Se a revisão sugerida for incorporada</strong>
-              <p>
-                A tendência é de melhora na apresentação global do manuscrito, na consistência do resumo e na percepção de maturidade argumentativa.
-              </p>
-            </div>
-
-            <div className="risk-stack">
-              <div className="risk-head">
-                <span>Risco editorial atual</span>
-                <strong>{risk}</strong>
-              </div>
-              <div className="risk-track">
-                <span
-                  className={risk === "alto" ? "risk-high" : risk === "médio" ? "risk-mid" : "risk-low"}
-                  style={{ width: risk === "alto" ? "78%" : risk === "médio" ? "52%" : "26%" }}
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className="panel side-panel">
-            <div className="panel-header">
-              <div>
-                <span className="panel-kicker">Rotas de submissão</span>
-                <h3>Periódicos sugeridos</h3>
-                <p>
-                  As sugestões abaixo são indicativas e servem para orientar a reflexão estratégica sobre escopo, maturidade e aderência temática.
-                </p>
-              </div>
-            </div>
-
-            <div className="journal-list">
-              {journals.map((journal) => (
-                <article key={journal.name} className="journal-card">
-                  <div>
-                    <strong>{journal.name}</strong>
-                    <p>{journal.rationale}</p>
-                  </div>
-                  <span className={`tag tag-${journal.fit}`}>
-                    {journal.fit === "alto" ? "melhor aderência" : journal.fit === "medio" ? "exige ajuste" : "rota de reserva"}
-                  </span>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="panel side-panel dark-panel">
-            <span className="panel-kicker">Observação final</span>
-            <h3>Uma leitura para orientar ação, não para decorar o problema</h3>
+        <aside className="inspector">
+          <section className="inspector-card inspector-card-hero">
+            <span className="section-kicker">Painel do pesquisador</span>
+            <h2>Leitura editorial em tempo real</h2>
             <p>
-              O objetivo desta página é transformar revisão difusa em decisão concreta: o que já está sólido, o que enfraquece o manuscrito e o que precisa ser feito agora para elevar a chance de uma boa recepção editorial.
+              O WebLab nao fica ao lado do manuscrito apenas para observar. Ele sintetiza o estado do texto,
+              aponta risco e organiza o proximo movimento editorial.
             </p>
+          </section>
+
+          <section className="inspector-card">
+            <button className="accordion-head" onClick={() => toggleAccordion("cognition")} type="button">
+              <span>Leitura Cognitiva</span>
+              <strong>{openAccordions.cognition ? "−" : "+"}</strong>
+            </button>
+            {openAccordions.cognition ? (
+              <div className="accordion-body">
+                <div className="score-list">
+                  <div className="score-row">
+                    <span>Clareza</span>
+                    <strong>{scores.clarity.toFixed(1)}</strong>
+                  </div>
+                  <div className="score-row">
+                    <span>Coesao</span>
+                    <strong>{scores.cohesion.toFixed(1)}</strong>
+                  </div>
+                  <div className="score-row">
+                    <span>Argumentacao</span>
+                    <strong>{scores.argumentation.toFixed(1)}</strong>
+                  </div>
+                </div>
+                <ul className="insight-list">
+                  <li>{readiness >= 75 ? "Entrada editorial competitiva para triagem inicial." : "A entrada ainda pode parecer mais fraca do que o manuscrito realmente e."}</li>
+                  <li>{weakClaims.length > 0 ? `${weakClaims.length} trecho(s) pedem sustentacao adicional ou prudencia formular.` : "Nenhum trecho critico foi sinalizado pela heuristica local."}</li>
+                  <li>{scores.cohesion >= 6.7 ? "A progressao entre blocos se mantem coerente." : "Vale reforcar transicoes entre secoes e fechamento analitico."}</li>
+                </ul>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="inspector-card">
+            <button className="accordion-head" onClick={() => toggleAccordion("references")} type="button">
+              <span>Referencias Inteligentes</span>
+              <strong>{openAccordions.references ? "−" : "+"}</strong>
+            </button>
+            {openAccordions.references ? (
+              <div className="accordion-body">
+                <div className="reference-callout">
+                  <strong>{weakClaims.length > 0 ? `${weakClaims.length} citacoes relevantes a validar` : "Base argumentativa em faixa estavel"}</strong>
+                  <p>
+                    O painel usa sinais do proprio manuscrito para estimar onde referencias ou precisao metodologica tendem a fortalecer o texto.
+                  </p>
+                </div>
+                <ul className="insight-list">
+                  <li>Revise trechos com dados numericos sem fonte explicita.</li>
+                  <li>Evite afirmacoes universais sem apoio bibliografico.</li>
+                  <li>Priorize referencias nas secoes de resultados e discussao.</li>
+                </ul>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="inspector-card">
+            <button className="accordion-head" onClick={() => toggleAccordion("submission")} type="button">
+              <span>Pronto para Submissao</span>
+              <strong>{openAccordions.submission ? "−" : "+"}</strong>
+            </button>
+            {openAccordions.submission ? (
+              <div className="accordion-body">
+                <div className="submission-meter">
+                  <div className="submission-meter__track">
+                    <span style={{ width: `${readiness}%` }} />
+                  </div>
+                  <div className="submission-meter__meta">
+                    <strong>{readiness}%</strong>
+                    <span>Risco editorial {risk}</span>
+                  </div>
+                </div>
+                <div className="checklist compact">
+                  {submissionChecklist.map((item) => (
+                    <div className="check-item" key={item.label}>
+                      <span className={`check-bullet ${item.done ? "done" : "todo"}`}>{item.done ? "✓" : "•"}</span>
+                      <span>{item.label}</span>
+                    </div>
+                  ))}
+                </div>
+                {submissionMode ? (
+                  <p className="submission-note">
+                    Modo submissao ativo: a interface passa a enfatizar fechamento, consistencia formal e aderencia editorial.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
+
+          <section className="inspector-card">
+            <button className="accordion-head" onClick={() => toggleAccordion("actions")} type="button">
+              <span>Proxima Acao</span>
+              <strong>{openAccordions.actions ? "−" : "+"}</strong>
+            </button>
+            {openAccordions.actions ? (
+              <div className="accordion-body">
+                <ul className="action-list">
+                  <li className="action-item action-item-primary">
+                    <strong>{nextStep.title}</strong>
+                    <p>{nextStep.description}</p>
+                  </li>
+                  <li className="action-item">
+                    <strong>Revisar a camada de resultados</strong>
+                    <p>Fortaleca o vinculo entre achados, sustentacao empirica e interpretacao final.</p>
+                  </li>
+                  <li className="action-item">
+                    <strong>Conferir resumo e palavras-chave</strong>
+                    <p>Essa entrada continua sendo uma das areas com maior impacto na triagem editorial.</p>
+                  </li>
+                </ul>
+              </div>
+            ) : null}
           </section>
         </aside>
       </div>
 
+      <section className="bottom-grid">
+        <article className="surface-card">
+          <div className="surface-card__head">
+            <div>
+              <span className="section-kicker">Radar Editorial</span>
+              <h2>Rotas de submissao sugeridas</h2>
+            </div>
+          </div>
+          <div className="journal-list">
+            {journals.map((journal) => (
+              <article className="journal-card" key={journal.name}>
+                <div>
+                  <strong>{journal.name}</strong>
+                  <p>{journal.rationale}</p>
+                </div>
+                <span className={`fit-tag fit-${journal.fit}`}>{journal.fit === "alto" ? "melhor aderencia" : journal.fit === "medio" ? "exige ajuste" : "rota de reserva"}</span>
+              </article>
+            ))}
+          </div>
+        </article>
+
+        <article className="surface-card">
+          <div className="surface-card__head">
+            <div>
+              <span className="section-kicker">Resumo da Triagem</span>
+              <h2>Panorama de prontidao</h2>
+            </div>
+          </div>
+          <div className="triage-grid">
+            <div className="triage-stat">
+              <strong>{summaryChecklist.filter((item) => item.done).length}</strong>
+              <span>itens do resumo fechados</span>
+            </div>
+            <div className="triage-stat">
+              <strong>{submissionChecklist.filter((item) => item.done).length}</strong>
+              <span>criterios de submissao atendidos</span>
+            </div>
+            <div className="triage-stat">
+              <strong>{Math.max(0, 4 - weakClaims.length)}</strong>
+              <span>margem de seguranca argumentativa</span>
+            </div>
+          </div>
+          <div className="triage-summary">
+            <p>
+              {risk === "alto"
+                ? "O manuscrito ainda transmite fragilidades perceptiveis de entrada ou sustentacao. Vale amadurecer o texto antes de tratar a submissao como proximo passo."
+                : risk === "medio"
+                  ? "Ha base consistente para avancar, mas o texto ainda pede revisao dirigida em pontos que influenciam diretamente a leitura da triagem."
+                  : "O texto ja entrou numa faixa mais segura. O foco agora passa a ser aderencia ao periodico e fechamento formal."}
+            </p>
+          </div>
+        </article>
+      </section>
+
       <style jsx>{`
         .page {
-          --ink: #14252d;
-          --muted: #5f6f76;
-          --muted-soft: #7a8a91;
-          --line: rgba(18, 37, 45, 0.1);
-          --line-strong: rgba(18, 37, 45, 0.16);
-          --surface-strong: #ffffff;
-          --accent: #0f8b8d;
-          --accent-deep: #0b6c6e;
-          --warm: #a26d1c;
-          --success: #1d8f5f;
-          background:
-            radial-gradient(circle at top left, rgba(15, 139, 141, 0.08), transparent 22%),
-            radial-gradient(circle at top right, rgba(162, 109, 28, 0.08), transparent 18%),
-            linear-gradient(180deg, #f4f7f8 0%, #eef2f4 100%);
-          color: var(--ink);
-          min-height: 100vh;
-          padding: 32px;
-          font-family: var(--font-editor-sans, "Atkinson Hyperlegible", "Segoe UI", sans-serif);
-        }
-
-        .hero,
-        .panel,
-        .next-step {
-          border: 1px solid var(--line);
-          box-shadow: 0 18px 48px rgba(14, 27, 32, 0.08);
-        }
-
-        .hero {
           display: grid;
-          gap: 28px;
-          grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.88fr);
-          padding: 30px;
-          border-radius: 32px;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(251, 253, 253, 0.94));
-          position: relative;
-          overflow: hidden;
+          gap: 22px;
+          padding: 28px 0 56px;
+          color: #123040;
         }
 
-        .hero::after {
-          content: "";
-          position: absolute;
-          inset: auto -80px -120px auto;
-          width: 260px;
-          height: 260px;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(15, 139, 141, 0.12), rgba(15, 139, 141, 0));
-          pointer-events: none;
+        .status-rail,
+        .document-stage,
+        .surface-card,
+        .inspector-card {
+          border: 1px solid rgba(202, 214, 223, 0.92);
+          box-shadow: 0 18px 42px rgba(15, 23, 42, 0.06);
         }
 
-        .hero-content,
-        .hero-aside {
-          position: relative;
-          z-index: 1;
-        }
-
-        .eyebrow-row,
-        .hero-actions,
-        .panel-actions {
+        .status-rail {
           display: flex;
-          gap: 12px;
-          flex-wrap: wrap;
-        }
-
-        h1,
-        h2,
-        h3 {
-          font-family: var(--font-editor-serif, "Crimson Pro", Georgia, serif);
-          letter-spacing: -0.035em;
-          color: #10252d;
-          margin: 0;
-        }
-
-        .hero-content h1 {
-          margin-top: 18px;
-          font-size: clamp(2.7rem, 4vw, 4.35rem);
-          line-height: 0.96;
-          max-width: 12ch;
-        }
-
-        .lead,
-        .panel-header p,
-        .next-step p,
-        .decision-card p,
-        .journal-card p,
-        .readiness-copy,
-        .score-card p,
-        .signal-card p,
-        .weak-card p,
-        .muted-box,
-        .submission-decision p,
-        .dark-panel p {
-          color: var(--muted);
-          line-height: 1.72;
-          font-size: 0.95rem;
-        }
-
-        .lead {
-          margin: 18px 0 0;
-          max-width: 72ch;
-          font-size: 1.01rem;
-        }
-
-        .sync-row {
-          margin-top: 18px;
-          display: flex;
-          gap: 12px;
           align-items: center;
+          justify-content: space-between;
+          gap: 16px;
           flex-wrap: wrap;
-          font-size: 0.9rem;
-          color: var(--muted-soft);
+          padding: 14px 18px;
+          border-radius: 18px;
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 252, 0.92));
         }
 
-        .sync-label,
-        .panel-kicker,
-        .score-label {
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-          font-size: 0.72rem;
-          font-weight: 800;
-          color: var(--accent);
+        .status-rail__left,
+        .status-rail__right,
+        .tag-row,
+        .toolbar,
+        .next-step__actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
         }
 
-        .pill,
+        .context-pill,
         .tag,
-        .tone-badge {
+        .readiness-chip,
+        .fit-tag {
           display: inline-flex;
           align-items: center;
-          justify-content: center;
           min-height: 32px;
           padding: 0 12px;
           border-radius: 999px;
-          font-size: 0.72rem;
+          font-size: 12px;
           font-weight: 800;
-          letter-spacing: 0.04em;
-          text-transform: uppercase;
-          border: 1px solid transparent;
-          white-space: nowrap;
+          border: 1px solid rgba(202, 214, 223, 0.9);
+          background: rgba(255, 255, 255, 0.82);
         }
 
-        .pill-primary {
-          background: rgba(15, 139, 141, 0.1);
-          border-color: rgba(15, 139, 141, 0.16);
-          color: var(--accent);
+        .context-pill-primary {
+          color: #0f766e;
+          background: rgba(221, 250, 244, 0.98);
+          border-color: rgba(95, 196, 178, 0.28);
         }
 
-        .pill-success {
-          background: rgba(29, 143, 95, 0.12);
-          border-color: rgba(29, 143, 95, 0.16);
-          color: var(--success);
+        .readiness-chip {
+          color: #0f766e;
+          background: rgba(239, 252, 249, 0.98);
         }
 
-        .pill-warning {
-          background: rgba(162, 109, 28, 0.11);
-          border-color: rgba(162, 109, 28, 0.16);
-          color: var(--warm);
+        .readiness-chip-alto {
+          color: #9a3412;
+          background: rgba(255, 237, 213, 0.98);
         }
 
-        .pill-soft {
-          background: rgba(18, 37, 45, 0.05);
-          border-color: rgba(18, 37, 45, 0.08);
-          color: #58686f;
+        .readiness-chip-medio {
+          color: #9a6700;
+          background: rgba(255, 244, 206, 0.98);
         }
 
-        .pill-dark {
-          background: rgba(255, 255, 255, 0.1);
-          border-color: rgba(255, 255, 255, 0.14);
-          color: #ffffff;
+        .ghost-link {
+          font-size: 13px;
+          font-weight: 700;
+          color: #225c70;
         }
 
-        .button {
-          min-height: 48px;
-          border-radius: 14px;
-          padding: 0 18px;
-          font-size: 0.93rem;
-          font-weight: 800;
-          letter-spacing: -0.01em;
-          border: 1px solid transparent;
-          cursor: pointer;
-          transition:
-            transform 180ms ease,
-            border-color 180ms ease,
-            background-color 180ms ease,
-            color 180ms ease,
-            box-shadow 180ms ease;
-          text-decoration: none;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          font-family: inherit;
-        }
-
-        .button:hover {
-          transform: translateY(-1px);
-        }
-
-        .button-primary {
-          background: linear-gradient(135deg, var(--accent) 0%, var(--accent-deep) 100%);
-          color: #ffffff;
-          box-shadow: 0 14px 28px rgba(15, 139, 141, 0.18);
-        }
-
-        .button-secondary {
-          background: rgba(255, 255, 255, 0.88);
-          border-color: var(--line-strong);
-          color: var(--ink);
-        }
-
-        .button-soft {
-          background: rgba(15, 139, 141, 0.08);
-          border-color: rgba(15, 139, 141, 0.12);
-          color: var(--accent);
-        }
-
-        .button-white {
-          background: rgba(255, 255, 255, 0.94);
-          color: var(--accent-deep);
-        }
-
-        .button-outline-light {
-          background: rgba(255, 255, 255, 0.05);
-          border-color: rgba(255, 255, 255, 0.15);
-          color: #ffffff;
-        }
-
-        .hero-aside {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-          padding: 22px;
-          border-radius: 26px;
-          border: 1px solid var(--line);
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 252, 0.98));
-        }
-
-        .hero-aside__top {
+        .workspace {
           display: grid;
-          gap: 14px;
-        }
-
-        .tone-badge {
-          width: fit-content;
-        }
-
-        .tone-ready {
-          background: rgba(29, 143, 95, 0.12);
-          color: var(--success);
-          border-color: rgba(29, 143, 95, 0.15);
-        }
-
-        .tone-steady {
-          background: rgba(162, 109, 28, 0.12);
-          color: var(--warm);
-          border-color: rgba(162, 109, 28, 0.16);
-        }
-
-        .tone-fragile {
-          background: rgba(180, 76, 76, 0.12);
-          color: #aa4a4a;
-          border-color: rgba(180, 76, 76, 0.16);
-        }
-
-        .readiness-value {
-          font-family: var(--font-editor-serif, "Crimson Pro", Georgia, serif);
-          font-size: clamp(3.4rem, 6vw, 5.1rem);
-          line-height: 0.9;
-          letter-spacing: -0.07em;
-        }
-
-        .meter,
-        .risk-track {
-          width: 100%;
-          height: 12px;
-          border-radius: 999px;
-          overflow: hidden;
-          background: rgba(18, 37, 45, 0.08);
-        }
-
-        .meter span,
-        .risk-track span {
-          display: block;
-          height: 100%;
-          border-radius: inherit;
-        }
-
-        .meter span {
-          background: linear-gradient(90deg, #6fd1c5, #0f8b8d 70%, #0b6c6e 100%);
-        }
-
-        .hero-stats {
-          display: grid;
-          gap: 14px;
-          grid-template-columns: repeat(3, 1fr);
-        }
-
-        .mini-stat,
-        .score-card,
-        .signal-card,
-        .decision-card,
-        .journal-card,
-        .weak-card,
-        .abstract-box,
-        .submission-box,
-        .muted-box {
-          border: 1px solid var(--line);
-          border-radius: 18px;
-          background: var(--surface-strong);
-        }
-
-        .mini-stat,
-        .score-card,
-        .signal-card,
-        .decision-card,
-        .journal-card,
-        .weak-card,
-        .abstract-box,
-        .submission-box,
-        .muted-box,
-        .panel {
-          padding: 18px;
-        }
-
-        .mini-stat strong,
-        .score-card strong {
-          display: block;
-          line-height: 1;
-          margin-bottom: 8px;
-        }
-
-        .mini-stat strong {
-          font-size: 1.7rem;
-        }
-
-        .mini-stat span {
-          color: var(--muted-soft);
-          font-size: 0.8rem;
-        }
-
-        .next-step {
-          margin-top: 24px;
-          padding: 26px;
-          border-radius: 28px;
-          background: linear-gradient(135deg, #10252d 0%, #18333c 100%);
-          color: #ffffff;
-          display: grid;
-          gap: 18px;
-          grid-template-columns: minmax(0, 1fr) auto;
-          align-items: end;
-        }
-
-        .next-step h2 {
-          margin-top: 14px;
-          font-size: clamp(2rem, 3vw, 3rem);
-          line-height: 0.98;
-          color: #ffffff;
-          max-width: 12ch;
-        }
-
-        .next-step p {
-          margin-top: 10px;
-          color: rgba(255, 255, 255, 0.82);
-          max-width: 68ch;
-        }
-
-        .next-step__actions {
-          display: flex;
-          gap: 12px;
-          flex-wrap: wrap;
-          justify-content: flex-end;
-        }
-
-        .layout {
-          display: grid;
-          grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.92fr);
-          gap: 24px;
-          margin-top: 24px;
+          grid-template-columns: minmax(0, 1.72fr) minmax(320px, 0.68fr);
+          gap: 22px;
           align-items: start;
         }
 
-        .main-column,
-        .side-column,
-        .score-grid,
-        .cognition-grid,
+        .document-stage,
+        .surface-card,
+        .inspector-card {
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 251, 252, 0.96));
+          border-radius: 24px;
+        }
+
+        .document-stage {
+          display: grid;
+          gap: 22px;
+          padding: 26px;
+        }
+
+        .document-header {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(280px, 320px);
+          gap: 18px;
+          align-items: start;
+        }
+
+        .document-header__copy {
+          display: grid;
+          gap: 16px;
+        }
+
+        h1,
+        h2 {
+          margin: 0;
+          letter-spacing: -0.045em;
+        }
+
+        h1 {
+          font-size: clamp(2.75rem, 4.2vw, 4.4rem);
+          line-height: 0.96;
+          font-family: var(--editor-display, "Iowan Old Style", "Book Antiqua", Georgia, serif);
+          color: #123040;
+          text-wrap: balance;
+        }
+
+        h2 {
+          font-size: 1.9rem;
+          line-height: 1.02;
+        }
+
+        .hero-metrics {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .hero-metrics article,
+        .triage-stat {
+          display: grid;
+          gap: 4px;
+          padding: 16px 14px;
+          border-radius: 18px;
+          border: 1px solid rgba(216, 226, 233, 0.95);
+          background: rgba(247, 250, 252, 0.96);
+        }
+
+        .hero-metrics strong,
+        .triage-stat strong {
+          font-size: 1.65rem;
+          line-height: 1;
+        }
+
+        .hero-metrics span,
+        .triage-stat span,
+        .section-kicker {
+          font-size: 0.78rem;
+          letter-spacing: 0.11em;
+          text-transform: uppercase;
+          color: #5a7180;
+          font-weight: 800;
+        }
+
+        .next-step {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) auto;
+          gap: 18px;
+          align-items: end;
+          padding: 18px 20px;
+          border-radius: 20px;
+          background: linear-gradient(135deg, #f6fbfb 0%, #ecf7f4 100%);
+          border: 1px solid rgba(182, 219, 213, 0.86);
+        }
+
+        .next-step strong {
+          display: block;
+          margin: 6px 0 8px;
+          font-size: 1.35rem;
+          line-height: 1.08;
+        }
+
+        .next-step p,
+        .abstract-box,
+        .weak-card__reason,
+        .inspector-card p,
+        .journal-card p,
+        .triage-summary p,
+        .submission-note,
+        .collapsed-state,
+        .action-item p {
+          margin: 0;
+          color: #5d7482;
+          font-size: 14px;
+          line-height: 1.72;
+        }
+
+        .toolbar {
+          padding: 10px 14px;
+          border-radius: 20px;
+          border: 1px solid rgba(211, 220, 228, 0.95);
+          background: rgba(255, 255, 255, 0.98);
+          overflow-x: auto;
+          flex-wrap: nowrap;
+        }
+
+        .toolbar-button,
+        .button {
+          border: 1px solid rgba(202, 214, 223, 0.94);
+          background: rgba(255, 255, 255, 0.94);
+          color: #15384b;
+          border-radius: 999px;
+          min-height: 42px;
+          padding: 0 16px;
+          font-size: 14px;
+          font-weight: 800;
+          transition: background 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+        }
+
+        .toolbar-button {
+          min-height: 38px;
+          white-space: nowrap;
+          font-size: 13px;
+        }
+
+        .toolbar-button:hover,
+        .button:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 12px 22px rgba(15, 23, 42, 0.08);
+        }
+
+        .toolbar-button-accent {
+          background: rgba(226, 250, 245, 0.98);
+          border-color: rgba(95, 196, 178, 0.3);
+          color: #0f766e;
+        }
+
+        .button-primary {
+          background: linear-gradient(135deg, #195d76 0%, #1e7d7a 100%);
+          color: white;
+          border-color: transparent;
+        }
+
+        .button-secondary {
+          background: rgba(255, 255, 255, 0.9);
+        }
+
+        .document-shell {
+          position: relative;
+          display: grid;
+          grid-template-columns: 62px minmax(0, 1fr);
+          min-height: 860px;
+          border-radius: 24px;
+          border: 1px solid rgba(211, 220, 228, 0.95);
+          background:
+            linear-gradient(90deg, rgba(249, 251, 252, 0.98) 0 62px, rgba(255, 255, 255, 0.985) 62px 100%);
+          overflow: hidden;
+        }
+
+        .document-shell__guide {
+          border-right: 1px solid rgba(221, 229, 235, 0.96);
+          background:
+            linear-gradient(180deg, rgba(247, 250, 252, 0.98), rgba(243, 248, 250, 0.98));
+        }
+
+        .document-editor {
+          padding: 64px 72px 72px;
+          outline: none;
+          font-family: var(--editor-display, "Iowan Old Style", "Book Antiqua", Georgia, serif);
+          color: #183543;
+          line-height: 1.74;
+          font-size: 1.18rem;
+        }
+
+        .document-editor :global(h2) {
+          margin: 0 0 20px;
+          padding-top: 26px;
+          border-top: 1px solid rgba(220, 228, 233, 0.96);
+          font-size: 2rem;
+          line-height: 1.04;
+          letter-spacing: -0.03em;
+          font-family: var(--editor-display, "Iowan Old Style", "Book Antiqua", Georgia, serif);
+          color: #153545;
+        }
+
+        .document-editor :global(h2:first-child) {
+          padding-top: 0;
+          border-top: none;
+        }
+
+        .document-editor :global(h3) {
+          margin: 28px 0 10px;
+          font-size: 1.35rem;
+          color: #173b4e;
+          font-family: var(--editor-sans, var(--font-sans), "Segoe UI", sans-serif);
+        }
+
+        .document-editor :global(p) {
+          margin: 0 0 24px;
+        }
+
+        .document-editor :global(.lead-paragraph) {
+          font-size: 1.2rem;
+          line-height: 1.8;
+          color: #26465a;
+        }
+
+        .document-editor :global(blockquote) {
+          margin: 0 0 24px;
+          padding: 0 0 0 18px;
+          border-left: 3px solid rgba(80, 159, 151, 0.52);
+          color: #406172;
+        }
+
+        .document-editor :global(ul),
+        .document-editor :global(ol) {
+          margin: 0 0 24px 20px;
+          padding: 0 0 0 18px;
+        }
+
+        .document-editor :global(a) {
+          color: #16627c;
+          text-decoration: underline;
+        }
+
+        .support-grid,
+        .bottom-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 18px;
+        }
+
+        .surface-card,
+        .inspector-card {
+          padding: 22px;
+        }
+
+        .surface-card {
+          display: grid;
+          gap: 18px;
+        }
+
+        .surface-card__head {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 16px;
+        }
+
+        .abstract-box {
+          padding: 18px 18px 2px;
+          border-radius: 18px;
+          border: 1px solid rgba(221, 229, 235, 0.96);
+          background: rgba(248, 251, 252, 0.94);
+          white-space: pre-wrap;
+        }
+
         .checklist,
-        .weak-claims,
         .journal-list,
-        .risk-stack,
-        .submission-checklist {
+        .weak-claims,
+        .action-list {
           display: grid;
           gap: 12px;
         }
 
-        .main-column,
-        .side-column {
-          gap: 24px;
-        }
-
-        .panel {
-          border-radius: 26px;
-          background: rgba(255, 255, 255, 0.94);
-          backdrop-filter: blur(10px);
-        }
-
-        .panel-header {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 18px;
-          margin-bottom: 20px;
-        }
-
-        .panel-header h3,
-        .dark-panel h3 {
-          font-size: clamp(1.6rem, 2.4vw, 2.1rem);
-          line-height: 1.02;
-        }
-
-        .score-grid {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-        }
-
-        .score-card strong {
-          font-family: var(--font-editor-serif, "Crimson Pro", Georgia, serif);
-          font-size: 2.3rem;
-          letter-spacing: -0.05em;
-        }
-
-        .cognition-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
-
-        .signal-head,
-        .weak-card__head,
-        .risk-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-        }
-
-        .signal-head {
-          margin-bottom: 10px;
-        }
-
-        .signal-head strong,
-        .decision-card strong,
-        .journal-card strong,
-        .weak-card strong,
-        .submission-decision strong {
-          font-size: 0.95rem;
-        }
-
-        .signal-head span,
-        .severity {
-          font-size: 0.72rem;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-        }
-
-        .signal-stable .signal-head span {
-          color: var(--success);
-        }
-
-        .signal-watch .signal-head span,
-        .severity-moderada {
-          color: var(--warm);
-        }
-
-        .signal-critical .signal-head span,
-        .severity-elevada {
-          color: #aa4a4a;
-        }
-
-        .abstract-box {
-          color: #243b43;
-          white-space: pre-wrap;
-          line-height: 1.9;
-          font-size: 0.98rem;
+        .checklist.compact {
+          gap: 10px;
         }
 
         .check-item {
           display: flex;
-          gap: 12px;
+          gap: 10px;
           align-items: flex-start;
-          font-size: 0.94rem;
-          line-height: 1.58;
-          color: #234049;
+          color: #264455;
+          font-size: 14px;
+          line-height: 1.55;
         }
 
         .check-bullet {
-          width: 22px;
-          height: 22px;
-          border-radius: 999px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          flex: 0 0 22px;
+          width: 20px;
+          height: 20px;
+          border-radius: 999px;
+          flex: 0 0 20px;
           margin-top: 1px;
-          font-size: 0.74rem;
+          font-size: 12px;
           font-weight: 900;
         }
 
         .check-bullet.done {
-          background: rgba(29, 143, 95, 0.12);
-          color: var(--success);
+          background: rgba(222, 250, 240, 0.98);
+          color: #0f766e;
         }
 
         .check-bullet.todo {
-          background: rgba(18, 37, 45, 0.07);
-          color: var(--muted-soft);
+          background: rgba(236, 241, 244, 0.98);
+          color: #6a8290;
+        }
+
+        .weak-card,
+        .journal-card,
+        .action-item,
+        .reference-callout {
+          padding: 16px;
+          border-radius: 18px;
+          border: 1px solid rgba(221, 229, 235, 0.96);
+          background: rgba(255, 255, 255, 0.94);
         }
 
         .weak-card-ok {
-          background: linear-gradient(180deg, rgba(246, 252, 249, 1), rgba(241, 249, 244, 1));
+          background: linear-gradient(180deg, rgba(245, 252, 249, 0.98), rgba(240, 249, 245, 0.96));
         }
 
-        .sentence {
-          color: #1b3139;
-          font-weight: 500;
+        .weak-card__head,
+        .journal-card,
+        .accordion-head,
+        .score-row {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
         }
 
-        .reason {
-          color: var(--muted-soft);
+        .weak-card__sentence {
+          margin: 8px 0;
+          color: #19394b;
+          font-weight: 600;
+          line-height: 1.6;
         }
 
-        .submission-decision {
-          margin-top: 16px;
+        .severity {
+          display: inline-flex;
+          align-items: center;
+          min-height: 28px;
+          padding: 0 10px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+
+        .severity-moderada {
+          background: rgba(255, 243, 209, 0.98);
+          color: #9a6700;
+        }
+
+        .severity-elevada {
+          background: rgba(255, 232, 232, 0.98);
+          color: #b42318;
+        }
+
+        .collapsed-state,
+        .submission-note {
           padding: 16px;
           border-radius: 16px;
-          border: 1px solid var(--line);
-          background: rgba(255, 255, 255, 0.98);
+          border: 1px dashed rgba(211, 220, 228, 0.98);
+          background: rgba(248, 251, 252, 0.94);
         }
 
-        .risk-head {
-          margin-bottom: 8px;
-          font-size: 0.82rem;
-          font-weight: 800;
-          color: #223e46;
+        .inspector {
+          display: grid;
+          gap: 16px;
+          position: sticky;
+          top: 96px;
         }
 
-        .risk-high {
-          background: linear-gradient(90deg, #e6a4a4, #c14646);
-        }
-
-        .risk-mid {
-          background: linear-gradient(90deg, #efd28d, #b7791f);
-        }
-
-        .risk-low {
-          background: linear-gradient(90deg, #9fe0c0, #1f9d68);
-        }
-
-        .journal-card {
-          display: flex;
-          justify-content: space-between;
+        .inspector-card {
+          display: grid;
           gap: 14px;
-          align-items: flex-start;
         }
 
-        .tag-alto {
-          background: rgba(29, 143, 95, 0.12);
-          color: var(--success);
+        .inspector-card-hero {
+          background: linear-gradient(180deg, rgba(250, 252, 253, 0.99), rgba(243, 248, 250, 0.96));
         }
 
-        .tag-medio {
-          background: rgba(162, 109, 28, 0.12);
-          color: var(--warm);
+        .accordion-head {
+          width: 100%;
+          padding: 0;
+          border: none;
+          background: transparent;
+          color: #15384b;
+          font-size: 1rem;
+          font-weight: 800;
+          text-align: left;
         }
 
-        .tag-reserva {
-          background: rgba(18, 37, 45, 0.08);
-          color: #5c6f76;
+        .accordion-body,
+        .score-list,
+        .triage-grid {
+          display: grid;
+          gap: 12px;
         }
 
-        .dark-panel {
-          background: linear-gradient(135deg, #10252d 0%, #18333c 100%);
-          border-color: rgba(255, 255, 255, 0.06);
-          color: #ffffff;
+        .score-row {
+          padding-bottom: 10px;
+          border-bottom: 1px solid rgba(229, 235, 239, 0.98);
+          font-size: 14px;
+          color: #264455;
         }
 
-        .dark-panel .panel-kicker {
-          color: rgba(152, 225, 222, 0.88);
+        .score-row:last-child {
+          border-bottom: none;
+          padding-bottom: 0;
         }
 
-        .dark-panel h3,
-        .dark-panel p {
-          color: #ffffff;
+        .score-row strong {
+          font-size: 1.1rem;
         }
 
-        .dark-panel p {
-          color: rgba(255, 255, 255, 0.8);
+        .insight-list {
+          display: grid;
+          gap: 10px;
+          margin: 0;
+          padding: 0;
+          list-style: none;
+          color: #375265;
+          font-size: 14px;
+          line-height: 1.65;
+        }
+
+        .insight-list li {
+          padding-top: 10px;
+          border-top: 1px solid rgba(229, 235, 239, 0.98);
+        }
+
+        .insight-list li:first-child {
+          padding-top: 0;
+          border-top: none;
+        }
+
+        .submission-meter {
+          display: grid;
+          gap: 10px;
+        }
+
+        .submission-meter__track {
+          width: 100%;
+          height: 10px;
+          border-radius: 999px;
+          background: rgba(230, 236, 241, 0.98);
+          overflow: hidden;
+        }
+
+        .submission-meter__track span {
+          display: block;
+          height: 100%;
+          border-radius: inherit;
+          background: linear-gradient(90deg, #4aa89a 0%, #195d76 100%);
+        }
+
+        .submission-meter__meta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          font-size: 14px;
+          color: #3d596a;
+        }
+
+        .action-item-primary {
+          background: linear-gradient(180deg, rgba(241, 249, 248, 0.98), rgba(236, 245, 244, 0.98));
+        }
+
+        .action-item strong,
+        .reference-callout strong,
+        .journal-card strong {
+          display: block;
+          margin-bottom: 6px;
+          font-size: 15px;
+          color: #143447;
+        }
+
+        .fit-alto {
+          color: #0f766e;
+          background: rgba(222, 250, 240, 0.98);
+        }
+
+        .fit-medio {
+          color: #9a6700;
+          background: rgba(255, 243, 209, 0.98);
+        }
+
+        .fit-reserva {
+          color: #5f7280;
+          background: rgba(236, 241, 244, 0.98);
+        }
+
+        .triage-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
         @media (max-width: 1180px) {
-          .hero,
-          .layout,
-          .next-step,
-          .score-grid,
-          .hero-stats,
-          .cognition-grid {
+          .workspace,
+          .support-grid,
+          .bottom-grid,
+          .document-header,
+          .next-step {
             grid-template-columns: 1fr;
           }
 
-          .next-step__actions {
-            justify-content: flex-start;
+          .inspector {
+            position: static;
           }
         }
 
-        @media (max-width: 760px) {
+        @media (max-width: 820px) {
           .page {
+            padding: 18px 0 40px;
+          }
+
+          .document-stage {
             padding: 18px;
           }
 
-          .hero,
-          .panel,
-          .next-step {
-            padding: 20px;
-            border-radius: 22px;
+          .document-shell {
+            grid-template-columns: 18px minmax(0, 1fr);
+            min-height: 620px;
           }
 
-          .hero-content h1 {
-            max-width: none;
+          .document-editor {
+            padding: 34px 24px 36px;
+            font-size: 1.04rem;
           }
 
-          .button {
-            width: 100%;
-          }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .button {
-            transition: none;
+          .hero-metrics,
+          .triage-grid {
+            grid-template-columns: 1fr;
           }
         }
       `}</style>
@@ -1610,4 +1577,15 @@ export function ArticleIntelligencePage({
   );
 }
 
-export default ArticleIntelligencePage;
+function runEditorCommand(
+  command: string,
+  editorRef: { current: HTMLDivElement | null },
+  value?: string
+) {
+  editorRef.current?.focus();
+  const richDocument = document as Document & {
+    execCommand?: (commandId: string, showUI?: boolean, value?: string) => boolean;
+  };
+
+  richDocument.execCommand?.(command, false, value);
+}
