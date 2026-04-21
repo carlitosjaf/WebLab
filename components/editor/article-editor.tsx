@@ -985,6 +985,147 @@ function formatInTextCitation(work: ReferenceSuggestion) {
   return `${lastName}, ${year}`;
 }
 
+function buildGuideParagraph(text: string): JSONContent {
+  return {
+    type: "paragraph",
+    content: [{ type: "text", text }]
+  };
+}
+
+function buildGuideHeading(title: string): JSONContent {
+  return {
+    type: "heading",
+    attrs: { level: 3 },
+    content: [{ type: "text", text: title }]
+  };
+}
+
+function buildGuideList(items: string[]): JSONContent {
+  return {
+    type: "bulletList",
+    content: items.map((item) => ({
+      type: "listItem",
+      content: [
+        {
+          type: "paragraph",
+          content: [{ type: "text", text: item }]
+        }
+      ]
+    }))
+  };
+}
+
+function buildCitationSupportBlocks(gap: CitationGap): JSONContent[] {
+  const sectionLabel = gap.section === "Sem seção" ? "trecho sem seção nomeada" : gap.section;
+
+  return [
+    buildGuideHeading(`Bloco de sustentacao para ${sectionLabel}`),
+    buildGuideParagraph(`Trecho em foco: ${gap.text}`),
+    buildGuideParagraph(`Por que o WebLab sinalizou: ${gap.signal}.`),
+    buildGuideList([
+      "Abra o argumento com uma frase curta que diga exatamente o que a literatura ja mostrou.",
+      "Insira pelo menos uma citacao primaria logo depois da afirmacao central.",
+      "Feche o paragrafo explicando como a evidencia sustenta o recorte do manuscrito."
+    ])
+  ];
+}
+
+function buildSectionGuideBlocks(section: string, action: string, diagnosis?: string): JSONContent[] {
+  const normalized = normalizeSectionName(section);
+  const suggestionsBySection: Record<string, string[]> = {
+    resumo: [
+      "Diga em uma frase o objetivo do estudo.",
+      "Sintetize metodo, achado principal e conclusao no mesmo bloco.",
+      "Evite abrir novas discussoes que nao aparecem no manuscrito."
+    ],
+    introducao: [
+      "Contextualize o problema antes de abrir a lacuna.",
+      "Explique o que ainda falta na literatura.",
+      "Feche a secao com objetivo ou pergunta de pesquisa."
+    ],
+    metodologia: [
+      "Descreva desenho do estudo, participantes ou fontes de dados.",
+      "Explique criterios, coleta e analise.",
+      "Deixe claro o caminho metodologico para permitir reproducao."
+    ],
+    resultados: [
+      "Organize os achados por eixo ou categoria.",
+      "Apresente evidencias concretas antes de interpretar.",
+      "Use tabelas, percentuais ou categorias quando isso reforcar a leitura."
+    ],
+    discussao: [
+      "Interprete os achados a partir da literatura relevante.",
+      "Compare convergencias, tensoes e limites do estudo.",
+      "Feche com implicacoes e proximos passos."
+    ],
+    conclusao: [
+      "Retome a pergunta central sem repetir a discussao inteira.",
+      "Sintetize contribuicao e implicacoes.",
+      "Evite inserir resultados novos nesta secao."
+    ],
+    referencias: [
+      "Padronize as referencias no mesmo estilo bibliografico.",
+      "Revise autores, ano, titulo e fonte antes de fechar a submissao.",
+      "Garanta que todas as citacoes do texto aparecam aqui."
+    ]
+  };
+
+  return [
+    buildGuideHeading(`Guia de revisao: ${section}`),
+    ...(diagnosis ? [buildGuideParagraph(`Diagnostico atual: ${diagnosis}`)] : []),
+    buildGuideParagraph(`O que ajustar agora: ${action}`),
+    buildGuideList(
+      suggestionsBySection[normalized] ?? [
+        "Deixe clara a funcao cientifica desta secao.",
+        "Mostre como ela ajuda a sustentar a pergunta principal do manuscrito.",
+        "Reescreva o bloco de forma mais objetivo e verificavel."
+      ]
+    )
+  ];
+}
+
+function buildTextDiagnosticGuideBlocks(diagnostic: TextDiagnostic): JSONContent[] {
+  const normalized = diagnostic.title.toLowerCase();
+  let suggestions = [
+    "Reescreva o trecho com uma ideia central por paragrafo.",
+    "Use conectores para mostrar relacao entre as ideias.",
+    "Corte repeticao e mantenha o argumento verificavel."
+  ];
+
+  if (normalized.includes("frase")) {
+    suggestions = [
+      "Quebre a frase em duas ou tres unidades menores.",
+      "Deixe sujeito, acao e evidencia mais proximos.",
+      "Mantenha apenas a informacao indispensavel na primeira frase."
+    ];
+  } else if (normalized.includes("paragrafo")) {
+    suggestions = [
+      "Abra o paragrafo com a ideia central.",
+      "Distribua evidencia e interpretacao em frases separadas.",
+      "Feche o bloco preparando a transicao para o proximo ponto."
+    ];
+  } else if (normalized.includes("conector")) {
+    suggestions = [
+      "Adicione um conector que mostre contraste, causa ou sequencia.",
+      "Retome o gancho do paragrafo anterior.",
+      "Deixe claro por que esta ideia vem agora."
+    ];
+  } else if (normalized.includes("repet")) {
+    suggestions = [
+      "Substitua repeticoes por formulacoes mais precisas.",
+      "Junte frases que defendem a mesma ideia.",
+      "Mantenha o conceito principal e elimine eco desnecessario."
+    ];
+  }
+
+  return [
+    buildGuideHeading(`Ajuste de clareza: ${diagnostic.title}`),
+    buildGuideParagraph(diagnostic.message),
+    buildGuideParagraph(`Intervencao sugerida: ${diagnostic.action}`),
+    buildGuideList(suggestions)
+  ];
+}
+
 const sectionGroups: SectionGroup[] = [
   {
     id: "structure",
@@ -1924,6 +2065,27 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
 
     const chain = placement === "end" ? editor.chain().focus("end") : editor.chain().focus();
     chain.insertContent(blocks).run();
+  };
+
+  const insertGuidedBlocks = (
+    blocks: JSONContent[],
+    message: string,
+    tab: CognitiveTab = "estrutura",
+    feedback: "reference" | "analysis" = "analysis"
+  ) => {
+    if (!editor || !canEdit) {
+      return;
+    }
+
+    editor.chain().focus().insertContent(blocks).run();
+    setCognitiveTab(tab);
+
+    if (feedback === "reference") {
+      setReferenceMessage(message);
+      return;
+    }
+
+    setDeepAnalysisMessage(message);
   };
 
   const applyCompleteTemplate = () => {
@@ -2983,6 +3145,21 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                         >
                           {isFetchingReferences ? "Buscando..." : "Buscar papers para este trecho"}
                         </button>
+                        <button
+                          className="button button-secondary"
+                          disabled={!canEdit}
+                          onClick={() =>
+                            insertGuidedBlocks(
+                              buildCitationSupportBlocks(activeGap),
+                              "Bloco-guia de sustentacao inserido no manuscrito.",
+                              "referencias",
+                              "reference"
+                            )
+                          }
+                          type="button"
+                        >
+                          Inserir bloco-guia
+                        </button>
                       </div>
                     </div>
                   ) : (
@@ -3155,8 +3332,25 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                         <div className="cognitive-inspector__stack cognitive-inspector__priority-list">
                           {deepAnalysis.priorities.map((priority) => (
                             <article key={`${priority.section}-${priority.action}`}>
-                              <strong>{priority.section}</strong>
-                              <span>{priority.action}</span>
+                              <div>
+                                <strong>{priority.section}</strong>
+                                <span>{priority.action}</span>
+                              </div>
+                              <div className="cognitive-inspector__inline-actions">
+                                <button
+                                  className="button button-secondary"
+                                  disabled={!canEdit}
+                                  onClick={() =>
+                                    insertGuidedBlocks(
+                                      buildSectionGuideBlocks(priority.section, priority.action),
+                                      `Orientacao para ${priority.section} inserida no manuscrito.`
+                                    )
+                                  }
+                                  type="button"
+                                >
+                                  Aplicar no manuscrito
+                                </button>
+                              </div>
                             </article>
                           ))}
                         </div>
@@ -3172,6 +3366,25 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                             <p>{review.diagnosis}</p>
                             <small>Critério: {review.why.join(" ")}</small>
                             <small>Como melhorar: {review.suggestions.join(" ")}</small>
+                            <div className="cognitive-inspector__inline-actions">
+                              <button
+                                className="button button-secondary"
+                                disabled={!canEdit}
+                                onClick={() =>
+                                  insertGuidedBlocks(
+                                    buildSectionGuideBlocks(
+                                      review.section,
+                                      review.suggestions[0] ?? review.diagnosis,
+                                      review.diagnosis
+                                    ),
+                                    `Guia de revisão para ${review.section} inserido no texto.`
+                                  )
+                                }
+                                type="button"
+                              >
+                                Inserir orientação
+                              </button>
+                            </div>
                           </article>
                         ))}
                       </div>
@@ -3232,6 +3445,21 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                           </div>
                           <p>{diagnostic.message}</p>
                           <small>{diagnostic.action}</small>
+                          <div className="cognitive-inspector__inline-actions">
+                            <button
+                              className="button button-secondary"
+                              disabled={!canEdit}
+                              onClick={() =>
+                                insertGuidedBlocks(
+                                  buildSectionGuideBlocks(diagnostic.section, diagnostic.action, diagnostic.message),
+                                  `Intervenção guiada para ${diagnostic.section} inserida no manuscrito.`
+                                )
+                              }
+                              type="button"
+                            >
+                              Inserir orientação
+                            </button>
+                          </div>
                         </article>
                       ))}
                     </div>
@@ -3403,6 +3631,22 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                           </div>
                           <p>{diagnostic.message}</p>
                           <small>{diagnostic.action}</small>
+                          <div className="cognitive-inspector__inline-actions">
+                            <button
+                              className="button button-secondary"
+                              disabled={!canEdit}
+                              onClick={() =>
+                                insertGuidedBlocks(
+                                  buildTextDiagnosticGuideBlocks(diagnostic),
+                                  `Orientação de texto para ${diagnostic.title.toLowerCase()} inserida no manuscrito.`,
+                                  "texto"
+                                )
+                              }
+                              type="button"
+                            >
+                              Aplicar no texto
+                            </button>
+                          </div>
                         </article>
                       ))}
                     </div>

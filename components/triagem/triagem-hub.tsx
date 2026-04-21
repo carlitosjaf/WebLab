@@ -1103,6 +1103,9 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                       <button className="button button-secondary" onClick={downloadCsv} type="button">
                         Baixar CSV
                       </button>
+                      <Link className="button button-secondary" href={`/dashboard/artigos/${activeSet.artigo_id}` as Route}>
+                        Painel do artigo
+                      </Link>
                       <Link className="button button-secondary" href={`/editor/${activeSet.artigo_id}` as Route}>
                         Abrir manuscrito
                       </Link>
@@ -1214,6 +1217,10 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
               <article className="triagem-workspace-chip">
                 <span>Manuscrito</span>
                 <strong>{selectedArticle?.titulo ?? "Não selecionado"}</strong>
+              </article>
+              <article className="triagem-workspace-chip">
+                <span>Fluxo ligado</span>
+                <strong>{selectedArticle ? "Triagem + manuscrito" : "Escolha um manuscrito"}</strong>
               </article>
             </section>
 

@@ -1122,12 +1122,20 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
             >
               <strong>{selectedArticle?.titulo ?? "Nenhum manuscrito selecionado"}</strong>
               <span className="muted">Última edição: {formatRelativeUpdate(selectedArticle?.updated_at ?? null)}</span>
-              <Link
-                href={selectedArticle ? (`/editor/${selectedArticle.id}` as Route) : ("/dashboard" as Route)}
-                className="muted"
-              >
-                {selectedArticle ? "Abrir manuscrito no editor" : "Criar manuscrito na Home"}
-              </Link>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                <Link
+                  href={selectedArticle ? (`/dashboard/artigos/${selectedArticle.id}` as Route) : ("/dashboard" as Route)}
+                  className="button button-secondary"
+                >
+                  {selectedArticle ? "Abrir painel do artigo" : "Ir para Home"}
+                </Link>
+                <Link
+                  href={selectedArticle ? (`/editor/${selectedArticle.id}` as Route) : ("/dashboard" as Route)}
+                  className="button button-secondary"
+                >
+                  {selectedArticle ? "Abrir manuscrito no editor" : "Criar manuscrito"}
+                </Link>
+              </div>
             </div>
           </div>
 
