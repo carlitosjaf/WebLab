@@ -1046,68 +1046,117 @@ textarea:focus,
   background: var(--primary);
 }
 
-.app-context-shell {
-  display: grid;
-  gap: 10px;
-  padding: 14px 0 18px;
-  border-top: 1px solid rgba(148, 163, 184, 0.14);
-}
-
-.app-context-nav {
+.app-nav-menu {
+  position: relative;
   display: flex;
-  align-items: center;
+  align-items: stretch;
+}
+
+.app-nav-menu-trigger {
   gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 2px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
 }
 
-.app-context-nav::-webkit-scrollbar {
-  height: 6px;
+.app-nav-caret {
+  width: 8px;
+  height: 8px;
+  margin-top: -2px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+  opacity: 0.56;
+  transition: transform 180ms ease, opacity 180ms ease;
 }
 
-.app-context-nav::-webkit-scrollbar-thumb {
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.45);
+.app-nav-menu.is-open .app-nav-caret,
+.app-nav-menu-trigger:hover .app-nav-caret,
+.app-nav-menu-trigger:focus-visible .app-nav-caret {
+  transform: rotate(225deg);
+  opacity: 0.9;
 }
 
-.app-context-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  min-height: 38px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  color: #64748b;
-  background: transparent;
-  font-size: 0.93rem;
-  font-weight: 700;
-  white-space: nowrap;
+.app-nav-dropdown {
+  position: absolute;
+  top: calc(100% - 10px);
+  left: 0;
+  z-index: 80;
+  min-width: 320px;
+  max-width: min(360px, calc(100vw - 32px));
+  padding-top: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(8px) scale(0.985);
+  transform-origin: top left;
   transition:
+    opacity 160ms ease,
+    transform 180ms ease;
+}
+
+.app-nav-menu.is-open .app-nav-dropdown {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.app-nav-dropdown-shell {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(18px);
+  box-shadow:
+    0 24px 54px rgba(15, 23, 42, 0.12),
+    0 8px 18px rgba(15, 23, 42, 0.05);
+}
+
+.app-nav-dropdown-item {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  color: #51667a;
+  transition:
+    background 160ms ease,
     color 160ms ease,
-    background-color 160ms ease,
-    border-color 160ms ease;
+    transform 160ms ease;
 }
 
-.app-context-link:hover {
+.app-nav-dropdown-item span {
+  font-size: 0.94rem;
+  font-weight: 700;
+  line-height: 1.28;
+}
+
+.app-nav-dropdown-item small {
+  color: #94a3b8;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.app-nav-dropdown-item:hover {
+  background: rgba(15, 23, 42, 0.045);
   color: #0f172a;
-  background: rgba(15, 23, 42, 0.04);
+  transform: translateX(2px);
 }
 
-.app-context-link.active {
-  color: var(--primary);
+.app-nav-dropdown-item.active {
   background: rgba(40, 148, 135, 0.08);
-  border-color: rgba(40, 148, 135, 0.14);
+  color: var(--primary);
 }
 
-.app-context-link.disabled {
+.app-nav-dropdown-item.active small {
+  color: rgba(15, 118, 110, 0.82);
+}
+
+.app-nav-dropdown-item.disabled {
   color: #94a3b8;
   background: rgba(148, 163, 184, 0.08);
-  border-color: rgba(148, 163, 184, 0.1);
   cursor: not-allowed;
+}
+
+.app-nav-dropdown-item.disabled small {
+  color: #94a3b8;
 }
 
 .app-context-breadcrumb-shell {
@@ -1212,19 +1261,25 @@ textarea:focus,
     padding: 36px 22px;
   }
 
-  .app-context-shell {
-    padding-bottom: 14px;
-  }
-
-  .app-context-link {
-    min-height: 36px;
-    padding: 0 12px;
-    font-size: 0.88rem;
+  .app-nav-menu {
+    position: static;
   }
 
   .app-context-breadcrumb-shell {
     width: min(100% - 20px, 1560px);
     margin-top: 14px;
+  }
+
+  .app-nav-dropdown {
+    left: 0;
+    right: 0;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .app-nav-dropdown-shell {
+    max-height: min(60vh, 420px);
+    overflow-y: auto;
   }
 }
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import React from "react";
 
 import {
@@ -145,6 +145,8 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<UserRole | null>(null);
   const [isSigningOut, startSignOutTransition] = useTransition();
   const [workspaceArticleId, setWorkspaceArticleId] = useState<string | null>(null);
+  const [isArticleMenuOpen, setIsArticleMenuOpen] = useState(false);
+  const articleMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -195,6 +197,31 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     setWorkspaceArticleId(null);
   }, [pathname]);
 
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      if (
+        articleMenuRef.current &&
+        !articleMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsArticleMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsArticleMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
   const visibleLinks = useMemo(
     () =>
       links.filter(
@@ -226,11 +253,9 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const articleContext = useMemo(() => {
-    if (!isArticleWorkspace(pathname)) {
-      return null;
-    }
+  const articleWorkspaceActive = isArticleWorkspace(pathname);
 
+  const articleContext = useMemo(() => {
     const hasRealWorkspaceArticle =
       Boolean(workspaceArticleId) && workspaceArticleId !== OFFICIAL_EDITORIAL_ROUTE;
     const realWorkspaceArticleId = hasRealWorkspaceArticle ? workspaceArticleId : null;
@@ -264,6 +289,13 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
     };
   }, [pathname, workspaceArticleId]);
 
+  const handleArticleTriggerClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches) {
+      event.preventDefault();
+      setIsArticleMenuOpen((current) => !current);
+    }
+  };
+
   return (
     <div className="app-frame">
       <header className="app-header">
@@ -286,9 +318,86 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
             {visibleLinks.map((link) => {
               const isActive =
                 link.href === "/dashboard/artigos"
-                  ? isArticleWorkspace(pathname)
+                  ? articleWorkspaceActive
                   : pathname === link.href ||
                     (pathname.startsWith(link.href + "/") && link.href !== "/dashboard");
+
+              if (link.href === "/dashboard/artigos") {
+                const navClassName = isActive ? "nav-link nav-link-active" : "nav-link";
+
+                return (
+                  <div
+                    key={link.href}
+                    className={isArticleMenuOpen ? "app-nav-menu is-open" : "app-nav-menu"}
+                    onBlur={(event) => {
+                      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                        setIsArticleMenuOpen(false);
+                      }
+                    }}
+                    onFocus={() => setIsArticleMenuOpen(true)}
+                    onMouseEnter={() => setIsArticleMenuOpen(true)}
+                    onMouseLeave={() => setIsArticleMenuOpen(false)}
+                    ref={articleMenuRef}
+                  >
+                    <Link
+                      aria-expanded={isArticleMenuOpen}
+                      aria-haspopup="menu"
+                      className={`${navClassName} app-nav-menu-trigger`}
+                      href={link.href}
+                      onClick={handleArticleTriggerClick}
+                    >
+                      <span>{link.label}</span>
+                      <span className="app-nav-caret" aria-hidden="true" />
+                    </Link>
+
+                    <div
+                      aria-label="Ferramentas do módulo Artigos"
+                      className="app-nav-dropdown"
+                      role="menu"
+                    >
+                      <div className="app-nav-dropdown-shell">
+                        {articleContext.links.map((contextLink) => {
+                          const dropdownClassName =
+                            articleContext.activeKey === contextLink.key
+                              ? "app-nav-dropdown-item active"
+                              : contextLink.disabled
+                                ? "app-nav-dropdown-item disabled"
+                                : "app-nav-dropdown-item";
+
+                          if (contextLink.disabled) {
+                            return (
+                              <span
+                                key={contextLink.key}
+                                aria-disabled="true"
+                                className={dropdownClassName}
+                                role="menuitem"
+                              >
+                                <span>{contextLink.label}</span>
+                                <small>Selecione um manuscrito para habilitar</small>
+                              </span>
+                            );
+                          }
+
+                          return (
+                            <Link
+                              key={contextLink.key}
+                              className={dropdownClassName}
+                              href={contextLink.href}
+                              onClick={() => setIsArticleMenuOpen(false)}
+                              role="menuitem"
+                            >
+                              <span>{contextLink.label}</span>
+                              {articleContext.activeKey === contextLink.key ? (
+                                <small>Ferramenta atual</small>
+                              ) : null}
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
 
               return (
                 <Link
@@ -317,40 +426,11 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
               </button>
             </div>
           </div>
-
-          {articleContext ? (
-            <div className="app-context-shell" aria-label="Ferramentas do módulo Artigos">
-              <nav className="app-context-nav" aria-label="Submenu contextual de Artigos">
-                {articleContext.links.map((link) => {
-                  const className =
-                    articleContext.activeKey === link.key
-                      ? "app-context-link active"
-                      : link.disabled
-                        ? "app-context-link disabled"
-                        : "app-context-link";
-
-                  if (link.disabled) {
-                    return (
-                      <span key={link.key} className={className} aria-disabled="true">
-                        {link.label}
-                      </span>
-                    );
-                  }
-
-                  return (
-                    <Link key={link.key} href={link.href} className={className}>
-                      {link.label}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </div>
-          ) : null}
         </div>
       </header>
 
       <main className="app-main">
-        {articleContext ? (
+        {articleWorkspaceActive ? (
           <div className="app-context-breadcrumb-shell">
             <div className="app-context-breadcrumb" aria-label="Breadcrumb">
               <span>Artigos</span>
