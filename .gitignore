@@ -13,3 +13,6 @@ coverage
 .codex
 
 .vercel
+playwright-report
+test-results
+tests/e2e/.auth
