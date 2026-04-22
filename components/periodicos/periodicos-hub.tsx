@@ -1131,10 +1131,10 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
                   {selectedArticle ? "Abrir editor" : "Central Editorial"}
                 </Link>
                 <Link
-                  href={selectedArticle ? getArticleEditorHref(selectedArticle.id) : ("/dashboard" as Route)}
+                  href={getCentralEditorialHref()}
                   className="button button-secondary"
                 >
-                  {selectedArticle ? "Abrir manuscrito no editor" : "Criar manuscrito"}
+                  {selectedArticle ? "Voltar à Central Editorial" : "Criar manuscrito"}
                 </Link>
               </div>
             </div>

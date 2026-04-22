@@ -327,7 +327,7 @@ export function DashboardShell({
                         onClick={() => router.push(getArticleEditorHref(article.id))}
                         type="button"
                       >
-                        Abrir manuscrito
+                        Abrir editor
                       </button>
                       <button
                         className="lovable-small-button"

@@ -37,6 +37,8 @@ import type {
   ArticleRow,
   ArticleStatus,
   ArticleVersionRow,
+  Database,
+  EvidenceScreeningSetRow,
   UserRole
 } from "@/lib/types";
 import { countArticleWords, formatAbntCitation, formatRelativeUpdate } from "@/lib/weblab";
@@ -188,6 +190,8 @@ type VersionSnapshot = ArticleVersionRow & {
   authorName: string;
 };
 
+type SavedShortlistRow = Database["public"]["Tables"]["periodicos_shortlists"]["Row"];
+
 const EMPTY_DOC: ArticleContent = {
   type: "doc",
   content: []
@@ -306,11 +310,11 @@ const expectedScientificSections = [
 
 const scientificSectionAliases: Record<string, string[]> = {
   Resumo: ["resumo", "abstract"],
-  Introdução: ["introducao", "introdução", "apresentacao", "apresentação", "contextualizacao", "contextualização"],
+  "Introdução": ["introducao", "introdução", "apresentacao", "apresentação", "contextualizacao", "contextualização"],
   Metodologia: ["metodologia", "metodo", "método", "metodos", "métodos", "materiais e metodos", "materiais e métodos"],
   Resultados: ["resultados", "achados", "analise dos resultados", "análise dos resultados"],
-  Discussão: ["discussao", "discussão", "resultados e discussao", "resultados e discussão"],
-  Referências: ["referencias", "referências", "bibliografia"]
+  "Discussão": ["discussao", "discussão", "resultados e discussao", "resultados e discussão"],
+  "Referências": ["referencias", "referências", "bibliografia"]
 };
 
 const claimMarkers = [
@@ -336,9 +340,9 @@ const claimMarkers = [
   "risco"
 ];
 
-const citationPattern = /\([A-ZÀ-Ý][A-ZÀ-Ý\s;,&.-]+,\s*(?:19|20)\d{2}[a-z]?\)|\b(?:19|20)\d{2}\b.*\b[A-ZÀ-Ý][A-ZÀ-Ý]{2,}\b|\bdoi\b/i;
+const citationPattern = /\((?:[^)]*?(?:19|20)\d{2}[a-z]?[^)]*)\)|\b(?:19|20)\d{2}\b.*\b[A-Z][A-Z\s;,&.-]{2,}\b|\bdoi\b/i;
 
-const narrativeCitationPattern = /\b[A-ZÀ-Ý][a-zà-ÿ]+(?:\s(?:et al\.|e\scolaboradores|e\scols\.))?\s*\(?\s*(?:19|20)\d{2}[a-z]?\s*\)?/i;
+const narrativeCitationPattern = /\b[A-Z][a-z]+(?:\s(?:et al\.|e\scolaboradores|e\scols\.))?\s*\(?\s*(?:19|20)\d{2}[a-z]?\s*\)?/i;
 const quantitativeClaimPattern = /\b\d+(?:[.,]\d+)?\s*(?:%|por cento|vezes|anos|meses|dias|casos|participantes|mulheres|homens)\b/i;
 const evidenceVerbPattern = /\b(?:indica|indicam|mostra|mostram|revela|revelam|demonstra|demonstram|aponta|apontam|sugere|sugerem|associa|associam|corresponde|impacta|aumenta|reduz)\b/i;
 const contrastPattern = /\b(?:em comparacao|em comparação|diferentemente|por outro lado|em contraste|ao contrario|ao contrário)\b/i;
@@ -571,8 +575,8 @@ function getConceptTerms(text: string) {
     text
       .toLowerCase()
       .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .match(/[a-zA-Z?-?]{5,}/g)
+      .replace(/[\u0300-\u036f]/g, "")
+      .match(/[a-zA-Z-]{5,}/g)
       ?.filter((word) => !conceptStopwords.has(word))
       .slice(0, 400) ?? []
   );
@@ -648,7 +652,7 @@ function diagnoseTextFlow(
     pushDiagnostic(
       "Conexão entre ideias",
       "O texto tem vários parágrafos, mas poucos conectores argumentativos detectáveis.",
-      "Use transições como “além disso”, “no entanto”, “portanto” ou “dessa forma” quando mudar de ideia ou evidência."
+      'Use transições como "além disso", "no entanto", "portanto" ou "dessa forma" quando mudar de ideia ou evidência.'
     );
   }
 
@@ -656,7 +660,7 @@ function diagnoseTextFlow(
   if (vagueMarker) {
     pushDiagnostic(
       "Formulação genérica",
-      `A expressão “${vagueMarker}” pode ficar vaga se não vier acompanhada de evidência.`,
+      `A expressão "${vagueMarker}" pode ficar vaga se não vier acompanhada de evidência.`,
       "Troque por uma afirmação mais específica ou acrescente dado, autor, período, população ou contexto."
     );
   }
@@ -665,7 +669,7 @@ function diagnoseTextFlow(
   if (repeatedConcept) {
     pushDiagnostic(
       "Conceito muito repetido",
-      `“${repeatedConcept.term}” aparece muitas vezes no manuscrito.`,
+      `"${repeatedConcept.term}" aparece muitas vezes no manuscrito.`,
       "Verifique se a repetição cria ênfase útil ou se pode ser substituída por termos mais precisos em alguns trechos.",
       "info"
     );
@@ -737,7 +741,7 @@ function diagnoseSections(sectionTexts: Map<string, string>, usedReferences: Use
       pushDiagnostic(
         "Introdução",
         "Não encontrei uma formulação clara do objetivo na introdução.",
-        "Feche a introdução com uma frase direta: “Este estudo tem como objetivo...”."
+        'Feche a introdução com uma frase direta: "Este estudo tem como objetivo...".'
       );
     }
   }
@@ -804,7 +808,7 @@ function diagnoseSections(sectionTexts: Map<string, string>, usedReferences: Use
       pushDiagnostic(
         "Estrutura",
         "Ainda não reconheci seções científicas como Resumo, Introdução, Metodologia, Resultados, Discussão ou Referências.",
-        "Use títulos ou marcadores claros como “Resumo”, “Introdução” e “Metodologia”. H2/H3 ajudam, mas a leitura também reconhece rótulos em parágrafo simples."
+        'Use títulos ou marcadores claros como "Resumo", "Introdução" e "Metodologia". H2/H3 ajudam, mas a leitura também reconhece rótulos em parágrafo simples.'
       );
       return diagnostics.slice(0, 8);
     }
@@ -1829,6 +1833,9 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
   const [googleLastSyncedAt, setGoogleLastSyncedAt] = useState(article.google_last_synced_at);
   const [googleMessage, setGoogleMessage] = useState<string | null>(null);
   const [isGoogleWorking, setIsGoogleWorking] = useState(false);
+  const [googleIntegrationEmail, setGoogleIntegrationEmail] = useState<string | null>(null);
+  const [savedShortlists, setSavedShortlists] = useState<SavedShortlistRow[]>([]);
+  const [screeningSets, setScreeningSets] = useState<EvidenceScreeningSetRow[]>([]);
   const [showStructureStudio, setShowStructureStudio] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("analysis");
   const [activeStructureId, setActiveStructureId] = useState("title");
@@ -1873,7 +1880,14 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
       return;
     }
 
-    const [{ data: profile }, { data: rawComments, error: commentsError }, versionsResult] = await Promise.all([
+    const [
+      { data: profile },
+      { data: rawComments, error: commentsError },
+      versionsResult,
+      { data: shortlistRows, error: shortlistError },
+      { data: screeningRows, error: screeningError },
+      { data: googleIntegration }
+    ] = await Promise.all([
       supabase.from("perfis").select("id, nome_completo, equipe_id, role").eq("id", user.id).maybeSingle(),
       supabase.from("artigo_comentarios").select("*").eq("artigo_id", article.id).order("created_at", { ascending: false }),
       canEdit
@@ -1883,7 +1897,18 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
             .eq("artigo_id", article.id)
             .order("created_at", { ascending: false })
             .limit(12)
-        : Promise.resolve({ data: [] as ArticleVersionRow[], error: null })
+        : Promise.resolve({ data: [] as ArticleVersionRow[], error: null }),
+      supabase
+        .from("periodicos_shortlists")
+        .select("*")
+        .eq("artigo_id", article.id)
+        .order("editorial_score", { ascending: false }),
+      supabase
+        .from("triagem_conjuntos")
+        .select("*")
+        .eq("artigo_id", article.id)
+        .order("updated_at", { ascending: false }),
+      supabase.from("google_integracoes").select("google_email").eq("user_id", user.id).maybeSingle()
     ]);
 
     if (profile) {
@@ -1933,6 +1958,9 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
         authorName: names.get(entry.created_by) ?? "Membro da equipe"
       }))
     );
+    setSavedShortlists((shortlistRows ?? []) as SavedShortlistRow[]);
+    setScreeningSets((screeningRows ?? []) as EvidenceScreeningSetRow[]);
+    setGoogleIntegrationEmail(googleIntegration?.google_email ?? null);
     setIsLoadingReviewData(false);
   };
 
@@ -2401,6 +2429,39 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     }),
     { usada: 0, revisar: 0, descartada: 0 } satisfies Record<ReferenceTriageStatus, number>
   );
+  const chosenShortlist =
+    savedShortlists.find((entry) => entry.chosen_for_submission) ??
+    savedShortlists.find((entry) => entry.is_favorite) ??
+    null;
+  const strongShortlistCount = savedShortlists.filter(
+    (entry) => entry.recommendation_level === "candidata_forte"
+  ).length;
+  const googleWorkflowState = !googleDocId
+    ? {
+        label: "Sem Google Docs",
+        detail: googleIntegrationEmail
+          ? `A conta ${googleIntegrationEmail} já está conectada, mas este manuscrito ainda não foi vinculado.`
+          : "Conecte uma conta Google para abrir um espelho editorial do manuscrito.",
+        status: "warning" as const
+      }
+    : {
+        label: googleLastSyncedAt ? "Sync registrada" : "Documento vinculado",
+        detail: googleLastSyncedAt
+          ? `Última troca com o Google Docs ${formatRelativeUpdate(googleLastSyncedAt)}.`
+          : "O documento foi conectado, mas ainda falta registrar a primeira sincronização útil.",
+        status: "ok" as const
+      };
+  const journalDisplay = chosenShortlist
+    ? {
+        name: chosenShortlist.journal_title,
+        detail: chosenShortlist.chosen_for_submission
+          ? "Revista-alvo já definida no radar editorial"
+          : chosenShortlist.is_favorite
+            ? "Favorita atual da shortlist editorial"
+            : "Candidata priorizada no radar editorial",
+        fit: clamp(chosenShortlist.editorial_score, 40, 99)
+      }
+    : null;
   const unresolvedComments = comments.filter((comment) => !comment.resolvido_em);
   const resolvedComments = comments.length - unresolvedComments.length;
   const cognitiveSnapshot = useMemo(() => {
@@ -2682,6 +2743,66 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
       done: unresolvedComments.length === 0
     }
   ];
+  const editorialSignals = [
+    {
+      id: "google",
+      label: "Google Docs",
+      value: googleWorkflowState.label,
+      detail: googleWorkflowState.detail
+    },
+    {
+      id: "radar",
+      label: "Radar editorial",
+      value: chosenShortlist ? chosenShortlist.journal_title : `${savedShortlists.length} rota(s) salvas`,
+      detail: chosenShortlist
+        ? "O manuscrito já tem uma rota editorial preferencial."
+        : savedShortlists.length > 0
+          ? `${strongShortlistCount} candidata(s) forte(s) registradas no radar.`
+          : "Ainda não existe shortlist vinculada a este manuscrito."
+    },
+    {
+      id: "triagem",
+      label: "Triagem",
+      value: screeningSets.length > 0 ? `${screeningSets.length} caderno(s)` : "Sem triagem ativa",
+      detail:
+        screeningSets.length > 0
+          ? "Há evidências organizadas para sustentar o manuscrito."
+          : "Ainda não há conjunto de revisão ligado ao texto."
+    },
+    {
+      id: "revisao",
+      label: "Revisão",
+      value: unresolvedComments.length > 0 ? `${unresolvedComments.length} comentário(s)` : "Sem pendências abertas",
+      detail:
+        unresolvedComments.length > 0
+          ? `${resolvedComments} comentário(s) já foram resolvidos nesta rodada.`
+          : "O caderno editorial está limpo neste momento."
+    }
+  ];
+  const operationalActions = [
+    !googleDocId
+      ? { id: "connect_google", title: "Conectar Google Docs", description: "Vincular um documento para sincronização editorial." }
+      : {
+          id: "sync_google",
+          title: "Atualizar espelho no Google Docs",
+          description: googleLastSyncedAt
+            ? `A última sync foi ${formatRelativeUpdate(googleLastSyncedAt)}.`
+            : "Registrar a primeira sincronização útil entre WebLab e Google Docs."
+        },
+    savedShortlists.length === 0
+      ? { id: "open_radar", title: "Definir rota editorial", description: "Abrir o radar para escolher as revistas mais promissoras." }
+      : null,
+    screeningSets.length === 0
+      ? { id: "open_triagem", title: "Vincular evidências", description: "Criar um caderno de triagem para sustentar o texto." }
+      : null,
+    ...nextEditorialActions.map((action) => ({
+      id: `insight:${action.id}`,
+      title: action.title,
+      description: action.description
+    }))
+  ]
+    .filter(Boolean)
+    .slice(0, 4) as Array<{ id: string; title: string; description: string }>;
   const scheduleElementReveal = (ref: { current: HTMLElement | null }) => {
     if (typeof window === "undefined") {
       return;
@@ -2724,6 +2845,69 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
   const openJournalRationale = () => {
     revealInspector("analysis", analysisJournalRef);
     router.push(radarEditorialHref);
+  };
+
+  const runOperationalAction = async (actionId: string) => {
+    if (actionId === "connect_google") {
+      await handleGooglePrimaryAction();
+      return;
+    }
+
+    if (actionId === "sync_google") {
+      if (googleDocId) {
+        await handleSyncFromGoogleDocs();
+        return;
+      }
+
+      await handleGooglePrimaryAction();
+      return;
+    }
+
+    if (actionId === "open_radar") {
+      router.push(radarEditorialHref);
+      return;
+    }
+
+    if (actionId === "open_triagem") {
+      router.push(triagemWorkspaceHref);
+      return;
+    }
+
+    if (!actionId.startsWith("insight:")) {
+      openEditorialOverview();
+      return;
+    }
+
+    const insightId = actionId.replace("insight:", "");
+
+    if (insightId === "analisar") {
+      openEditorialOverview();
+      await runDeepManuscriptAnalysis();
+      return;
+    }
+
+    if (insightId === "buscar_fonte" && activeGap) {
+      revealInspector("references");
+      await loadReferenceSuggestions(activeGap);
+      return;
+    }
+
+    if (insightId === "revisar_texto") {
+      openEditorialChecks();
+      return;
+    }
+
+    if (insightId === "abrir_revisao") {
+      openReviewHistory();
+      return;
+    }
+
+    if (insightId === "inserir_secao") {
+      openStructureStudio();
+      return;
+    }
+
+    openEditorialOverview();
   };
 
   const handlePrimaryTextModeAction = () => {
@@ -3213,7 +3397,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                 {isGoogleWorking
                   ? "Preparando..."
                   : googleDocHref
-                    ? "Compartilhar"
+                    ? "Abrir Google Docs"
                     : "Conectar Google"}
               </span>
             </button>
@@ -3227,7 +3411,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
             onClick={() => void handleSyncFromGoogleDocs()}
             type="button"
           >
-            {isGoogleWorking ? "Sincronizando..." : "Importar do Google"}
+            {isGoogleWorking ? "Sincronizando..." : "Importar do Docs"}
           </button>
           <button
             className="editor-premium-utility-chip"
@@ -3235,7 +3419,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
             onClick={() => void handlePushToGoogleDocs()}
             type="button"
           >
-            {isGoogleWorking ? "Enviando..." : "Publicar no Google"}
+            {isGoogleWorking ? "Enviando..." : "Enviar ao Docs"}
           </button>
           <button
             className="editor-premium-utility-chip"
@@ -3604,12 +3788,12 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                 </div>
                 <div className="editor-premium-bottom-metrics">
                   <div>
-                    <span>Novas tendências</span>
-                    <strong>{manuscriptAnalysis.missingSections.length}</strong>
+                    <span>Shortlist ativa</span>
+                    <strong>{savedShortlists.length}</strong>
                   </div>
                   <div>
-                    <span>Alertas de citação</span>
-                    <strong>{manuscriptAnalysis.citationGaps.length}</strong>
+                    <span>Candidatas fortes</span>
+                    <strong>{strongShortlistCount}</strong>
                   </div>
                 </div>
               </article>
@@ -3627,12 +3811,12 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                 </div>
                 <div className="editor-premium-bottom-metrics">
                   <div>
-                    <span>Comentários abertos</span>
-                    <strong>{unresolvedComments.length}</strong>
+                    <span>Cadernos ativos</span>
+                    <strong>{screeningSets.length}</strong>
                   </div>
                   <div>
-                    <span>Em análise</span>
-                    <strong>{triageSummary.revisar}</strong>
+                    <span>Comentários abertos</span>
+                    <strong>{unresolvedComments.length}</strong>
                   </div>
                 </div>
               </article>
@@ -3731,6 +3915,23 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                       </div>
                     </div>
                   </section>
+                  <section className="editor-premium-panel">
+                    <div className="editor-premium-panel-head">
+                      <strong>Fluxo editorial</strong>
+                    </div>
+
+                    <div className="editor-premium-check-list">
+                      {editorialSignals.map((signal) => (
+                        <div className="editor-premium-signal-card" key={signal.id}>
+                          <div className="editor-premium-signal-card__head">
+                            <span>{signal.label}</span>
+                            <strong>{signal.value}</strong>
+                          </div>
+                          <small>{signal.detail}</small>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
 
                   <section className="editor-premium-panel">
                     <div className="editor-premium-panel-head">
@@ -3738,34 +3939,51 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                     </div>
 
                     <div className="editor-premium-next-list">
-                      {reviewChecklist.slice(0, 4).map((item) => (
-                        <div className="editor-premium-next-row" key={item.label}>
-                          {item.done ? <CheckCircle2 size={16} /> : <Circle size={16} />}
-                          <span>{item.label}</span>
-                        </div>
+                      {operationalActions.map((item) => (
+                        <button
+                          className="editor-premium-next-action"
+                          key={item.id}
+                          onClick={() => void runOperationalAction(item.id)}
+                          type="button"
+                        >
+                          <div className="editor-premium-next-row">
+                            <CheckCircle2 size={16} />
+                            <span>{item.title}</span>
+                          </div>
+                          <small>{item.description}</small>
+                        </button>
                       ))}
                     </div>
                   </section>
 
-                  <section className="editor-premium-panel" ref={analysisJournalRef}>
+                                    <section className="editor-premium-panel" ref={analysisJournalRef}>
                     <div className="editor-premium-panel-head">
                       <strong>Sugestão de periódico</strong>
                     </div>
 
                     <div className="editor-premium-journal-card">
                       <div>
-                        <strong>{journalSuggestion.name}</strong>
-                        <small>{journalSuggestion.detail}</small>
+                        <strong>{journalDisplay?.name ?? journalSuggestion.name}</strong>
+                        <small>{journalDisplay?.detail ?? journalSuggestion.detail}</small>
                       </div>
-                      <span>{journalSuggestion.fit}%</span>
+                      <span>{journalDisplay?.fit ?? journalSuggestion.fit}%</span>
                     </div>
-                    <button
-                      className="editor-premium-subtle-button"
-                      onClick={openJournalRationale}
-                      type="button"
-                    >
-                      Ver justificativa
-                    </button>
+                    <div className="editor-premium-inline-actions editor-premium-inline-actions--stacked">
+                      <button
+                        className="editor-premium-subtle-button"
+                        onClick={openJournalRationale}
+                        type="button"
+                      >
+                        Ver justificativa
+                      </button>
+                      <button
+                        className="editor-premium-subtle-button"
+                        onClick={() => router.push(radarEditorialHref)}
+                        type="button"
+                      >
+                        Abrir radar editorial
+                      </button>
+                    </div>
                   </section>
                 </div>
               ) : null}
@@ -4061,3 +4279,4 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     </main>
   );
 }
+

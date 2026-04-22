@@ -225,6 +225,17 @@ export function CentralEditorialShell() {
   const selectedGoogleHref = selectedArticle
     ? buildGoogleDocUrl(selectedArticle.google_doc_id) ?? selectedArticle.google_doc_url
     : null;
+  const selectedChosenJournal =
+    selectedShortlist.find((entry) => entry.chosen_for_submission) ??
+    selectedShortlist.find((entry) => entry.is_favorite) ??
+    null;
+  const selectedGoogleState = selectedArticle
+    ? !selectedArticle.google_doc_id
+      ? "Ainda sem documento vinculado"
+      : selectedArticle.google_last_synced_at
+        ? `Sync registrada ${formatRelativeUpdate(selectedArticle.google_last_synced_at)}`
+        : "Documento vinculado, sem sync registrada"
+    : "Selecione um manuscrito";
 
   const handleCreateArticle = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -463,13 +474,17 @@ export function CentralEditorialShell() {
                 </article>
                 <article>
                   <span>Radar</span>
-                  <strong>{selectedShortlist.length} rota(s)</strong>
-                  <p>Revistas salvas e sinais editoriais vinculados a este artigo.</p>
+                  <strong>{selectedChosenJournal?.journal_title ?? `${selectedShortlist.length} rota(s)`}</strong>
+                  <p>
+                    {selectedChosenJournal
+                      ? "Existe uma revista em destaque para decisao editorial."
+                      : "Revistas salvas e sinais editoriais vinculados a este artigo."}
+                  </p>
                 </article>
                 <article>
-                  <span>Triagem</span>
-                  <strong>{selectedScreeningSets.length} conjunto(s)</strong>
-                  <p>Evidencias em analise para sustentar o texto.</p>
+                  <span>Sincronizacao</span>
+                  <strong>{selectedArticle.google_doc_id ? "Google ativo" : "WebLab puro"}</strong>
+                  <p>{selectedGoogleState}</p>
                 </article>
               </div>
             ) : (
@@ -492,14 +507,20 @@ export function CentralEditorialShell() {
                     onClick={() => router.push(getArticleEditorHref(selectedArticle.id))}
                     type="button"
                   >
-                    Abrir writer
+                    Abrir editor
                   </button>
                   <button
                     className="editor-central-button"
-                    onClick={() => router.push("/dashboard/periodicos" as Route)}
+                    onClick={() =>
+                      router.push(
+                        selectedScreeningSets.length > 0
+                          ? ("/dashboard/triagem" as Route)
+                          : ("/dashboard/periodicos" as Route)
+                      )
+                    }
                     type="button"
                   >
-                    Abrir radar editorial
+                    {selectedScreeningSets.length > 0 ? "Abrir triagem vinculada" : "Abrir radar editorial"}
                   </button>
                 </div>
               </div>
@@ -523,6 +544,14 @@ export function CentralEditorialShell() {
               <div>
                 <strong>{linkedCount}</strong>
                 <span>documento(s) Google vinculados</span>
+              </div>
+              <div>
+                <strong>{shortlists.filter((entry) => entry.chosen_for_submission).length}</strong>
+                <span>revista(s)-alvo definidas</span>
+              </div>
+              <div>
+                <strong>{screeningSets.length}</strong>
+                <span>caderno(s) de triagem ativos</span>
               </div>
             </div>
           </section>

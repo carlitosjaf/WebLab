@@ -1107,8 +1107,8 @@ export function TriagemHub({ articles, profileId }: TriagemHubProps) {
                       <Link className="button button-secondary" href={getArticleEditorHref(activeSet.artigo_id)}>
                         Abrir editor
                       </Link>
-                      <Link className="button button-secondary" href={getArticleEditorHref(activeSet.artigo_id)}>
-                        Abrir manuscrito
+                      <Link className="button button-secondary" href={"/editor" as Route}>
+                        Voltar à Central Editorial
                       </Link>
                     </div>
                   </article>
