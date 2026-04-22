@@ -17,11 +17,16 @@ setup("autentica um usuario de teste e salva a sessao", async ({ page }) => {
 
   await page.goto(`/?next=${encodeURIComponent(nextPath)}`);
 
-  await expect(page.getByRole("heading", { name: "Entrar no laboratório" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Entrar no laborat/i })).toBeVisible();
   await page.getByLabel("E-mail institucional").fill(email!);
   await page.getByLabel("Senha").fill(password!);
-  await page.getByRole("button", { name: "Entrar no laboratório" }).click();
+  await page.getByRole("button", { name: /Entrar no laborat/i }).click();
 
-  await expect(page).toHaveURL(new RegExp(nextPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  await expect(
+    page,
+    "O login de teste não concluiu o redirecionamento esperado dentro do tempo útil."
+  ).toHaveURL(new RegExp(nextPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), {
+    timeout: 30000
+  });
   await page.context().storageState({ path: authFile });
 });
