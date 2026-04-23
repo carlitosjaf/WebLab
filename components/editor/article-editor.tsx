@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Circle,
   Clock3,
+  ExternalLink,
   Link2,
   History,
   List,
@@ -70,6 +71,7 @@ type SectionGroup = {
 
 type CognitiveTab = "referencias" | "estrutura" | "texto" | "revisao";
 type InspectorTab = "analysis" | "references" | "notes";
+type ToolbarMenu = "text" | "template" | "insert" | "export" | null;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
@@ -1838,6 +1840,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
   const [screeningSets, setScreeningSets] = useState<EvidenceScreeningSetRow[]>([]);
   const [showStructureStudio, setShowStructureStudio] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>("analysis");
+  const [toolbarMenu, setToolbarMenu] = useState<ToolbarMenu>(null);
   const [activeStructureId, setActiveStructureId] = useState("title");
   const [expandedOutlineIds, setExpandedOutlineIds] = useState<Record<string, boolean>>({
     summary: true
@@ -1860,6 +1863,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
   const notesCommentsRef = useRef<HTMLElement | null>(null);
   const notesVersionsRef = useRef<HTMLElement | null>(null);
   const structureStudioRef = useRef<HTMLElement | null>(null);
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
   titleRef.current = title;
   statusRef.current = status;
   const googleDocHref = buildGoogleDocUrl(googleDocId) ?? googleDocUrl;
@@ -2022,6 +2026,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     }
 
     try {
+      setToolbarMenu(null);
       setIsExportingDocx(true);
       await exportArticleToDocx(title, editor.getJSON());
     } finally {
@@ -2277,6 +2282,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
 
     setIsGoogleWorking(true);
     setGoogleMessage(null);
+    setToolbarMenu(null);
 
     try {
       const { supabase, token } = await getSessionToken();
@@ -2849,6 +2855,10 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     }
   };
 
+  const toggleToolbarMenu = (menu: Exclude<ToolbarMenu, null>) => {
+    setToolbarMenu((current) => (current === menu ? null : menu));
+  };
+
   const openJournalRationale = () => {
     revealInspector("analysis", analysisJournalRef);
   };
@@ -2916,22 +2926,22 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     openEditorialOverview();
   };
 
-  const handlePrimaryTextModeAction = () => {
+  const applyTextMode = (mode: "paragraph" | "heading-2" | "heading-3" | "blockquote") => {
     if (!editor || !canEdit) {
       return;
     }
 
-    if (editor.isActive("heading", { level: 2 })) {
-      editor.chain().focus().toggleHeading({ level: 3 }).run();
-      return;
-    }
-
-    if (editor.isActive("heading", { level: 3 })) {
+    if (mode === "paragraph") {
       editor.chain().focus().setParagraph().run();
-      return;
+    } else if (mode === "heading-2") {
+      editor.chain().focus().setHeading({ level: 2 }).run();
+    } else if (mode === "heading-3") {
+      editor.chain().focus().setHeading({ level: 3 }).run();
+    } else if (mode === "blockquote") {
+      editor.chain().focus().toggleBlockquote().run();
     }
 
-    editor.chain().focus().toggleHeading({ level: 2 }).run();
+    setToolbarMenu(null);
   };
 
   const scrollToSection = (label: string) => {
@@ -3052,6 +3062,23 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
       editor.off("update", resolveActiveStructure);
     };
   }, [editor]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (toolbarRef.current?.contains(event.target as Node)) {
+        return;
+      }
+
+      setToolbarMenu(null);
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
 
   const currentTextModeLabel = useMemo(() => {
     if (editor?.isActive("heading", { level: 2 })) {
@@ -3174,6 +3201,57 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     }));
     scheduleSave(nextContent);
     setReferenceMessage("Citação inserida no texto e referência adicionada à seção Referências.");
+  };
+
+  const copyReferenceSuggestion = async (work: ReferenceSuggestion) => {
+    const citation = formatAbntCitation(work);
+
+    try {
+      await navigator.clipboard.writeText(citation);
+      setReferenceTriage((current) => ({
+        ...current,
+        [work.id]: "revisar"
+      }));
+      setReferenceMessage("ReferÃªncia copiada em formato ABNT para revisÃ£o.");
+    } catch {
+      setReferenceMessage("NÃ£o foi possÃ­vel copiar a referÃªncia agora.");
+    }
+  };
+
+  const markReferenceSuggestion = (workId: string, status: ReferenceTriageStatus) => {
+    setReferenceTriage((current) => ({
+      ...current,
+      [workId]: status
+    }));
+    setReferenceMessage(
+      status === "descartada"
+        ? "SugestÃ£o marcada como descartada."
+        : status === "revisar"
+          ? "SugestÃ£o marcada para revisÃ£o posterior."
+          : "SugestÃ£o marcada como utilizada."
+    );
+  };
+
+  const exportPlainText = async () => {
+    const plainText =
+      editor?.getText({
+        blockSeparator: "\n\n"
+      }) ?? "";
+
+    if (!plainText.trim()) {
+      setSaveMessage("O manuscrito ainda nÃ£o tem texto suficiente para exportaÃ§Ã£o simples.");
+      return;
+    }
+
+    const blob = new Blob([plainText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${(titleRef.current || "manuscrito").replace(/[^\w\\-]+/g, "-").toLowerCase()}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setToolbarMenu(null);
+    setSaveMessage("Texto limpo exportado em .txt.");
   };
 
   const captureSelectedExcerpt = () => {
@@ -3383,15 +3461,51 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
               <Clock3 size={16} />
               <span>Versões</span>
             </button>
-            <button
-              className="editor-premium-topbar-button"
-              disabled={isExportingDocx}
-              onClick={() => void exportToDocx()}
-              type="button"
-            >
-              <span>{isExportingDocx ? "Exportando..." : "Exportar"}</span>
-              <ChevronDown size={16} />
-            </button>
+            <div className="editor-premium-toolbar-dropdown">
+              <button
+                className="editor-premium-topbar-button"
+                data-active={toolbarMenu === "export" ? "true" : "false"}
+                onClick={() => toggleToolbarMenu("export")}
+                type="button"
+              >
+                <span>{isExportingDocx ? "Exportando..." : "Exportar"}</span>
+                <ChevronDown size={16} />
+              </button>
+              {toolbarMenu === "export" ? (
+                <div className="editor-premium-toolbar-menu" role="menu">
+                  <button
+                    className="editor-premium-toolbar-menu-button"
+                    disabled={isExportingDocx}
+                    onClick={() => void exportToDocx()}
+                    type="button"
+                  >
+                    <strong>Baixar DOCX</strong>
+                    <small>Exporta o manuscrito no formato editorial completo.</small>
+                  </button>
+                  <button
+                    className="editor-premium-toolbar-menu-button"
+                    onClick={() => void exportPlainText()}
+                    type="button"
+                  >
+                    <strong>Baixar TXT</strong>
+                    <small>Gera uma versão limpa do texto para revisão externa.</small>
+                  </button>
+                  <button
+                    className="editor-premium-toolbar-menu-button"
+                    disabled={!googleDocId || isGoogleWorking || !canEdit}
+                    onClick={() => void handlePushToGoogleDocs()}
+                    type="button"
+                  >
+                    <strong>Publicar no Google Docs</strong>
+                    <small>
+                      {googleDocId
+                        ? "Atualiza o documento vinculado com a versão atual do WebLab."
+                        : "Conecte um documento Google antes de publicar."}
+                    </small>
+                  </button>
+                </div>
+              ) : null}
+            </div>
             <button
               className="editor-premium-share-button"
               disabled={isGoogleWorking}
@@ -3562,16 +3676,35 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
             <div className="editor-premium-card editor-premium-editor-card">
               <div className="editor-premium-toolbar-row">
                 <div className="editor-premium-toolbar-wrap">
-                  <div className="editor-premium-toolbar-shell">
-                    <button
-                      className="editor-premium-toolbar-select"
-                      disabled={!canEdit}
-                      onClick={handlePrimaryTextModeAction}
-                      type="button"
-                    >
-                      <span>{currentTextModeLabel}</span>
-                      <ChevronDown size={15} />
-                    </button>
+                  <div className="editor-premium-toolbar-shell" ref={toolbarRef}>
+                    <div className="editor-premium-toolbar-dropdown">
+                      <button
+                        className="editor-premium-toolbar-select"
+                        data-active={toolbarMenu === "text" ? "true" : "false"}
+                        disabled={!canEdit}
+                        onClick={() => toggleToolbarMenu("text")}
+                        type="button"
+                      >
+                        <span>{currentTextModeLabel}</span>
+                        <ChevronDown size={15} />
+                      </button>
+                      {toolbarMenu === "text" ? (
+                        <div className="editor-premium-toolbar-menu" role="menu">
+                          <button className="editor-premium-toolbar-menu-button" onClick={() => applyTextMode("paragraph")} type="button">
+                            Texto normal
+                          </button>
+                          <button className="editor-premium-toolbar-menu-button" onClick={() => applyTextMode("heading-2")} type="button">
+                            Titulo secundario
+                          </button>
+                          <button className="editor-premium-toolbar-menu-button" onClick={() => applyTextMode("heading-3")} type="button">
+                            Subtitulo
+                          </button>
+                          <button className="editor-premium-toolbar-menu-button" onClick={() => applyTextMode("blockquote")} type="button">
+                            Citacao em destaque
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
 
                     <div className="editor-premium-toolbar-divider" />
 
@@ -3642,24 +3775,90 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
 
                     <div className="editor-premium-toolbar-divider" />
 
-                    <button
-                      className="editor-premium-toolbar-select"
-                      onClick={openStructureStudio}
-                      type="button"
-                    >
-                      <span>Estilo</span>
-                      <ChevronDown size={15} />
-                    </button>
-                    <button
-                      className="editor-premium-toolbar-select"
-                      onClick={() =>
-                        selectedSection && insertScientificSection(selectedSection.content)
-                      }
-                      type="button"
-                    >
-                      <span>Inserir</span>
-                      <ChevronDown size={15} />
-                    </button>
+                    <div className="editor-premium-toolbar-dropdown">
+                      <button
+                        className="editor-premium-toolbar-select"
+                        data-active={toolbarMenu === "template" ? "true" : "false"}
+                        onClick={() => toggleToolbarMenu("template")}
+                        type="button"
+                      >
+                        <span>Estilo</span>
+                        <ChevronDown size={15} />
+                      </button>
+                      {toolbarMenu === "template" ? (
+                        <div className="editor-premium-toolbar-menu editor-premium-toolbar-menu--wide" role="menu">
+                          {editorTemplates.map((template) => (
+                            <button
+                              className="editor-premium-toolbar-menu-button"
+                              data-active={selectedTemplateId === template.id ? "true" : "false"}
+                              key={template.id}
+                              onClick={() => {
+                                setSelectedTemplateId(template.id);
+                                setToolbarMenu(null);
+                              }}
+                              type="button"
+                            >
+                              <strong>{template.name}</strong>
+                              <small>{template.description}</small>
+                            </button>
+                          ))}
+                          <button className="editor-premium-toolbar-menu-link" onClick={openStructureStudio} type="button">
+                            Abrir estrutura completa
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="editor-premium-toolbar-dropdown">
+                      <button
+                        className="editor-premium-toolbar-select"
+                        data-active={toolbarMenu === "insert" ? "true" : "false"}
+                        onClick={() => toggleToolbarMenu("insert")}
+                        type="button"
+                      >
+                        <span>Inserir</span>
+                        <ChevronDown size={15} />
+                      </button>
+                      {toolbarMenu === "insert" ? (
+                        <div className="editor-premium-toolbar-menu editor-premium-toolbar-menu--wide" role="menu">
+                          <div className="editor-premium-toolbar-menu-tabs">
+                            {sectionGroups.map((group) => (
+                              <button
+                                className="editor-premium-toolbar-menu-tab"
+                                data-active={selectedGroupId === group.id ? "true" : "false"}
+                                key={group.id}
+                                onClick={() => {
+                                  setSelectedGroupId(group.id);
+                                  setSelectedSectionLabel(group.sections[0]?.label ?? "");
+                                }}
+                                type="button"
+                              >
+                                {group.label}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="editor-premium-toolbar-menu-list">
+                            {activeSectionGroup.sections.map((section) => (
+                              <button
+                                className="editor-premium-toolbar-menu-button"
+                                data-active={selectedSectionLabel === section.label ? "true" : "false"}
+                                key={section.label}
+                                onClick={() => {
+                                  setSelectedSectionLabel(section.label);
+                                  insertScientificSection(section.content);
+                                  setToolbarMenu(null);
+                                }}
+                                type="button"
+                              >
+                                {section.label}
+                              </button>
+                            ))}
+                          </div>
+                          <button className="editor-premium-toolbar-menu-link" onClick={openStructureStudio} type="button">
+                            Abrir painel de estrutura
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
 
                     <div className="editor-premium-toolbar-divider editor-premium-toolbar-divider--spacer" />
 
@@ -4051,6 +4250,10 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                               <strong>{work.title ?? "Referência sem título"}</strong>
                               <small>{work.match_reason ?? "Sugestão localizada por aderência temática."}</small>
                             </div>
+                            <div className="editor-premium-suggestion-source">
+                              {work.primary_location?.source?.display_name ??
+                                (work.doi ? `DOI ${work.doi.replace(/^https?:\/\/doi.org\//i, "")}` : "Fonte nÃ£o informada")}
+                            </div>
                             <div className="editor-premium-suggestion-actions">
                               <button
                                 className="editor-premium-inline-button"
@@ -4062,16 +4265,29 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                               </button>
                               <button
                                 className="editor-premium-inline-button"
-                                onClick={() =>
-                                  setReferenceTriage((current) => ({
-                                    ...current,
-                                    [work.id]: "revisar"
-                                  }))
-                                }
+                                onClick={() => void copyReferenceSuggestion(work)}
                                 type="button"
                               >
-                                Revisar
+                                Copiar ABNT
                               </button>
+                              <button
+                                className="editor-premium-inline-button"
+                                onClick={() => markReferenceSuggestion(work.id, "descartada")}
+                                type="button"
+                              >
+                                Descartar
+                              </button>
+                              {work.primary_location?.landing_page_url || work.doi ? (
+                                <a
+                                  className="editor-premium-inline-button editor-premium-inline-button--link"
+                                  href={work.primary_location?.landing_page_url ?? `https://doi.org/${work.doi?.replace(/^https?:\/\/doi.org\//i, "")}`}
+                                  rel="noreferrer"
+                                  target="_blank"
+                                >
+                                  <ExternalLink size={14} />
+                                  <span>Abrir fonte</span>
+                                </a>
+                              ) : null}
                             </div>
                           </article>
                         ))

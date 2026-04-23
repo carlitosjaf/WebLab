@@ -55,6 +55,13 @@ test.describe("Editor workspace autenticado", () => {
     await expect(page.getByText(/Versoes salvas|Versões salvas/i)).toBeVisible();
   });
 
+  test("abre o menu de exportacao com as opcoes principais", async ({ page }) => {
+    await page.getByRole("button", { name: /Exportar/i }).click();
+    await expect(page.getByRole("button", { name: /Baixar DOCX/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Baixar TXT/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Publicar no Google Docs/i })).toBeVisible();
+  });
+
   test("abre a area de recomendacoes editoriais", async ({ page }) => {
     await page.getByRole("button", { name: /Ver recomendacoes|Ver recomendações/i }).click();
     await expect(page.getByText(/Verificacoes|Verificações/i)).toBeVisible();
