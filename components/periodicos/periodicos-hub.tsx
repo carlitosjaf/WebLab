@@ -1037,9 +1037,9 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
   };
 
   return (
-    <main className="shell">
-      <div className="container" style={{ display: "grid", gap: "20px" }}>
-        <section className="hero-panel" style={{ display: "grid", gap: "12px" }}>
+    <main className="shell periodicos-page">
+      <div className="container periodicos-page-shell">
+        <section className="hero-panel periodicos-hero-panel">
           <span className="eyebrow">radar editorial</span>
           <h1 className="section-title" style={{ fontSize: "clamp(2.2rem, 4.2vw, 3.3rem)" }}>
             Encontre as revistas mais promissoras para submeter seu manuscrito.
@@ -1076,7 +1076,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
           </div>
         </section>
 
-        <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "18px" }}>
+        <section className="glass-card periodicos-surface periodicos-surface--spacious">
           <div style={{ display: "grid", gap: "8px" }}>
             <strong>1. Protocolo de busca</strong>
             <span className="muted">
@@ -1266,7 +1266,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
           </div>
         </section>
 
-        <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "14px" }}>
+        <section className="glass-card periodicos-surface">
           <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
             <div style={{ display: "grid", gap: "4px" }}>
               <strong>Caderno de shortlist</strong>
@@ -1526,7 +1526,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
           )}
         </section>
 
-        <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "14px" }}>
+        <section className="glass-card periodicos-surface">
           <div style={{ display: "grid", gap: "4px" }}>
             <strong>Revistas candidatas</strong>
             <span className="muted">
@@ -1789,7 +1789,7 @@ export function PeriodicosHub({ articles }: PeriodicosHubProps) {
           )}
         </section>
 
-        <section className="glass-card" style={{ padding: "24px", display: "grid", gap: "14px" }}>
+        <section className="glass-card periodicos-surface">
           <div style={{ display: "grid", gap: "4px" }}>
             <strong>Referências de apoio</strong>
             <span className="muted">

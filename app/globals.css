@@ -10,6 +10,10 @@
   --primary: #289487;
   --primary-strong: #0f766e;
   --primary-soft: #ccfbf1;
+  --surface-tint: #f6fbfb;
+  --surface-panel: rgba(255, 255, 255, 0.92);
+  --surface-panel-strong: #ffffff;
+  --surface-outline: rgba(155, 181, 188, 0.26);
   --secondary: #334155;
   --secondary-soft: #e2e8f0;
   --accent: #289487;
@@ -18,12 +22,13 @@
   --secondary-accent: #2563eb;
   --danger: #dc2626;
   --danger-soft: #fee2e2;
-  --hero-gradient: linear-gradient(135deg, #1e293b 0%, #334155 48%, #064e3b 100%);
+  --hero-gradient: linear-gradient(135deg, #123642 0%, #1d5562 45%, #14716f 100%);
   --cta-gradient: linear-gradient(135deg, #289487 0%, #0f766e 100%);
   --research-gradient: linear-gradient(90deg, #289487 0%, #334155 100%);
   --shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -2px rgba(15, 23, 42, 0.05);
   --shadow-hover: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.06);
   --shadow-elevated: 0 25px 50px -12px rgba(15, 23, 42, 0.15);
+  --shadow-editorial: 0 20px 48px rgba(14, 48, 56, 0.08);
   --radius-xl: 24px;
   --radius-lg: 18px;
   --radius-md: 12px;
@@ -54,9 +59,9 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(circle at 12% 18%, rgba(20, 184, 166, 0.12), transparent 26%),
-    radial-gradient(circle at 82% 10%, rgba(37, 99, 235, 0.08), transparent 24%),
-    linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(241, 245, 249, 0.98));
+    radial-gradient(circle at 12% 18%, rgba(20, 184, 166, 0.1), transparent 28%),
+    radial-gradient(circle at 82% 10%, rgba(20, 184, 166, 0.06), transparent 22%),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.94), rgba(241, 245, 249, 0.98));
 }
 
 a {
@@ -186,6 +191,7 @@ h3 {
   border-radius: 28px;
   padding: 40px;
   background: var(--hero-gradient);
+  border: 1px solid rgba(160, 220, 214, 0.18);
   box-shadow: var(--shadow-elevated);
   color: white;
 }
@@ -205,9 +211,9 @@ h3 {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(15, 23, 42, 0.88), rgba(15, 23, 42, 0.62)),
+  background: linear-gradient(90deg, rgba(9, 25, 31, 0.74), rgba(9, 25, 31, 0.42)),
     url("/hero-molecular.jpg") center / cover;
-  opacity: 0.32;
+  opacity: 0.4;
   pointer-events: none;
 }
 
@@ -2621,12 +2627,52 @@ textarea:focus,
   margin-bottom: 38px;
 }
 
+.dashboard-home .lovable-section-heading h2,
+.dashboard-home .lovable-news-head h2,
+.dashboard-home .lovable-cta-panel h2 {
+  font-family: var(--font-editor-serif), Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
 .dashboard-home .lovable-section-heading p {
   max-width: 760px;
 }
 
 .dashboard-home .lovable-card-grid {
   gap: 20px;
+}
+
+.dashboard-home .lovable-research-card,
+.dashboard-home .lovable-news-item {
+  border-color: rgba(198, 214, 223, 0.86);
+  border-radius: 24px;
+  box-shadow: var(--shadow-editorial);
+}
+
+.dashboard-home .lovable-research-card img {
+  filter: saturate(0.9) contrast(0.94);
+}
+
+.dashboard-home .lovable-research-body {
+  gap: 14px;
+  padding: 26px;
+}
+
+.dashboard-home .lovable-research-body h3 {
+  font-family: var(--font-editor-serif), Georgia, serif;
+  font-size: 1.55rem;
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.dashboard-home .lovable-news-item {
+  padding: 24px;
+}
+
+.dashboard-home .lovable-news-item p {
+  font-size: 1.02rem;
+  line-height: 1.5;
 }
 
 .dashboard-home .lovable-news {
@@ -2645,6 +2691,10 @@ textarea:focus,
   margin: 0 auto;
   border-radius: 28px;
   box-shadow: 0 22px 54px rgba(15, 23, 42, 0.14);
+}
+
+.dashboard-home .lovable-cta-panel p {
+  max-width: 620px;
 }
 
 .dashboard-home-editor-line {
@@ -2757,6 +2807,41 @@ textarea:focus,
 
 .dashboard-home-footer-link:hover {
   color: #5eead4;
+}
+
+.periodicos-page {
+  background: linear-gradient(180deg, #f6fafb 0%, #eef4f7 100%);
+}
+
+.periodicos-page-shell {
+  display: grid;
+  gap: 20px;
+}
+
+.periodicos-hero-panel {
+  display: grid;
+  gap: 14px !important;
+}
+
+.periodicos-hero-panel h1 {
+  max-width: 13ch;
+  font-family: var(--font-editor-serif), Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.045em;
+}
+
+.periodicos-surface {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border-radius: 26px;
+  border: 1px solid rgba(191, 216, 218, 0.82);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: var(--shadow-editorial);
+}
+
+.periodicos-surface--spacious {
+  gap: 18px;
 }
 
 .periodicos-hero-metrics {
@@ -3031,8 +3116,8 @@ textarea:focus,
   gap: 16px;
   padding: 18px;
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(244, 250, 251, 0.94);
+  border: 1px solid rgba(191, 216, 218, 0.88);
 }
 
 .periodicos-comparison-grid {
@@ -3046,13 +3131,13 @@ textarea:focus,
   gap: 12px;
   padding: 16px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #ffffff;
+  border: 1px solid #dbe7ea;
 }
 
 .periodicos-comparison-grid p {
   margin: 0;
-  color: var(--muted);
+  color: #64748b;
   line-height: 1.55;
 }
 
@@ -3064,8 +3149,8 @@ textarea:focus,
 
 .periodicos-comparison-metrics span {
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--foreground);
+  background: #eefcf8;
+  color: #0f766e;
   font-size: 0.78rem;
   font-weight: 800;
   padding: 6px 10px;
@@ -3684,8 +3769,8 @@ textarea:focus,
   padding: 24px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--shadow-editorial);
   backdrop-filter: blur(16px);
 }
 
@@ -3694,6 +3779,9 @@ textarea:focus,
   margin: 0;
   color: #0f172a;
   font-size: 1.1rem;
+  font-family: var(--font-editor-serif), Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.03em;
 }
 
 .triagem-sidebar-head,
@@ -3764,8 +3852,8 @@ textarea:focus,
   gap: 6px;
   padding: 16px;
   border-radius: 18px;
-  background: #f8fbfd;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f9fcfc;
+  border: 1px solid rgba(191, 216, 218, 0.7);
 }
 
 .triagem-mini-stats strong,
@@ -3866,9 +3954,9 @@ textarea:focus,
   display: grid;
   gap: 6px;
   padding: 14px 16px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(191, 216, 218, 0.7);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.88);
 }
 
 .triagem-workspace-chip span {
@@ -3965,9 +4053,10 @@ textarea:focus,
   display: grid;
   gap: 14px;
   padding: 18px 18px 16px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #dbe7ea;
   border-radius: 20px;
-  background: linear-gradient(180deg, #fbfdff 0%, #f5f9fc 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbfc 100%);
+  box-shadow: 0 12px 30px rgba(14, 48, 56, 0.05);
 }
 
 .triagem-study-card h3,
