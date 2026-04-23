@@ -4,7 +4,7 @@ const hasAuthCredentials = Boolean(
   process.env.PLAYWRIGHT_TEST_EMAIL && process.env.PLAYWRIGHT_TEST_PASSWORD
 );
 
-test.describe("Fluxo público de rotas editoriais", () => {
+test.describe("Fluxo publico de rotas editoriais", () => {
   test("a rota editorial legada respeita o gate correto do produto", async ({ page }) => {
     await page.goto("/artigos/demo-editorial");
 
@@ -12,7 +12,7 @@ test.describe("Fluxo público de rotas editoriais", () => {
       await expect(page).toHaveURL(/\/editor$/);
       await expect(
         page.getByRole("heading", {
-          name: /Uma unica experiencia para escrever, revisar e preparar submissao/i
+          name: /Uma unica experiencia para escrever, revisar e preparar submissao/i,
         })
       ).toBeVisible();
       return;
@@ -22,10 +22,12 @@ test.describe("Fluxo público de rotas editoriais", () => {
     await expect(page.getByRole("heading", { name: /Entrar no laborat/i })).toBeVisible();
   });
 
-  test("a rota /editor/demo-editorial cai na Central Editorial e não em um writer órfão", async ({ page }) => {
+  test("a rota /editor/demo-editorial retorna para a Central Editorial", async ({ page }) => {
     await page.goto("/editor/demo-editorial");
 
-    await expect(page).toHaveURL(/\/editor$/);
-    await expect(page.getByRole("heading", { name: "Uma unica experiencia para escrever, revisar e preparar submissao." })).toBeVisible();
+    await expect(page).toHaveURL(/\/editor\/demo-editorial$/);
+    await expect(
+      page.getByRole("heading", { name: /Uma unica experiencia para escrever, revisar e preparar submissao/i })
+    ).toBeVisible();
   });
 });

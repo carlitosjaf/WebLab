@@ -82,4 +82,14 @@ test.describe("Editor workspace autenticado", () => {
       .click();
     await expect(page.getByText(/Lacunas de citacao|Lacunas de citação/i)).toBeVisible();
   });
+  test("leva o botao de sugerir referencias para o painel certo mesmo sem lacuna ativa", async ({ page }) => {
+    await page.getByRole("button", { name: /Sugerir refer/i }).click();
+    await expect(page.locator(".editor-premium-inspector-card")).toHaveAttribute("data-inspector-tab", "references");
+  });
+
+  test("mantem o usuario no editor ao abrir a justificativa do periodico", async ({ page }) => {
+    await page.getByRole("button", { name: /Ver justificativa/i }).click();
+    await expect(page).toHaveURL(/\/editor\/[^/]+$/i);
+    await expect(page).not.toHaveURL(/\/dashboard\/periodicos/i);
+  });
 });

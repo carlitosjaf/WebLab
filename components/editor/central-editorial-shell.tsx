@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 
@@ -127,7 +127,10 @@ export function CentralEditorialShell() {
   const [title, setTitle] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [googleMessage, setGoogleMessage] = useState<string | null>(null);
+  const [isConnectingGoogle, setIsConnectingGoogle] = useState(false);
   const [isCreating, startCreateTransition] = useTransition();
+  const createInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -237,15 +240,108 @@ export function CentralEditorialShell() {
         : "Documento vinculado, sem sync registrada"
     : "Selecione um manuscrito";
 
+  const focusCreateComposer = () => {
+    createInputRef.current?.focus();
+    createInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const openSelectedEditor = () => {
+    if (!selectedArticle) {
+      setErrorMessage("Crie ou selecione um manuscrito para continuar.");
+      focusCreateComposer();
+      return;
+    }
+
+    router.push(getArticleEditorHref(selectedArticle.id));
+  };
+
+  const handleGoogleAction = async () => {
+    if (!selectedArticle) {
+      setGoogleMessage("Escolha um manuscrito antes de abrir o fluxo do Google Docs.");
+      focusCreateComposer();
+      return;
+    }
+
+    if (selectedGoogleHref) {
+      window.open(selectedGoogleHref, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    setIsConnectingGoogle(true);
+    setGoogleMessage(null);
+    setErrorMessage(null);
+
+    try {
+      const supabase = getSupabaseClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Sua sessao expirou. Entre novamente antes de conectar o Google Docs.");
+      }
+
+      const response = await fetch("/api/google/docs/connect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          articleId: selectedArticle.id,
+          title: selectedArticle.titulo,
+        }),
+      });
+
+      const payload = (await response.json()) as
+        | { error?: string }
+        | { mode: "authorize"; authUrl: string }
+        | { mode: "created"; docId: string; docUrl: string; syncedAt: string };
+
+      if (!response.ok) {
+        throw new Error("error" in payload && payload.error ? payload.error : "Nao foi possivel abrir o fluxo do Google Docs.");
+      }
+
+      if ("mode" in payload && payload.mode === "authorize") {
+        window.location.assign(payload.authUrl);
+        return;
+      }
+
+      if ("mode" in payload && payload.mode === "created") {
+        setArticles((current) =>
+          current.map((entry) =>
+            entry.id === selectedArticle.id
+              ? {
+                  ...entry,
+                  google_doc_id: payload.docId,
+                  google_doc_url: payload.docUrl,
+                  google_last_synced_at: payload.syncedAt,
+                  updated_at: payload.syncedAt,
+                }
+              : entry
+          )
+        );
+        setGoogleMessage("Documento criado e conectado ao manuscrito.");
+        window.open(payload.docUrl, "_blank", "noopener,noreferrer");
+      }
+    } catch (error) {
+      setGoogleMessage(error instanceof Error ? error.message : "Nao foi possivel conectar o Google Docs.");
+    } finally {
+      setIsConnectingGoogle(false);
+    }
+  };
+
   const handleCreateArticle = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!title.trim()) {
       setErrorMessage("Digite um titulo para iniciar o manuscrito.");
+      setGoogleMessage(null);
       return;
     }
 
     setErrorMessage(null);
+    setGoogleMessage(null);
 
     startCreateTransition(async () => {
       const supabase = getSupabaseClient();
@@ -307,8 +403,7 @@ export function CentralEditorialShell() {
           <div className="editor-central-actions">
             <button
               className="editor-central-button editor-central-button--primary"
-              disabled={!selectedArticle}
-              onClick={() => selectedArticle && router.push(getArticleEditorHref(selectedArticle.id))}
+              onClick={openSelectedEditor}
               type="button"
             >
               {selectedArticle ? "Continuar manuscrito" : "Criar primeiro manuscrito"}
@@ -325,11 +420,11 @@ export function CentralEditorialShell() {
             ) : (
               <button
                 className="editor-central-button"
-                disabled={!selectedArticle}
-                onClick={() => selectedArticle && router.push(getArticleEditorHref(selectedArticle.id))}
+                disabled={isConnectingGoogle}
+                onClick={() => void handleGoogleAction()}
                 type="button"
               >
-                Conectar Google Docs
+                {isConnectingGoogle ? "Preparando..." : "Conectar Google Docs"}
               </button>
             )}
             <button
@@ -341,6 +436,7 @@ export function CentralEditorialShell() {
               Ver checklist editorial
             </button>
           </div>
+          {googleMessage ? <p className="editor-central-error">{googleMessage}</p> : null}
         </div>
 
         <div className="editor-central-hero__stats">
@@ -399,6 +495,7 @@ export function CentralEditorialShell() {
 
             <form className="editor-central-create" onSubmit={handleCreateArticle}>
               <input
+                ref={createInputRef}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="Titulo do novo manuscrito"
                 value={title}

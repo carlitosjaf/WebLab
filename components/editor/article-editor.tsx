@@ -2842,9 +2842,15 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     revealInspector("analysis", analysisOverviewRef);
   };
 
+  const openReferenceWorkspace = (message?: string) => {
+    revealInspector("references");
+    if (message) {
+      setReferenceMessage(message);
+    }
+  };
+
   const openJournalRationale = () => {
     revealInspector("analysis", analysisJournalRef);
-    router.push(radarEditorialHref);
   };
 
   const runOperationalAction = async (actionId: string) => {
@@ -2887,7 +2893,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
     }
 
     if (insightId === "buscar_fonte" && activeGap) {
-      revealInspector("references");
+      openReferenceWorkspace();
       await loadReferenceSuggestions(activeGap);
       return;
     }
@@ -3543,7 +3549,7 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                   if (!deepAnalysis) {
                     void runDeepManuscriptAnalysis();
                   }
-                  openEditorialChecks();
+                  openEditorialOverview();
                 }}
                 type="button"
               >
@@ -3747,8 +3753,19 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
                   </button>
                   <button
                     className="editor-premium-inline-button"
-                    disabled={!activeGap}
-                    onClick={() => activeGap && void loadReferenceSuggestions(activeGap)}
+                    onClick={() => {
+                      openReferenceWorkspace(
+                        !activeGap
+                          ? "Abra uma lacuna de citacao no painel direito para buscar referencias aderentes."
+                          : undefined
+                      );
+
+                      if (!activeGap) {
+                        return;
+                      }
+
+                      void loadReferenceSuggestions(activeGap);
+                    }}
                     type="button"
                   >
                     Sugerir referências
@@ -3824,7 +3841,10 @@ export function ArticleEditor({ article, canEdit = true, readOnlyReason = null }
           </section>
 
           <aside className="editor-premium-right-column" aria-label="Painel do pesquisador">
-            <div className="editor-premium-card editor-premium-inspector-card">
+            <div
+              className="editor-premium-card editor-premium-inspector-card"
+              data-inspector-tab={inspectorTab}
+            >
               <div className="editor-premium-inspector-tabs" role="tablist" aria-label="Painel do pesquisador">
                 <button
                   className={inspectorTab === "analysis" ? "active" : ""}
